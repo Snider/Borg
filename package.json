@@ -1,0 +1,19 @@
+{
+  "name": "borg",
+  "version": "1.0.0",
+  "description": "Downloads a local copy of git repos by github username",
+  "main": "tractor-beam.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Snider/Borg.git"
+  },
+  "author": "Snider",
+  "license": "EUPL-1.2",
+  "bugs": {
+    "url": "https://github.com/Snider/Borg/issues"
+  },
+  "homepage": "https://github.com/Snider/Borg#readme"
+}
