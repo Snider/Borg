@@ -5,6 +5,7 @@
   "main": "tractor-beam.js",
   "scripts": {
     "start": "node tractor-beam.js",
+    "prestart": "npm install",
     "env-linux": "export $(cat .env | xargs) && env",
     "start-linux": "export $(cat .env | xargs) && npm start",
     "env-windows": "(for /F \"tokens=*\" %i in (.env) do set %i)",
