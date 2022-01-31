@@ -30,7 +30,7 @@ npm run start-linux
 npm run start-windows
 ```
 
-### Pull GitHub User
+### Pull Another GitHub User
 ```shell
-npm run start letheanVPN
+npm run start kevacoin-project
 ```

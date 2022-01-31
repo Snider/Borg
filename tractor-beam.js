@@ -8,7 +8,7 @@ const { Octokit } = require("@octokit/core");
 
 // Create a personal access token at https://github.com/settings/tokens/new?scopes=repo
 
-const octokit = new Octokit({ auth: process.env.GH_TOKEN});
+const octokit = new Octokit();
 const target = process.env.BORG_TARGET ?  process.env.BORG_TARGET : process.argv[2] ? process.argv[2] : 'letheanVPN'
 console.log(`Scanning For: ${target}`)
 
