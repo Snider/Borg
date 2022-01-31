@@ -4,7 +4,11 @@
   "description": "Downloads a local copy of git repos by github username",
   "main": "tractor-beam.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node tractor-beam.js",
+    "env-linux": "export $(cat .env | xargs) && env",
+    "start-linux": "export $(cat .env | xargs) && npm start",
+    "env-windows": "(for /F \"tokens=*\" %i in (.env) do set %i)",
+    "start-windows": "(for /F \"tokens=*\" %i in (.env) do set %i) && npm start"
   },
   "repository": {
     "type": "git",
@@ -15,5 +19,14 @@
   "bugs": {
     "url": "https://github.com/Snider/Borg/issues"
   },
-  "homepage": "https://github.com/Snider/Borg#readme"
+  "homepage": "https://github.com/Snider/Borg#readme",
+  "dependencies": {
+    "@octokit/auth-action": "^1.3.3",
+    "@octokit/core": "^3.5.1",
+    "@octokit/plugin-paginate-rest": "^2.17.0",
+    "@octokit/plugin-retry": "^3.0.9",
+    "@octokit/plugin-throttling": "^3.5.2",
+    "download-git-repo": "^3.0.2",
+    "rimraf": "^3.0.2"
+  }
 }
