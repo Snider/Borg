@@ -28,8 +28,8 @@ type Icon struct {
 	Type  string `json:"type"`
 }
 
-// FindManifestURL finds the manifest URL from a given HTML page.
-func FindManifestURL(pageURL string) (string, error) {
+// FindManifest finds the manifest URL from a given HTML page.
+func FindManifest(pageURL string) (string, error) {
 	resp, err := http.Get(pageURL)
 	if err != nil {
 		return "", err

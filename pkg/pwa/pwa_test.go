@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestFindManifestURL(t *testing.T) {
+func TestFindManifest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(`
@@ -25,9 +25,9 @@ func TestFindManifestURL(t *testing.T) {
 	defer server.Close()
 
 	expectedURL := server.URL + "/manifest.json"
-	actualURL, err := FindManifestURL(server.URL)
+	actualURL, err := FindManifest(server.URL)
 	if err != nil {
-		t.Fatalf("FindManifestURL failed: %v", err)
+		t.Fatalf("FindManifest failed: %v", err)
 	}
 
 	if actualURL != expectedURL {
