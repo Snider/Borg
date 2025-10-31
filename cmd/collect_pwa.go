@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"borg-data-collector/pkg/pwa"
+	"github.com/Snider/Borg/pkg/pwa"
 
 	"github.com/spf13/cobra"
 )

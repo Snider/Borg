@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"borg-data-collector/pkg/datanode"
+	"github.com/Snider/Borg/pkg/datanode"
 
 	"github.com/spf13/cobra"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"borg-data-collector/pkg/vcs"
+	"github.com/Snider/Borg/pkg/vcs"
 
 	"github.com/spf13/cobra"
 )

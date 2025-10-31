@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"borg-data-collector/pkg/datanode"
+	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/schollz/progressbar/v3"
 
 	"golang.org/x/net/html"

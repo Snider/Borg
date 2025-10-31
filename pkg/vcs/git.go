@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"borg-data-collector/pkg/datanode"
+	"github.com/Snider/Borg/pkg/datanode"
 
 	"github.com/go-git/go-git/v5"
 )

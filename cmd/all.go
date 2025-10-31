@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"borg-data-collector/pkg/borg"
-	"borg-data-collector/pkg/github"
-	"borg-data-collector/pkg/vcs"
+	"github.com/Snider/Borg/pkg/borg"
+	"github.com/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/vcs"
 
 	"github.com/spf13/cobra"
 )

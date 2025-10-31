@@ -1,4 +1,4 @@
-module borg-data-collector
+module github.com/Snider/Borg
 
 go 1.24.3
 
