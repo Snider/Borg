@@ -28,9 +28,15 @@ var pwaCmd = &cobra.Command{
 		fmt.Printf("Found manifest: %s\n", manifestURL)
 
 		fmt.Println("Downloading and packaging PWA...")
-		pwaData, err := pwa.DownloadAndPackagePWA(pwaURL, manifestURL)
+		dn, err := pwa.DownloadAndPackagePWA(pwaURL, manifestURL)
 		if err != nil {
 			fmt.Printf("Error downloading and packaging PWA: %v\n", err)
+			return
+		}
+
+		pwaData, err := dn.ToTar()
+		if err != nil {
+			fmt.Printf("Error serializing PWA data: %v\n", err)
 			return
 		}
 
@@ -46,5 +52,5 @@ var pwaCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(pwaCmd)
-	pwaCmd.PersistentFlags().String("output", "pwa.tar", "Output file for the PWA tarball")
+	pwaCmd.PersistentFlags().String("output", "pwa.dat", "Output file for the PWA DataNode")
 }

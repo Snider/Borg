@@ -1,8 +1,6 @@
 package pwa
 
 import (
-	"archive/tar"
-	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -80,26 +78,19 @@ func TestDownloadAndPackagePWA(t *testing.T) {
 	}))
 	defer server.Close()
 
-	tarball, err := DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json")
+	dn, err := DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json")
 	if err != nil {
 		t.Fatalf("DownloadAndPackagePWA failed: %v", err)
 	}
 
-	tarReader := tar.NewReader(bytes.NewReader(tarball))
 	expectedFiles := []string{"manifest.json", "index.html", "icon.png"}
-	foundFiles := make(map[string]bool)
-
-	for {
-		header, err := tarReader.Next()
-		if err != nil {
-			break
-		}
-		foundFiles[header.Name] = true
-	}
-
 	for _, file := range expectedFiles {
-		if !foundFiles[file] {
-			t.Errorf("Expected to find file %s in tarball, but it was not found", file)
+		exists, err := dn.Exists(file)
+		if err != nil {
+			t.Fatalf("Exists failed for %s: %v", file, err)
+		}
+		if !exists {
+			t.Errorf("Expected to find file %s in DataNode, but it was not found", file)
 		}
 	}
 }

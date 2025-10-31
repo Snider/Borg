@@ -1,14 +1,14 @@
 package pwa
 
 import (
-	"archive/tar"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
+
+	"borg-data-collector/pkg/datanode"
 
 	"golang.org/x/net/html"
 )
@@ -79,8 +79,8 @@ func FindManifestURL(pageURL string) (string, error) {
 	return resolvedURL.String(), nil
 }
 
-// DownloadAndPackagePWA downloads all assets of a PWA and packages them into a tarball.
-func DownloadAndPackagePWA(baseURL string, manifestURL string) ([]byte, error) {
+// DownloadAndPackagePWA downloads all assets of a PWA and packages them into a DataNode.
+func DownloadAndPackagePWA(baseURL string, manifestURL string) (*datanode.DataNode, error) {
 	manifestAbsURL, err := resolveURL(baseURL, manifestURL)
 	if err != nil {
 		return nil, fmt.Errorf("could not resolve manifest URL: %w", err)
@@ -102,60 +102,39 @@ func DownloadAndPackagePWA(baseURL string, manifestURL string) ([]byte, error) {
 		return nil, fmt.Errorf("could not parse manifest JSON: %w", err)
 	}
 
-	// Create a buffer to write our archive to.
-	buf := new(bytes.Buffer)
-	tw := tar.NewWriter(buf)
+	dn := datanode.New()
+	dn.AddData("manifest.json", manifestBody)
 
-	// Add the manifest to the archive
-	hdr := &tar.Header{
-		Name: "manifest.json",
-		Mode: 0600,
-		Size: int64(len(manifestBody)),
-	}
-	if err := tw.WriteHeader(hdr); err != nil {
-		return nil, err
-	}
-	if _, err := tw.Write(manifestBody); err != nil {
-		return nil, err
-	}
-
-	// Add the start_url to the archive
 	if manifest.StartURL != "" {
 		startURLAbs, err := resolveURL(manifestAbsURL.String(), manifest.StartURL)
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve start_url: %w", err)
 		}
-		err = downloadAndAddFileToTar(tw, startURLAbs, manifest.StartURL)
+		err = downloadAndAddFile(dn, startURLAbs, manifest.StartURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download start_url asset: %w", err)
 		}
 	}
 
-	// Add the icons to the archive
 	for _, icon := range manifest.Icons {
 		iconURLAbs, err := resolveURL(manifestAbsURL.String(), icon.Src)
 		if err != nil {
 			fmt.Printf("Warning: could not resolve icon URL %s: %v\n", icon.Src, err)
 			continue
 		}
-		err = downloadAndAddFileToTar(tw, iconURLAbs, icon.Src)
+		err = downloadAndAddFile(dn, iconURLAbs, icon.Src)
 		if err != nil {
 			fmt.Printf("Warning: failed to download icon %s: %v\n", icon.Src, err)
 		}
 	}
 
-	// Add the base HTML to the archive
 	baseURLAbs, _ := url.Parse(baseURL)
-	err = downloadAndAddFileToTar(tw, baseURLAbs, "index.html")
+	err = downloadAndAddFile(dn, baseURLAbs, "index.html")
 	if err != nil {
 		return nil, fmt.Errorf("failed to download base HTML: %w", err)
 	}
 
-	if err := tw.Close(); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return dn, nil
 }
 
 func resolveURL(base, ref string) (*url.URL, error) {
@@ -170,7 +149,7 @@ func resolveURL(base, ref string) (*url.URL, error) {
 	return baseURL.ResolveReference(refURL), nil
 }
 
-func downloadAndAddFileToTar(tw *tar.Writer, fileURL *url.URL, internalPath string) error {
+func downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath string) error {
 	resp, err := http.Get(fileURL.String())
 	if err != nil {
 		return err
@@ -185,18 +164,6 @@ func downloadAndAddFileToTar(tw *tar.Writer, fileURL *url.URL, internalPath stri
 	if err != nil {
 		return err
 	}
-
-	hdr := &tar.Header{
-		Name: path.Clean(internalPath),
-		Mode: 0600,
-		Size: int64(len(data)),
-	}
-	if err := tw.WriteHeader(hdr); err != nil {
-		return err
-	}
-	if _, err := tw.Write(data); err != nil {
-		return err
-	}
-
+	dn.AddData(path.Clean(internalPath), data)
 	return nil
 }
