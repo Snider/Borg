@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
-	"borg-data-collector/pkg/trix"
+	"borg-data-collector/pkg/vcs"
 
 	"github.com/spf13/cobra"
 )
@@ -12,34 +13,35 @@ import (
 var collectCmd = &cobra.Command{
 	Use:   "collect [repository-url]",
 	Short: "Collect a single repository",
-	Long: `Collect a single repository and store it in a Trix cube.`,
+	Long:  `Collect a single repository and store it in a DataNode.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 1 {
-			fmt.Println("Please provide a repository URL")
-			return
-		}
 		repoURL := args[0]
-		clonePath, _ := cmd.Flags().GetString("path")
 		outputFile, _ := cmd.Flags().GetString("output")
 
-		cube, err := trix.NewCube(outputFile)
+		dn, err := vcs.CloneGitRepository(repoURL)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("Error cloning repository: %v\n", err)
 			return
 		}
-		defer cube.Close()
 
-		err = addRepoToCube(repoURL, cube, clonePath)
+		data, err := dn.ToTar()
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("Error serializing DataNode: %v\n", err)
 			return
 		}
+
+		err = os.WriteFile(outputFile, data, 0644)
+		if err != nil {
+			fmt.Printf("Error writing DataNode to file: %v\n", err)
+			return
+		}
+
+		fmt.Printf("Repository saved to %s\n", outputFile)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(collectCmd)
-	collectCmd.PersistentFlags().String("path", "/tmp/borg-clone", "Path to clone the repository")
-	collectCmd.PersistentFlags().String("output", "borg.cube", "Output file for the Trix cube")
+	collectCmd.PersistentFlags().String("output", "repo.dat", "Output file for the DataNode")
 }
