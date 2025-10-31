@@ -1,0 +1,131 @@
+package pwa
+
+import (
+	"archive/tar"
+	"bytes"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestFindManifestURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<title>Test PWA</title>
+				<link rel="manifest" href="manifest.json">
+			</head>
+			<body>
+				<h1>Hello, PWA!</h1>
+			</body>
+			</html>
+		`))
+	}))
+	defer server.Close()
+
+	expectedURL := server.URL + "/manifest.json"
+	actualURL, err := FindManifestURL(server.URL)
+	if err != nil {
+		t.Fatalf("FindManifestURL failed: %v", err)
+	}
+
+	if actualURL != expectedURL {
+		t.Errorf("Expected manifest URL %s, but got %s", expectedURL, actualURL)
+	}
+}
+
+func TestDownloadAndPackagePWA(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`
+				<!DOCTYPE html>
+				<html>
+				<head>
+					<title>Test PWA</title>
+					<link rel="manifest" href="manifest.json">
+				</head>
+				<body>
+					<h1>Hello, PWA!</h1>
+				</body>
+				</html>
+			`))
+		case "/manifest.json":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"name": "Test PWA",
+				"short_name": "TestPWA",
+				"start_url": "index.html",
+				"icons": [
+					{
+						"src": "icon.png",
+						"sizes": "192x192",
+						"type": "image/png"
+					}
+				]
+			}`))
+		case "/index.html":
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<h1>Hello, PWA!</h1>`))
+		case "/icon.png":
+			w.Header().Set("Content-Type", "image/png")
+			w.Write([]byte("fake image data"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	tarball, err := DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json")
+	if err != nil {
+		t.Fatalf("DownloadAndPackagePWA failed: %v", err)
+	}
+
+	tarReader := tar.NewReader(bytes.NewReader(tarball))
+	expectedFiles := []string{"manifest.json", "index.html", "icon.png"}
+	foundFiles := make(map[string]bool)
+
+	for {
+		header, err := tarReader.Next()
+		if err != nil {
+			break
+		}
+		foundFiles[header.Name] = true
+	}
+
+	for _, file := range expectedFiles {
+		if !foundFiles[file] {
+			t.Errorf("Expected to find file %s in tarball, but it was not found", file)
+		}
+	}
+}
+
+func TestResolveURL(t *testing.T) {
+	tests := []struct {
+		base string
+		ref  string
+		want string
+	}{
+		{"http://example.com/", "foo.html", "http://example.com/foo.html"},
+		{"http://example.com/foo/", "bar.html", "http://example.com/foo/bar.html"},
+		{"http://example.com/foo", "bar.html", "http://example.com/bar.html"},
+		{"http://example.com/foo/", "/bar.html", "http://example.com/bar.html"},
+		{"http://example.com/foo", "/bar.html", "http://example.com/bar.html"},
+		{"http://example.com/", "http://example.com/foo/bar.html", "http://example.com/foo/bar.html"},
+	}
+
+	for _, tt := range tests {
+		got, err := resolveURL(tt.base, tt.ref)
+		if err != nil {
+			t.Errorf("resolveURL(%q, %q) returned error: %v", tt.base, tt.ref, err)
+			continue
+		}
+		if got.String() != tt.want {
+			t.Errorf("resolveURL(%q, %q) = %q, want %q", tt.base, tt.ref, got.String(), tt.want)
+		}
+	}
+}
