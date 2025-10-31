@@ -3,10 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"borg-data-collector/pkg/borg"
 	"borg-data-collector/pkg/github"
-	"borg-data-collector/pkg/trix"
+	"borg-data-collector/pkg/vcs"
 
 	"github.com/spf13/cobra"
 )
@@ -15,7 +16,7 @@ import (
 var allCmd = &cobra.Command{
 	Use:   "all [user/org]",
 	Short: "Collect all public repositories from a user or organization",
-	Long: `Collect all public repositories from a user or organization and store them in a Trix cube.`,
+	Long:  `Collect all public repositories from a user or organization and store them in a DataNode.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(borg.GetRandomAssimilationMessage())
@@ -26,28 +27,28 @@ var allCmd = &cobra.Command{
 			return
 		}
 
-		outputFile, _ := cmd.Flags().GetString("output")
-
-		cube, err := trix.NewCube(outputFile)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		defer cube.Close()
+		outputDir, _ := cmd.Flags().GetString("output")
 
 		for _, repoURL := range repos {
 			fmt.Printf("Cloning %s...\n", repoURL)
 
-			tempPath, err := os.MkdirTemp("", "borg-clone-*")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			defer os.RemoveAll(tempPath)
-
-			err = addRepoToCube(repoURL, cube, tempPath)
+			dn, err := vcs.CloneGitRepository(repoURL)
 			if err != nil {
 				fmt.Printf("Error cloning %s: %s\n", repoURL, err)
+				continue
+			}
+
+			data, err := dn.ToTar()
+			if err != nil {
+				fmt.Printf("Error serializing DataNode for %s: %v\n", repoURL, err)
+				continue
+			}
+
+			repoName := strings.Split(repoURL, "/")[len(strings.Split(repoURL, "/"))-1]
+			outputFile := fmt.Sprintf("%s/%s.dat", outputDir, repoName)
+			err = os.WriteFile(outputFile, data, 0644)
+			if err != nil {
+				fmt.Printf("Error writing DataNode for %s to file: %v\n", repoURL, err)
 				continue
 			}
 		}
@@ -57,5 +58,6 @@ var allCmd = &cobra.Command{
 }
 
 func init() {
-	collectCmd.AddCommand(allCmd)
+	rootCmd.AddCommand(allCmd)
+	allCmd.PersistentFlags().String("output", ".", "Output directory for the DataNodes")
 }
