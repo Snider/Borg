@@ -6,11 +6,19 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Snider/Borg/pkg/vcs"
+
 	"github.com/Snider/Borg/pkg/github"
 	"github.com/Snider/Borg/pkg/vcs"
 	"github.com/spf13/cobra"
 )
 
+// collectGithubRepoCmd represents the collect github repo command
+var collectGithubRepoCmd = &cobra.Command{
+	Use:   "repo [repository-url]",
+	Short: "Collect a single Git repository",
+	Long:  `Collect a single Git repository and store it in a DataNode.`,
+	Args:  cobra.ExactArgs(1),
 // collectGitCmd represents the collect git command
 var collectGitCmd = &cobra.Command{
 	Use:   "git",
@@ -93,8 +101,8 @@ var collectGitCmd = &cobra.Command{
 }
 
 func init() {
-	collectCmd.AddCommand(collectGitCmd)
-	collectGitCmd.Flags().String("uri", "", "URL of the Git repository to collect")
+	collectGithubCmd.AddCommand(collectGithubRepoCmd)
+	collectGithubRepoCmd.Flags().String("uri", "", "URL of the Git repository to collect")
 	collectGitCmd.Flags().String("user", "", "GitHub user or organization to collect all repositories from")
 	collectGitCmd.Flags().String("output", "repo.dat", "Output file (for --uri) or directory (for --user)")
 }
