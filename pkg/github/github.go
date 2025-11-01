@@ -11,7 +11,15 @@ type Repo struct {
 }
 
 func GetPublicRepos(userOrOrg string) ([]string, error) {
-	resp, err := http.Get(fmt.Sprintf("https://api.github.com/users/%s/repos", userOrOrg))
+	return GetPublicReposWithAPIURL("https://api.github.com", userOrOrg)
+}
+
+func GetPublicReposWithAPIURL(apiURL, userOrOrg string) ([]string, error) {
+	if userOrOrg == "" {
+		return nil, fmt.Errorf("user or organization cannot be empty")
+	}
+
+	resp, err := http.Get(fmt.Sprintf("%s/users/%s/repos", apiURL, userOrOrg))
 	if err != nil {
 		return nil, err
 	}
@@ -19,7 +27,7 @@ func GetPublicRepos(userOrOrg string) ([]string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		// Try organization endpoint
-		resp, err = http.Get(fmt.Sprintf("https://api.github.com/orgs/%s/repos", userOrOrg))
+		resp, err = http.Get(fmt.Sprintf("%s/orgs/%s/repos", apiURL, userOrOrg))
 		if err != nil {
 			return nil, err
 		}

@@ -8,7 +8,7 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "borg-data-collector",
+	Use:   "github.com/Snider/Borg",
 	Short: "A tool for collecting and managing data.",
 	Long: `Borg Data Collector is a command-line tool for cloning Git repositories,
 packaging their contents into a single file, and managing the data within.`,
@@ -28,7 +28,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.borg-data-collector.yaml)")
+	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.github.com/Snider/Borg.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

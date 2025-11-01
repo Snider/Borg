@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"path"
 
-	"borg-data-collector/pkg/datanode"
+	"github.com/Snider/Borg/pkg/datanode"
 
 	"golang.org/x/net/html"
 )
