@@ -1,8 +1,9 @@
 # Borg Data Collector 
 
-Assimulate all the data!!! No, seriously, what do you need to download? PWA? A GitHub repo, or every repository they have? A website? Build artefacts? Malware?
+Assimulate all the data!!! \
+No, seriously, what do you need to download? PWA? A GitHub repo, or every repository they have? A website? Build artefacts? Malware?
 
-That's why I made Borg, to download and contain sets of data into explorable collections, to reuse later; ATM there is only tar, but that’s all I need right now~ Custom rootFS distroless image and, of course, Nanites (sec ops tooling) to come, but if you want to use and work on a Web3 malware analysis, tool, patches welcome (non-sarcasticly).
+That's why I made Borg, to download and contain sets of data into explorable collections, to reuse later; ATM there is only Zuul, erm, Tar, but that’s all I need right now~ Custom rootFS distroless image and, of course, Nanites (sec ops tooling) to come, but if you want to use and work on a Web3 malware analysis, tool, patches welcome (non-sarcasticly).
 
 Oh, Calling Trekkies, the status messages below, you know they are wrong, don't you? It hurts a little? Good, you, you're the one... \
 Take part in Open Source, make us smirk with amusement and make the CLI crack more smirks.
