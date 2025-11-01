@@ -5,9 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"borg-data-collector/pkg/borg"
-	"borg-data-collector/pkg/github"
-	"borg-data-collector/pkg/vcs"
+	"github.com/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/vcs"
 
 	"github.com/spf13/cobra"
 )
@@ -19,8 +18,6 @@ var allCmd = &cobra.Command{
 	Long:  `Collect all public repositories from a user or organization and store them in a DataNode.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(borg.GetRandomAssimilationMessage())
-
 		repos, err := github.GetPublicRepos(args[0])
 		if err != nil {
 			fmt.Println(err)
@@ -52,8 +49,6 @@ var allCmd = &cobra.Command{
 				continue
 			}
 		}
-
-		fmt.Println(borg.GetRandomCodeLongMessage())
 	},
 }
 
