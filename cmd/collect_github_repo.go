@@ -9,9 +9,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// collectGitCmd represents the collect git command
-var collectGitCmd = &cobra.Command{
-	Use:   "git [repository-url]",
+// collectGithubRepoCmd represents the collect github repo command
+var collectGithubRepoCmd = &cobra.Command{
+	Use:   "repo [repository-url]",
 	Short: "Collect a single Git repository",
 	Long:  `Collect a single Git repository and store it in a DataNode.`,
 	Args:  cobra.ExactArgs(1),
@@ -42,6 +42,6 @@ var collectGitCmd = &cobra.Command{
 }
 
 func init() {
-	collectCmd.AddCommand(collectGitCmd)
-	collectGitCmd.PersistentFlags().String("output", "repo.dat", "Output file for the DataNode")
+	collectGithubCmd.AddCommand(collectGithubRepoCmd)
+	collectGithubRepoCmd.PersistentFlags().String("output", "repo.dat", "Output file for the DataNode")
 }
