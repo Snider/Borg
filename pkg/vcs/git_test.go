@@ -44,6 +44,19 @@ func TestCloneGitRepository(t *testing.T) {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to git add: %v", err)
 	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = clonePath
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to set git user.email: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = clonePath
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to set git user.name: %v", err)
+	}
+
 	cmd = exec.Command("git", "commit", "-m", "Initial commit")
 	cmd.Dir = clonePath
 	if err := cmd.Run(); err != nil {
