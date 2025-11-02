@@ -141,6 +141,7 @@ func DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.
 	return dn, nil
 }
 
+// resolveURL resolves ref against base and returns the absolute URL.
 func resolveURL(base, ref string) (*url.URL, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {
@@ -153,6 +154,7 @@ func resolveURL(base, ref string) (*url.URL, error) {
 	return baseURL.ResolveReference(refURL), nil
 }
 
+// downloadAndAddFile downloads the content at fileURL and adds it to the DataNode under internalPath.
 func downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath string, bar *progressbar.ProgressBar) error {
 	resp, err := http.Get(fileURL.String())
 	if err != nil {

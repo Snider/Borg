@@ -15,10 +15,10 @@ import (
 
 // Downloader is a recursive website downloader.
 type Downloader struct {
-	baseURL    *url.URL
-	dn         *datanode.DataNode
-	visited    map[string]bool
-	maxDepth   int
+	baseURL     *url.URL
+	dn          *datanode.DataNode
+	visited     map[string]bool
+	maxDepth    int
 	progressBar *progressbar.ProgressBar
 }
 
@@ -33,9 +33,6 @@ func NewDownloader(maxDepth int) *Downloader {
 
 // DownloadAndPackageWebsite downloads a website and packages it into a DataNode.
 func DownloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
-	if bar == nil {
-		return nil, fmt.Errorf("progress bar cannot be nil")
-	}
 	baseURL, err := url.Parse(startURL)
 	if err != nil {
 		return nil, err
@@ -49,12 +46,15 @@ func DownloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.P
 	return d.dn, nil
 }
 
+// crawl visits pageURL, saves its content, and follows local links up to maxDepth.
 func (d *Downloader) crawl(pageURL string, depth int) {
 	if depth > d.maxDepth || d.visited[pageURL] {
 		return
 	}
 	d.visited[pageURL] = true
-	d.progressBar.Add(1)
+	if d.progressBar != nil {
+		d.progressBar.Add(1)
+	}
 
 	resp, err := http.Get(pageURL)
 	if err != nil {
@@ -104,12 +104,15 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 	f(doc)
 }
 
+// downloadAsset fetches an asset by URL and stores it in the DataNode.
 func (d *Downloader) downloadAsset(assetURL string) {
 	if d.visited[assetURL] {
 		return
 	}
 	d.visited[assetURL] = true
-	d.progressBar.Add(1)
+	if d.progressBar != nil {
+		d.progressBar.Add(1)
+	}
 
 	resp, err := http.Get(assetURL)
 	if err != nil {
@@ -128,6 +131,7 @@ func (d *Downloader) downloadAsset(assetURL string) {
 	d.dn.AddData(relPath, body)
 }
 
+// getRelativePath returns the path within the DataNode for the given page URL.
 func (d *Downloader) getRelativePath(pageURL string) string {
 	u, err := url.Parse(pageURL)
 	if err != nil {
@@ -136,6 +140,7 @@ func (d *Downloader) getRelativePath(pageURL string) string {
 	return strings.TrimPrefix(u.Path, "/")
 }
 
+// resolveURL resolves ref against base and returns the absolute URL string.
 func (d *Downloader) resolveURL(base, ref string) (string, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {
@@ -148,6 +153,7 @@ func (d *Downloader) resolveURL(base, ref string) (string, error) {
 	return baseURL.ResolveReference(refURL).String(), nil
 }
 
+// isLocal reports whether pageURL shares the same hostname as the base URL.
 func (d *Downloader) isLocal(pageURL string) bool {
 	u, err := url.Parse(pageURL)
 	if err != nil {
@@ -156,6 +162,7 @@ func (d *Downloader) isLocal(pageURL string) bool {
 	return u.Hostname() == d.baseURL.Hostname()
 }
 
+// isAsset reports whether the URL likely points to a static asset by file extension.
 func isAsset(pageURL string) bool {
 	ext := []string{".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico"}
 	for _, e := range ext {

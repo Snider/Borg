@@ -8,6 +8,7 @@ import (
 	"github.com/Snider/Borg/pkg/matrix"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/website"
+	"github.com/schollz/progressbar/v3"
 
 	"github.com/spf13/cobra"
 )
@@ -25,8 +26,13 @@ var collectWebsiteCmd = &cobra.Command{
 		format, _ := cmd.Flags().GetString("format")
 		compression, _ := cmd.Flags().GetString("compression")
 
-		bar := ui.NewProgressBar(-1, "Crawling website")
-		defer bar.Finish()
+		prompter := ui.NewNonInteractivePrompter(ui.GetWebsiteQuote)
+		prompter.Start()
+		defer prompter.Stop()
+		var bar *progressbar.ProgressBar
+		if prompter.IsInteractive() {
+			bar = ui.NewProgressBar(-1, "Crawling website")
+		}
 
 		dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
 		if err != nil {
@@ -77,6 +83,7 @@ var collectWebsiteCmd = &cobra.Command{
 	},
 }
 
+// init registers the 'website' command and its flags under the collect command.
 func init() {
 	collectCmd.AddCommand(collectWebsiteCmd)
 	collectWebsiteCmd.PersistentFlags().String("output", "", "Output file for the DataNode")
