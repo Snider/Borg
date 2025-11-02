@@ -1,0 +1,4 @@
+site_name: Borg Data Collector
+repo_url: https://github.com/Snider/Borg
+theme:
+  name: material
