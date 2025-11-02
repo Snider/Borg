@@ -29,9 +29,26 @@ type Icon struct {
 	Type  string `json:"type"`
 }
 
+// PWAClient is an interface for finding and downloading PWAs.
+type PWAClient interface {
+	FindManifest(pageURL string) (string, error)
+	DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error)
+}
+
+// NewPWAClient creates a new PWAClient.
+func NewPWAClient() PWAClient {
+	return &pwaClient{
+		client: http.DefaultClient,
+	}
+}
+
+type pwaClient struct {
+	client *http.Client
+}
+
 // FindManifest finds the manifest URL from a given HTML page.
-func FindManifest(pageURL string) (string, error) {
-	resp, err := http.Get(pageURL)
+func (p *pwaClient) FindManifest(pageURL string) (string, error) {
+	resp, err := p.client.Get(pageURL)
 	if err != nil {
 		return "", err
 	}
@@ -72,7 +89,7 @@ func FindManifest(pageURL string) (string, error) {
 		return "", fmt.Errorf("manifest not found")
 	}
 
-	resolvedURL, err := resolveURL(pageURL, manifestPath)
+	resolvedURL, err := p.resolveURL(pageURL, manifestPath)
 	if err != nil {
 		return "", fmt.Errorf("could not resolve manifest URL: %w", err)
 	}
@@ -81,16 +98,16 @@ func FindManifest(pageURL string) (string, error) {
 }
 
 // DownloadAndPackagePWA downloads all assets of a PWA and packages them into a DataNode.
-func DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+func (p *pwaClient) DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
 	if bar == nil {
 		return nil, fmt.Errorf("progress bar cannot be nil")
 	}
-	manifestAbsURL, err := resolveURL(baseURL, manifestURL)
+	manifestAbsURL, err := p.resolveURL(baseURL, manifestURL)
 	if err != nil {
 		return nil, fmt.Errorf("could not resolve manifest URL: %w", err)
 	}
 
-	resp, err := http.Get(manifestAbsURL.String())
+	resp, err := p.client.Get(manifestAbsURL.String())
 	if err != nil {
 		return nil, fmt.Errorf("could not download manifest: %w", err)
 	}
@@ -110,30 +127,30 @@ func DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.
 	dn.AddData("manifest.json", manifestBody)
 
 	if manifest.StartURL != "" {
-		startURLAbs, err := resolveURL(manifestAbsURL.String(), manifest.StartURL)
+		startURLAbs, err := p.resolveURL(manifestAbsURL.String(), manifest.StartURL)
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve start_url: %w", err)
 		}
-		err = downloadAndAddFile(dn, startURLAbs, manifest.StartURL, bar)
+		err = p.downloadAndAddFile(dn, startURLAbs, manifest.StartURL, bar)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download start_url asset: %w", err)
 		}
 	}
 
 	for _, icon := range manifest.Icons {
-		iconURLAbs, err := resolveURL(manifestAbsURL.String(), icon.Src)
+		iconURLAbs, err := p.resolveURL(manifestAbsURL.String(), icon.Src)
 		if err != nil {
 			fmt.Printf("Warning: could not resolve icon URL %s: %v\n", icon.Src, err)
 			continue
 		}
-		err = downloadAndAddFile(dn, iconURLAbs, icon.Src, bar)
+		err = p.downloadAndAddFile(dn, iconURLAbs, icon.Src, bar)
 		if err != nil {
 			fmt.Printf("Warning: failed to download icon %s: %v\n", icon.Src, err)
 		}
 	}
 
 	baseURLAbs, _ := url.Parse(baseURL)
-	err = downloadAndAddFile(dn, baseURLAbs, "index.html", bar)
+	err = p.downloadAndAddFile(dn, baseURLAbs, "index.html", bar)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download base HTML: %w", err)
 	}
@@ -141,8 +158,7 @@ func DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.
 	return dn, nil
 }
 
-// resolveURL resolves ref against base and returns the absolute URL.
-func resolveURL(base, ref string) (*url.URL, error) {
+func (p *pwaClient) resolveURL(base, ref string) (*url.URL, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {
 		return nil, err
@@ -154,9 +170,8 @@ func resolveURL(base, ref string) (*url.URL, error) {
 	return baseURL.ResolveReference(refURL), nil
 }
 
-// downloadAndAddFile downloads the content at fileURL and adds it to the DataNode under internalPath.
-func downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath string, bar *progressbar.ProgressBar) error {
-	resp, err := http.Get(fileURL.String())
+func (p *pwaClient) downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath string, bar *progressbar.ProgressBar) error {
+	resp, err := p.client.Get(fileURL.String())
 	if err != nil {
 		return err
 	}

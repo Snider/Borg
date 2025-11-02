@@ -11,20 +11,27 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Repo is a minimal representation of a GitHub repository used in this package.
 type Repo struct {
 	CloneURL string `json:"clone_url"`
 }
 
-// GetPublicRepos returns clone URLs for all public repositories owned by the given user or org.
-// It uses the public GitHub API endpoint.
-func GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error) {
-	return GetPublicReposWithAPIURL(ctx, "https://api.github.com", userOrOrg)
+// GithubClient is an interface for interacting with the Github API.
+type GithubClient interface {
+	GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error)
 }
 
-// newAuthenticatedClient returns an HTTP client authenticated with a GitHub token if present.
-// If the GITHUB_TOKEN environment variable is not set, it returns http.DefaultClient.
-func newAuthenticatedClient(ctx context.Context) *http.Client {
+// NewGithubClient creates a new GithubClient.
+func NewGithubClient() GithubClient {
+	return &githubClient{}
+}
+
+type githubClient struct{}
+
+func (g *githubClient) GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error) {
+	return g.getPublicReposWithAPIURL(ctx, "https://api.github.com", userOrOrg)
+}
+
+func (g *githubClient) newAuthenticatedClient(ctx context.Context) *http.Client {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
 		return http.DefaultClient
@@ -35,10 +42,8 @@ func newAuthenticatedClient(ctx context.Context) *http.Client {
 	return oauth2.NewClient(ctx, ts)
 }
 
-// GetPublicReposWithAPIURL returns clone URLs for all public repositories for userOrOrg
-// using the specified GitHub API base URL. It transparently follows pagination.
-func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]string, error) {
-	client := newAuthenticatedClient(ctx)
+func (g *githubClient) getPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]string, error) {
+	client := g.newAuthenticatedClient(ctx)
 	var allCloneURLs []string
 	url := fmt.Sprintf("%s/users/%s/repos", apiURL, userOrOrg)
 
@@ -91,7 +96,7 @@ func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]
 		if linkHeader == "" {
 			break
 		}
-		nextURL := findNextURL(linkHeader)
+		nextURL := g.findNextURL(linkHeader)
 		if nextURL == "" {
 			break
 		}
@@ -101,8 +106,7 @@ func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]
 	return allCloneURLs, nil
 }
 
-// findNextURL parses the RFC 5988 Link header and returns the URL with rel="next", if any.
-func findNextURL(linkHeader string) string {
+func (g *githubClient) findNextURL(linkHeader string) string {
 	links := strings.Split(linkHeader, ",")
 	for _, link := range links {
 		parts := strings.Split(link, ";")

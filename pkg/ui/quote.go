@@ -1,3 +1,4 @@
+
 package ui
 
 import (
@@ -17,12 +18,10 @@ var (
 	quotesErr    error
 )
 
-// init seeds the random number generator for quote selection.
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// Quotes contains categorized sets of quotes used by the UI.
 type Quotes struct {
 	InitWorkAssimilate        []string `json:"init_work_assimilate"`
 	EncryptionServiceMessages []string `json:"encryption_service_messages"`
@@ -44,7 +43,6 @@ type Quotes struct {
 	} `json:"image_related"`
 }
 
-// loadQuotes reads and unmarshals the embedded quotes JSON file.
 func loadQuotes() (*Quotes, error) {
 	quotesFile, err := data.QuotesJSON.ReadFile("quotes.json")
 	if err != nil {
@@ -58,7 +56,6 @@ func loadQuotes() (*Quotes, error) {
 	return &quotes, nil
 }
 
-// getQuotes loads and caches the Quotes on first use, returning the cached instance thereafter.
 func getQuotes() (*Quotes, error) {
 	quotesOnce.Do(func() {
 		cachedQuotes, quotesErr = loadQuotes()
@@ -66,7 +63,6 @@ func getQuotes() (*Quotes, error) {
 	return cachedQuotes, quotesErr
 }
 
-// GetRandomQuote returns a randomly selected quote from all categories.
 func GetRandomQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {
@@ -88,7 +84,6 @@ func GetRandomQuote() (string, error) {
 	return allQuotes[rand.Intn(len(allQuotes))], nil
 }
 
-// PrintQuote prints a randomly selected quote to stdout in green.
 func PrintQuote() {
 	quote, err := GetRandomQuote()
 	if err != nil {
@@ -99,7 +94,6 @@ func PrintQuote() {
 	c.Println(quote)
 }
 
-// GetVCSQuote returns a random quote from the VCSProcessing category.
 func GetVCSQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {
@@ -111,7 +105,6 @@ func GetVCSQuote() (string, error) {
 	return quotes.VCSProcessing[rand.Intn(len(quotes.VCSProcessing))], nil
 }
 
-// GetPWAQuote returns a random quote from the PWAProcessing category.
 func GetPWAQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {
@@ -123,7 +116,6 @@ func GetPWAQuote() (string, error) {
 	return quotes.PWAProcessing[rand.Intn(len(quotes.PWAProcessing))], nil
 }
 
-// GetWebsiteQuote returns a random quote from the CodeRelatedLong category.
 func GetWebsiteQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {

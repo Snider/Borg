@@ -10,8 +10,20 @@ import (
 	"github.com/go-git/go-git/v5"
 )
 
+// GitCloner is an interface for cloning Git repositories.
+type GitCloner interface {
+	CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error)
+}
+
+// NewGitCloner creates a new GitCloner.
+func NewGitCloner() GitCloner {
+	return &gitCloner{}
+}
+
+type gitCloner struct{}
+
 // CloneGitRepository clones a Git repository from a URL and packages it into a DataNode.
-func CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error) {
+func (g *gitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error) {
 	tempPath, err := os.MkdirTemp("", "borg-clone-*")
 	if err != nil {
 		return nil, err

@@ -13,6 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	// GitCloner is the git cloner used by the command. It can be replaced for testing.
+	GitCloner = vcs.NewGitCloner()
+)
+
 // collectGithubRepoCmd represents the collect github repo command
 var collectGithubRepoCmd = &cobra.Command{
 	Use:   "repo [repository-url]",
@@ -35,9 +40,9 @@ var collectGithubRepoCmd = &cobra.Command{
 			progressWriter = ui.NewProgressWriter(bar)
 		}
 
-		dn, err := vcs.CloneGitRepository(repoURL, progressWriter)
+		dn, err := GitCloner.CloneGitRepository(repoURL, progressWriter)
 		if err != nil {
-			fmt.Printf("Error cloning repository: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error cloning repository:", err)
 			return
 		}
 
@@ -45,25 +50,25 @@ var collectGithubRepoCmd = &cobra.Command{
 		if format == "matrix" {
 			matrix, err := matrix.FromDataNode(dn)
 			if err != nil {
-				fmt.Printf("Error creating matrix: %v\n", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error creating matrix:", err)
 				return
 			}
 			data, err = matrix.ToTar()
 			if err != nil {
-				fmt.Printf("Error serializing matrix: %v\n", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing matrix:", err)
 				return
 			}
 		} else {
 			data, err = dn.ToTar()
 			if err != nil {
-				fmt.Printf("Error serializing DataNode: %v\n", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing DataNode:", err)
 				return
 			}
 		}
 
 		compressedData, err := compress.Compress(data, compression)
 		if err != nil {
-			fmt.Printf("Error compressing data: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error compressing data:", err)
 			return
 		}
 
@@ -76,15 +81,14 @@ var collectGithubRepoCmd = &cobra.Command{
 
 		err = os.WriteFile(outputFile, compressedData, 0644)
 		if err != nil {
-			fmt.Printf("Error writing DataNode to file: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error writing DataNode to file:", err)
 			return
 		}
 
-		fmt.Printf("Repository saved to %s\n", outputFile)
+		fmt.Fprintln(cmd.OutOrStdout(), "Repository saved to", outputFile)
 	},
 }
 
-// init registers the 'repo' subcommand and its flags under the GitHub command.
 func init() {
 	collectGithubCmd.AddCommand(collectGithubRepoCmd)
 	collectGithubRepoCmd.PersistentFlags().String("output", "", "Output file for the DataNode")
