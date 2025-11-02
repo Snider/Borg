@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/tarfs"
 
 	"github.com/spf13/cobra"
 )
@@ -17,22 +19,32 @@ var serveCmd = &cobra.Command{
 	Long:  `Serves the contents of a packaged PWA file using a static file server.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		pwaFile := args[0]
+		dataFile := args[0]
 		port, _ := cmd.Flags().GetString("port")
 
-		pwaData, err := os.ReadFile(pwaFile)
+		data, err := os.ReadFile(dataFile)
 		if err != nil {
-			fmt.Printf("Error reading PWA file: %v\n", err)
+			fmt.Printf("Error reading data file: %v\n", err)
 			return
 		}
 
-		dn, err := datanode.FromTar(pwaData)
-		if err != nil {
-			fmt.Printf("Error creating DataNode from tarball: %v\n", err)
-			return
+		var fs http.FileSystem
+		if strings.HasSuffix(dataFile, ".matrix") {
+			fs, err = tarfs.New(data)
+			if err != nil {
+				fmt.Printf("Error creating TarFS from matrix tarball: %v\n", err)
+				return
+			}
+		} else {
+			dn, err := datanode.FromTar(data)
+			if err != nil {
+				fmt.Printf("Error creating DataNode from tarball: %v\n", err)
+				return
+			}
+			fs = http.FS(dn)
 		}
 
-		http.Handle("/", http.FileServer(http.FS(dn)))
+		http.Handle("/", http.FileServer(fs))
 
 		fmt.Printf("Serving PWA on http://localhost:%s\n", port)
 		err = http.ListenAndServe(":"+port, nil)

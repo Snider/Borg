@@ -66,7 +66,7 @@ borg collect pwa [flags]
 
 ### `serve`
 
-Serves the contents of a packaged DataNode file using a static file server.
+Serves the contents of a packaged DataNode or Terminal Isolation Matrix file using a static file server.
 
 **Usage:**
 ```
@@ -78,7 +78,11 @@ borg serve [file] [flags]
 
 **Example:**
 ```
+# Serve a DataNode
 ./borg serve squoosh.dat --port 8888
+
+# Serve a Terminal Isolation Matrix
+./borg serve borg.matrix --port 9999
 ```
 
 ## Terminal Isolation Matrix
