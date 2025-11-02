@@ -18,10 +18,14 @@ func CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode,
 	}
 	defer os.RemoveAll(tempPath)
 
-	_, err = git.PlainClone(tempPath, false, &git.CloneOptions{
-		URL:      repoURL,
-		Progress: progress,
-	})
+	cloneOptions := &git.CloneOptions{
+		URL: repoURL,
+	}
+	if progress != nil {
+		cloneOptions.Progress = progress
+	}
+
+	_, err = git.PlainClone(tempPath, false, cloneOptions)
 	if err != nil {
 		return nil, err
 	}

@@ -33,9 +33,6 @@ func NewDownloader(maxDepth int) *Downloader {
 
 // DownloadAndPackageWebsite downloads a website and packages it into a DataNode.
 func DownloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
-	if bar == nil {
-		return nil, fmt.Errorf("progress bar cannot be nil")
-	}
 	baseURL, err := url.Parse(startURL)
 	if err != nil {
 		return nil, err
@@ -54,7 +51,9 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 		return
 	}
 	d.visited[pageURL] = true
-	d.progressBar.Add(1)
+	if d.progressBar != nil {
+		d.progressBar.Add(1)
+	}
 
 	resp, err := http.Get(pageURL)
 	if err != nil {
@@ -109,7 +108,9 @@ func (d *Downloader) downloadAsset(assetURL string) {
 		return
 	}
 	d.visited[assetURL] = true
-	d.progressBar.Add(1)
+	if d.progressBar != nil {
+		d.progressBar.Add(1)
+	}
 
 	resp, err := http.Get(assetURL)
 	if err != nil {
