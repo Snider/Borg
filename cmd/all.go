@@ -25,7 +25,7 @@ var allCmd = &cobra.Command{
 			fmt.Fprintln(os.Stderr, "Error: logger not properly initialised")
 			return
 		}
-		repos, err := GithubClient.GetPublicRepos(context.Background(), args[0])
+		repos, err := GithubClient.GetPublicRepos(cmd.Context(), args[0])
 		if err != nil {
 			log.Error("failed to get public repos", "err", err)
 			return
