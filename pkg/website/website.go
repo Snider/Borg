@@ -1,13 +1,10 @@
 package website
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/Snider/Borg/pkg/mocks"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/Snider/Borg/pkg/datanode"
@@ -15,25 +12,6 @@ import (
 
 	"golang.org/x/net/html"
 )
-
-var getHTTPClient = func() *http.Client {
-	if os.Getenv("BORG_PLEXSUS") == "0" {
-		responses := map[string]*http.Response{
-			"http://test.com": {
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(bytes.NewBufferString(`<html><body><a href="page2.html">Page 2</a></body></html>`)),
-				Header:     make(http.Header),
-			},
-			"http://test.com/page2.html": {
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(bytes.NewBufferString(`<html><body>Hello</body></html>`)),
-				Header:     make(http.Header),
-			},
-		}
-		return mocks.NewMockClient(responses)
-	}
-	return http.DefaultClient
-}
 
 // Downloader is a recursive website downloader.
 type Downloader struct {
@@ -47,11 +25,16 @@ type Downloader struct {
 
 // NewDownloader creates a new Downloader.
 func NewDownloader(maxDepth int) *Downloader {
+	return NewDownloaderWithClient(maxDepth, http.DefaultClient)
+}
+
+// NewDownloaderWithClient creates a new Downloader with a custom http.Client.
+func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
 	return &Downloader{
 		dn:       datanode.New(),
 		visited:  make(map[string]bool),
 		maxDepth: maxDepth,
-		client:   getHTTPClient(),
+		client:   client,
 	}
 }
 

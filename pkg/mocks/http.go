@@ -4,17 +4,23 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"sync"
 )
 
 // MockRoundTripper is a mock implementation of http.RoundTripper.
 type MockRoundTripper struct {
-	Responses map[string]*http.Response
+	mu        sync.RWMutex
+	responses map[string]*http.Response
 }
 
 // RoundTrip implements the http.RoundTripper interface.
 func (m *MockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	url := req.URL.String()
-	if resp, ok := m.Responses[url]; ok {
+	m.mu.RLock()
+	resp, ok := m.responses[url]
+	m.mu.RUnlock()
+
+	if ok {
 		// Read the original body
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -55,7 +61,7 @@ func (m *MockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 func NewMockClient(responses map[string]*http.Response) *http.Client {
 	return &http.Client{
 		Transport: &MockRoundTripper{
-			Responses: responses,
+			responses: responses,
 		},
 	}
 }
