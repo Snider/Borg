@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 
+	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/datanode"
 )
 
@@ -16,9 +17,15 @@ func main() {
 
 	datFile := os.Args[1]
 
-	data, err := os.ReadFile(datFile)
+	rawData, err := os.ReadFile(datFile)
 	if err != nil {
 		fmt.Printf("Error reading .dat file: %v\n", err)
+		os.Exit(1)
+	}
+
+	data, err := compress.Decompress(rawData)
+	if err != nil {
+		fmt.Printf("Error decompressing data: %v\n", err)
 		os.Exit(1)
 	}
 

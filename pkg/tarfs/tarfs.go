@@ -13,15 +13,13 @@ import (
 
 // TarFS is a http.FileSystem that serves files from a tar archive.
 type TarFS struct {
-	files map[string]*tar.Header
-	data  []byte
+	files map[string]*tarFile
 }
 
 // New creates a new TarFS from a tar archive.
 func New(data []byte) (*TarFS, error) {
 	fs := &TarFS{
-		files: make(map[string]*tar.Header),
-		data:  data,
+		files: make(map[string]*tarFile),
 	}
 
 	tr := tar.NewReader(bytes.NewReader(data))
@@ -35,7 +33,15 @@ func New(data []byte) (*TarFS, error) {
 		}
 
 		if strings.HasPrefix(hdr.Name, "rootfs/") {
-			fs.files[strings.TrimPrefix(hdr.Name, "rootfs/")] = hdr
+			content, err := io.ReadAll(tr)
+			if err != nil {
+				return nil, err
+			}
+			fs.files[strings.TrimPrefix(hdr.Name, "rootfs/")] = &tarFile{
+				header:  hdr,
+				content: bytes.NewReader(content),
+				modTime: hdr.ModTime,
+			}
 		}
 	}
 
@@ -45,26 +51,10 @@ func New(data []byte) (*TarFS, error) {
 // Open opens a file from the tar archive.
 func (fs *TarFS) Open(name string) (http.File, error) {
 	name = strings.TrimPrefix(name, "/")
-	if hdr, ok := fs.files[name]; ok {
-		// This is a bit inefficient, but it's the simplest way to
-		// get the file content without pre-indexing everything.
-		tr := tar.NewReader(bytes.NewReader(fs.data))
-		for {
-			h, err := tr.Next()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-			if h.Name == hdr.Name {
-				return &tarFile{
-					header:  hdr,
-					content: tr,
-					modTime: hdr.ModTime,
-				}, nil
-			}
-		}
+	if file, ok := fs.files[name]; ok {
+		// Reset the reader to the beginning of the file
+		file.content.Seek(0, 0)
+		return file, nil
 	}
 
 	return nil, os.ErrNotExist
@@ -73,14 +63,14 @@ func (fs *TarFS) Open(name string) (http.File, error) {
 // tarFile is a http.File that represents a file in a tar archive.
 type tarFile struct {
 	header  *tar.Header
-	content io.Reader
+	content *bytes.Reader
 	modTime time.Time
 }
 
 func (f *tarFile) Close() error               { return nil }
 func (f *tarFile) Read(p []byte) (int, error) { return f.content.Read(p) }
 func (f *tarFile) Seek(offset int64, whence int) (int64, error) {
-	return 0, io.ErrUnexpectedEOF
+	return f.content.Seek(offset, whence)
 }
 
 func (f *tarFile) Readdir(count int) ([]os.FileInfo, error) {

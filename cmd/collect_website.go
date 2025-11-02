@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/matrix"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/website"
@@ -22,6 +23,7 @@ var collectWebsiteCmd = &cobra.Command{
 		outputFile, _ := cmd.Flags().GetString("output")
 		depth, _ := cmd.Flags().GetInt("depth")
 		format, _ := cmd.Flags().GetString("format")
+		compression, _ := cmd.Flags().GetString("compression")
 
 		bar := ui.NewProgressBar(-1, "Crawling website")
 		defer bar.Finish()
@@ -52,7 +54,20 @@ var collectWebsiteCmd = &cobra.Command{
 			}
 		}
 
-		err = os.WriteFile(outputFile, data, 0644)
+		compressedData, err := compress.Compress(data, compression)
+		if err != nil {
+			fmt.Printf("Error compressing data: %v\n", err)
+			return
+		}
+
+		if outputFile == "" {
+			outputFile = "website." + format
+			if compression != "none" {
+				outputFile += "." + compression
+			}
+		}
+
+		err = os.WriteFile(outputFile, compressedData, 0644)
 		if err != nil {
 			fmt.Printf("Error writing website to file: %v\n", err)
 			return
@@ -64,7 +79,8 @@ var collectWebsiteCmd = &cobra.Command{
 
 func init() {
 	collectCmd.AddCommand(collectWebsiteCmd)
-	collectWebsiteCmd.PersistentFlags().String("output", "website.dat", "Output file for the DataNode")
+	collectWebsiteCmd.PersistentFlags().String("output", "", "Output file for the DataNode")
 	collectWebsiteCmd.PersistentFlags().Int("depth", 2, "Recursion depth for downloading")
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
+	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 }

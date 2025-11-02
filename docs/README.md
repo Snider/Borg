@@ -20,6 +20,7 @@ borg collect github repo [repository-url] [flags]
 **Flags:**
 - `--output string`: Output file for the DataNode (default "repo.dat")
 - `--format string`: Output format (datanode or matrix) (default "datanode")
+- `--compression string`: Compression format (none, gz, or xz) (default "none")
 
 **Example:**
 ```
@@ -39,6 +40,7 @@ borg collect website [url] [flags]
 - `--output string`: Output file for the DataNode (default "website.dat")
 - `--depth int`: Recursion depth for downloading (default 2)
 - `--format string`: Output format (datanode or matrix) (default "datanode")
+- `--compression string`: Compression format (none, gz, or xz) (default "none")
 
 **Example:**
 ```
@@ -58,6 +60,7 @@ borg collect pwa [flags]
 - `--uri string`: The URI of the PWA to collect
 - `--output string`: Output file for the DataNode (default "pwa.dat")
 - `--format string`: Output format (datanode or matrix) (default "datanode")
+- `--compression string`: Compression format (none, gz, or xz) (default "none")
 
 **Example:**
 ```
@@ -84,6 +87,23 @@ borg serve [file] [flags]
 # Serve a Terminal Isolation Matrix
 ./borg serve borg.matrix --port 9999
 ```
+
+## Compression
+
+All `collect` commands support optional compression. The following compression formats are available:
+
+- `none`: No compression (default)
+- `gz`: Gzip compression
+- `xz`: XZ compression
+
+To use compression, specify the desired format with the `--compression` flag. The output filename will be automatically updated with the appropriate extension (e.g., `.gz`, `.xz`).
+
+**Example:**
+```
+./borg collect github repo https://github.com/Snider/Borg --compression gz
+```
+
+The `serve` command can transparently serve compressed files.
 
 ## Terminal Isolation Matrix
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/Snider/Borg/pkg/tarfs"
 
@@ -22,9 +23,15 @@ var serveCmd = &cobra.Command{
 		dataFile := args[0]
 		port, _ := cmd.Flags().GetString("port")
 
-		data, err := os.ReadFile(dataFile)
+		rawData, err := os.ReadFile(dataFile)
 		if err != nil {
 			fmt.Printf("Error reading data file: %v\n", err)
+			return
+		}
+
+		data, err := compress.Decompress(rawData)
+		if err != nil {
+			fmt.Printf("Error decompressing data: %v\n", err)
 			return
 		}
 

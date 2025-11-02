@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/matrix"
 	"github.com/Snider/Borg/pkg/pwa"
 	"github.com/Snider/Borg/pkg/ui"
@@ -23,6 +24,7 @@ Example:
 		pwaURL, _ := cmd.Flags().GetString("uri")
 		outputFile, _ := cmd.Flags().GetString("output")
 		format, _ := cmd.Flags().GetString("format")
+		compression, _ := cmd.Flags().GetString("compression")
 
 		if pwaURL == "" {
 			fmt.Println("Error: uri is required")
@@ -64,7 +66,20 @@ Example:
 			}
 		}
 
-		err = os.WriteFile(outputFile, data, 0644)
+		compressedData, err := compress.Compress(data, compression)
+		if err != nil {
+			fmt.Printf("Error compressing data: %v\n", err)
+			return
+		}
+
+		if outputFile == "" {
+			outputFile = "pwa." + format
+			if compression != "none" {
+				outputFile += "." + compression
+			}
+		}
+
+		err = os.WriteFile(outputFile, compressedData, 0644)
 		if err != nil {
 			fmt.Printf("Error writing PWA to file: %v\n", err)
 			return
@@ -77,6 +92,7 @@ Example:
 func init() {
 	collectCmd.AddCommand(collectPWACmd)
 	collectPWACmd.Flags().String("uri", "", "The URI of the PWA to collect")
-	collectPWACmd.Flags().String("output", "pwa.dat", "Output file for the DataNode")
+	collectPWACmd.Flags().String("output", "", "Output file for the DataNode")
 	collectPWACmd.Flags().String("format", "datanode", "Output format (datanode or matrix)")
+	collectPWACmd.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
 }
