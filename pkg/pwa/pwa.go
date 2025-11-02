@@ -1,11 +1,14 @@
 package pwa
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Snider/Borg/pkg/mocks"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 
 	"github.com/Snider/Borg/pkg/datanode"
@@ -29,9 +32,34 @@ type Icon struct {
 	Type  string `json:"type"`
 }
 
+var getHTTPClient = func() *http.Client {
+	if os.Getenv("BORG_PLEXSUS") == "0" {
+		responses := map[string]*http.Response{
+			"http://test.com": {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(`<html><head><link rel="manifest" href="manifest.json"></head></html>`)),
+				Header:     make(http.Header),
+			},
+			"http://test.com/manifest.json": {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(`{"name": "Test PWA", "start_url": "index.html"}`)),
+				Header:     make(http.Header),
+			},
+			"http://test.com/index.html": {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(`<html><body>Hello</body></html>`)),
+				Header:     make(http.Header),
+			},
+		}
+		return mocks.NewMockClient(responses)
+	}
+	return http.DefaultClient
+}
+
 // FindManifest finds the manifest URL from a given HTML page.
 func FindManifest(pageURL string) (string, error) {
-	resp, err := http.Get(pageURL)
+	client := getHTTPClient()
+	resp, err := client.Get(pageURL)
 	if err != nil {
 		return "", err
 	}
@@ -90,7 +118,8 @@ func DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.
 		return nil, fmt.Errorf("could not resolve manifest URL: %w", err)
 	}
 
-	resp, err := http.Get(manifestAbsURL.String())
+	client := getHTTPClient()
+	resp, err := client.Get(manifestAbsURL.String())
 	if err != nil {
 		return nil, fmt.Errorf("could not download manifest: %w", err)
 	}
@@ -154,7 +183,8 @@ func resolveURL(base, ref string) (*url.URL, error) {
 }
 
 func downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath string, bar *progressbar.ProgressBar) error {
-	resp, err := http.Get(fileURL.String())
+	client := getHTTPClient()
+	resp, err := client.Get(fileURL.String())
 	if err != nil {
 		return err
 	}

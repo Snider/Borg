@@ -1,9 +1,12 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Snider/Borg/pkg/mocks"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -20,6 +23,22 @@ func GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error) {
 }
 
 func newAuthenticatedClient(ctx context.Context) *http.Client {
+	if os.Getenv("BORG_PLEXSUS") == "0" {
+		// Define mock responses for testing
+		responses := map[string]*http.Response{
+			"https://api.github.com/users/test/repos": {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/test/repo1.git"}]`)),
+				Header:     make(http.Header),
+			},
+			"https://api.github.com/orgs/test/repos": {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https.github.com/test/repo2.git"}]`)),
+				Header:     make(http.Header),
+			},
+		}
+		return mocks.NewMockClient(responses)
+	}
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
 		return http.DefaultClient

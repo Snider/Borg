@@ -17,7 +17,7 @@ var collectGithubReposCmd = &cobra.Command{
 			return err
 		}
 		for _, repo := range repos {
-			fmt.Println(repo)
+			fmt.Fprintln(cmd.OutOrStdout(), repo)
 		}
 		return nil
 	},

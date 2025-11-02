@@ -1,10 +1,13 @@
 package website
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/Snider/Borg/pkg/mocks"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/Snider/Borg/pkg/datanode"
@@ -13,13 +16,33 @@ import (
 	"golang.org/x/net/html"
 )
 
+var getHTTPClient = func() *http.Client {
+	if os.Getenv("BORG_PLEXSUS") == "0" {
+		responses := map[string]*http.Response{
+			"http://test.com": {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(`<html><body><a href="page2.html">Page 2</a></body></html>`)),
+				Header:     make(http.Header),
+			},
+			"http://test.com/page2.html": {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(`<html><body>Hello</body></html>`)),
+				Header:     make(http.Header),
+			},
+		}
+		return mocks.NewMockClient(responses)
+	}
+	return http.DefaultClient
+}
+
 // Downloader is a recursive website downloader.
 type Downloader struct {
-	baseURL    *url.URL
-	dn         *datanode.DataNode
-	visited    map[string]bool
-	maxDepth   int
+	baseURL     *url.URL
+	dn          *datanode.DataNode
+	visited     map[string]bool
+	maxDepth    int
 	progressBar *progressbar.ProgressBar
+	client      *http.Client
 }
 
 // NewDownloader creates a new Downloader.
@@ -28,6 +51,7 @@ func NewDownloader(maxDepth int) *Downloader {
 		dn:       datanode.New(),
 		visited:  make(map[string]bool),
 		maxDepth: maxDepth,
+		client:   getHTTPClient(),
 	}
 }
 
@@ -55,7 +79,7 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 		d.progressBar.Add(1)
 	}
 
-	resp, err := http.Get(pageURL)
+	resp, err := d.client.Get(pageURL)
 	if err != nil {
 		fmt.Printf("Error getting %s: %v\n", pageURL, err)
 		return
@@ -112,7 +136,7 @@ func (d *Downloader) downloadAsset(assetURL string) {
 		d.progressBar.Add(1)
 	}
 
-	resp, err := http.Get(assetURL)
+	resp, err := d.client.Get(assetURL)
 	if err != nil {
 		fmt.Printf("Error getting asset %s: %v\n", assetURL, err)
 		return

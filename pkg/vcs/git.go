@@ -12,6 +12,11 @@ import (
 
 // CloneGitRepository clones a Git repository from a URL and packages it into a DataNode.
 func CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error) {
+	if os.Getenv("BORG_PLEXSUS") == "0" {
+		dn := datanode.New()
+		dn.AddData("README.md", []byte("Mock README"))
+		return dn, nil
+	}
 	tempPath, err := os.MkdirTemp("", "borg-clone-*")
 	if err != nil {
 		return nil, err

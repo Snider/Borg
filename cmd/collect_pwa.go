@@ -27,7 +27,7 @@ Example:
 		compression, _ := cmd.Flags().GetString("compression")
 
 		if pwaURL == "" {
-			fmt.Println("Error: uri is required")
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error: uri is required")
 			return
 		}
 
@@ -36,13 +36,13 @@ Example:
 
 		manifestURL, err := pwa.FindManifest(pwaURL)
 		if err != nil {
-			fmt.Printf("Error finding manifest: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error finding manifest:", err)
 			return
 		}
 		bar.Describe("Downloading and packaging PWA")
 		dn, err := pwa.DownloadAndPackagePWA(pwaURL, manifestURL, bar)
 		if err != nil {
-			fmt.Printf("Error downloading and packaging PWA: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error downloading and packaging PWA:", err)
 			return
 		}
 
@@ -50,25 +50,25 @@ Example:
 		if format == "matrix" {
 			matrix, err := matrix.FromDataNode(dn)
 			if err != nil {
-				fmt.Printf("Error creating matrix: %v\n", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error creating matrix:", err)
 				return
 			}
 			data, err = matrix.ToTar()
 			if err != nil {
-				fmt.Printf("Error serializing matrix: %v\n", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing matrix:", err)
 				return
 			}
 		} else {
 			data, err = dn.ToTar()
 			if err != nil {
-				fmt.Printf("Error serializing DataNode: %v\n", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing DataNode:", err)
 				return
 			}
 		}
 
 		compressedData, err := compress.Compress(data, compression)
 		if err != nil {
-			fmt.Printf("Error compressing data: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error compressing data:", err)
 			return
 		}
 
@@ -81,11 +81,11 @@ Example:
 
 		err = os.WriteFile(outputFile, compressedData, 0644)
 		if err != nil {
-			fmt.Printf("Error writing PWA to file: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error writing PWA to file:", err)
 			return
 		}
 
-		fmt.Printf("PWA saved to %s\n", outputFile)
+		fmt.Fprintln(cmd.OutOrStdout(), "PWA saved to", outputFile)
 	},
 }
 

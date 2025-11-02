@@ -36,7 +36,7 @@ var collectWebsiteCmd = &cobra.Command{
 
 		dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
 		if err != nil {
-			fmt.Printf("Error downloading and packaging website: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error downloading and packaging website:", err)
 			return
 		}
 
@@ -44,25 +44,25 @@ var collectWebsiteCmd = &cobra.Command{
 		if format == "matrix" {
 			matrix, err := matrix.FromDataNode(dn)
 			if err != nil {
-				fmt.Printf("Error creating matrix: %v\n", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error creating matrix:", err)
 				return
 			}
 			data, err = matrix.ToTar()
 			if err != nil {
-				fmt.Printf("Error serializing matrix: %v\n", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing matrix:", err)
 				return
 			}
 		} else {
 			data, err = dn.ToTar()
 			if err != nil {
-				fmt.Printf("Error serializing DataNode: %v\n", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing DataNode:", err)
 				return
 			}
 		}
 
 		compressedData, err := compress.Compress(data, compression)
 		if err != nil {
-			fmt.Printf("Error compressing data: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error compressing data:", err)
 			return
 		}
 
@@ -75,11 +75,11 @@ var collectWebsiteCmd = &cobra.Command{
 
 		err = os.WriteFile(outputFile, compressedData, 0644)
 		if err != nil {
-			fmt.Printf("Error writing website to file: %v\n", err)
+			fmt.Fprintln(cmd.ErrOrStderr(), "Error writing website to file:", err)
 			return
 		}
 
-		fmt.Printf("Website saved to %s\n", outputFile)
+		fmt.Fprintln(cmd.OutOrStdout(), "Website saved to", outputFile)
 	},
 }
 
