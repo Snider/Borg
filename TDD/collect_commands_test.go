@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"context"
 	"github.com/Snider/Borg/cmd"
-	"os"
 	"strings"
 	"testing"
 )
 
 func TestCollectCommands(t *testing.T) {
-	os.Setenv("BORG_PLEXSUS", "0")
-	defer os.Unsetenv("BORG_PLEXSUS")
+	t.Setenv("BORG_PLEXSUS", "0")
 
 	testCases := []struct {
 		name     string

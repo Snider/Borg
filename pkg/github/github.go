@@ -33,7 +33,7 @@ func newAuthenticatedClient(ctx context.Context) *http.Client {
 			},
 			"https://api.github.com/orgs/test/repos": {
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https.github.com/test/repo2.git"}]`)),
+				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/test/repo2.git"}]`)),
 				Header:     make(http.Header),
 			},
 		}

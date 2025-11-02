@@ -15,11 +15,34 @@ type MockRoundTripper struct {
 func (m *MockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	url := req.URL.String()
 	if resp, ok := m.Responses[url]; ok {
-		// Create a new reader for the body each time, as it can be read only once.
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		// Read the original body
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
 		resp.Body.Close() // close original body
+
+		// Re-hydrate the original body so it can be read again
 		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-		return resp, nil
+
+		// Create a deep copy of the response
+		newResp := &http.Response{
+			Status:           resp.Status,
+			StatusCode:       resp.StatusCode,
+			Proto:            resp.Proto,
+			ProtoMajor:       resp.ProtoMajor,
+			ProtoMinor:       resp.ProtoMinor,
+			Header:           resp.Header.Clone(),
+			Body:             io.NopCloser(bytes.NewReader(bodyBytes)),
+			ContentLength:    resp.ContentLength,
+			TransferEncoding: resp.TransferEncoding,
+			Close:            resp.Close,
+			Uncompressed:     resp.Uncompressed,
+			Trailer:          resp.Trailer.Clone(),
+			Request:          resp.Request,
+			TLS:              resp.TLS,
+		}
+		return newResp, nil
 	}
 	return &http.Response{
 		StatusCode: http.StatusNotFound,
