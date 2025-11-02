@@ -27,30 +27,6 @@ borg collect github repo [repository-url] [flags]
 ./borg collect github repo https://github.com/Snider/Borg --output borg.dat
 ```
 
-#### `collect github release`
-
-Download the latest release of a file from GitHub releases. If the file or URL has a version number, it will check for a higher version and download it if found.
-
-**Usage:**
-```
-borg-data-collector collect github release [repository-url] [flags]
-```
-
-**Flags:**
-- `--file string`: The file to download from the release
-- `--output string`: Output directory for the downloaded file (default ".")
-- `--pack`: Pack all assets into a DataNode
-- `--version string`: The version to check against
-
-#### `collect github repos`
-
-Collects all public repositories for a user or organization
-
-**Usage:**
-```
-borg-data-collector collect github repos [user-or-org] [flags]
-```
-
 #### `collect website`
 
 Collects a single website and stores it in a DataNode.
