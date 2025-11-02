@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/Snider/Borg/pkg/compress"
@@ -24,10 +25,17 @@ var collectGithubRepoCmd = &cobra.Command{
 		format, _ := cmd.Flags().GetString("format")
 		compression, _ := cmd.Flags().GetString("compression")
 
-		bar := ui.NewProgressBar(-1, "Cloning repository")
-		defer bar.Finish()
+		prompter := ui.NewNonInteractivePrompter(ui.GetVCSQuote)
+		prompter.Start()
+		defer prompter.Stop()
 
-		dn, err := vcs.CloneGitRepository(repoURL, bar)
+		var progressWriter io.Writer
+		if prompter.IsInteractive() {
+			bar := ui.NewProgressBar(-1, "Cloning repository")
+			progressWriter = ui.NewProgressWriter(bar)
+		}
+
+		dn, err := vcs.CloneGitRepository(repoURL, progressWriter)
 		if err != nil {
 			fmt.Printf("Error cloning repository: %v\n", err)
 			return

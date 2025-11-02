@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/matrix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -25,8 +26,13 @@ var collectWebsiteCmd = &cobra.Command{
 		format, _ := cmd.Flags().GetString("format")
 		compression, _ := cmd.Flags().GetString("compression")
 
-		bar := ui.NewProgressBar(-1, "Crawling website")
-		defer bar.Finish()
+		prompter := ui.NewNonInteractivePrompter(ui.GetWebsiteQuote)
+		prompter.Start()
+		defer prompter.Stop()
+		var bar *progressbar.ProgressBar
+		if prompter.IsInteractive() {
+			bar = ui.NewProgressBar(-1, "Crawling website")
+		}
 
 		dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
 		if err != nil {
