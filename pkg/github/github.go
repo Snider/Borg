@@ -36,6 +36,9 @@ func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]
 	url := fmt.Sprintf("%s/users/%s/repos", apiURL, userOrOrg)
 
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return nil, err
@@ -55,7 +58,7 @@ func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]
 				return nil, err
 			}
 			req.Header.Set("User-Agent", "Borg-Data-Collector")
-			resp, err = http.DefaultClient.Do(req)
+			resp, err = client.Do(req)
 			if err != nil {
 				return nil, err
 			}

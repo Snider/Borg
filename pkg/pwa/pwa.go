@@ -82,6 +82,9 @@ func FindManifest(pageURL string) (string, error) {
 
 // DownloadAndPackagePWA downloads all assets of a PWA and packages them into a DataNode.
 func DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	if bar == nil {
+		return nil, fmt.Errorf("progress bar cannot be nil")
+	}
 	manifestAbsURL, err := resolveURL(baseURL, manifestURL)
 	if err != nil {
 		return nil, fmt.Errorf("could not resolve manifest URL: %w", err)

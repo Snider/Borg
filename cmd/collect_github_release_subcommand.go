@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -23,7 +24,12 @@ var collectGithubReleaseCmd = &cobra.Command{
 	Long:  `Download the latest release of a file from GitHub releases. If the file or URL has a version number, it will check for a higher version and download it if found.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		log := cmd.Context().Value("logger").(*slog.Logger)
+		logVal := cmd.Context().Value("logger")
+		log, ok := logVal.(*slog.Logger)
+		if !ok || log == nil {
+			fmt.Fprintln(os.Stderr, "Error: logger not properly initialised")
+			return
+		}
 		repoURL := args[0]
 		outputDir, _ := cmd.Flags().GetString("output")
 		pack, _ := cmd.Flags().GetBool("pack")

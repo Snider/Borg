@@ -9,7 +9,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	golang.org/x/mod v0.29.0
 	golang.org/x/net v0.46.0
-	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
+	golang.org/x/oauth2 v0.27.0
 )
 
 require (

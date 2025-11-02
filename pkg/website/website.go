@@ -33,6 +33,9 @@ func NewDownloader(maxDepth int) *Downloader {
 
 // DownloadAndPackageWebsite downloads a website and packages it into a DataNode.
 func DownloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	if bar == nil {
+		return nil, fmt.Errorf("progress bar cannot be nil")
+	}
 	baseURL, err := url.Parse(startURL)
 	if err != nil {
 		return nil, err

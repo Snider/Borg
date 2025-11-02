@@ -21,7 +21,12 @@ var allCmd = &cobra.Command{
 	Long:  `Collect all public repositories from a user or organization and store them in a DataNode.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		log := cmd.Context().Value("logger").(*slog.Logger)
+		logVal := cmd.Context().Value("logger")
+		log, ok := logVal.(*slog.Logger)
+		if !ok || log == nil {
+			fmt.Fprintln(os.Stderr, "Error: logger not properly initialised")
+			return
+		}
 		repos, err := github.GetPublicRepos(context.Background(), args[0])
 		if err != nil {
 			log.Error("failed to get public repos", "err", err)
@@ -33,9 +38,9 @@ var allCmd = &cobra.Command{
 		for _, repoURL := range repos {
 			log.Info("cloning repository", "url", repoURL)
 			bar := ui.NewProgressBar(-1, "Cloning repository")
-			defer bar.Finish()
 
 			dn, err := vcs.CloneGitRepository(repoURL, bar)
+			bar.Finish()
 			if err != nil {
 				log.Error("failed to clone repository", "url", repoURL, "err", err)
 				continue
