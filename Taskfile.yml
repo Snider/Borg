@@ -20,6 +20,9 @@ tasks:
       - ./borg
     deps:
       - build
+  test:
+    cmds:
+      - go test ./...
   test-e2e:
     cmds:
       - task: build

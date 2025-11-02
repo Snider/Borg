@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -18,7 +19,7 @@ var allCmd = &cobra.Command{
 	Long:  `Collect all public repositories from a user or organization and store them in a DataNode.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		repos, err := github.GetPublicRepos(args[0])
+		repos, err := github.GetPublicRepos(context.Background(), args[0])
 		if err != nil {
 			fmt.Println(err)
 			return

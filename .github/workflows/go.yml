@@ -17,13 +17,13 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version-file: 'go.work'
+        go-version-file: 'go.mod'
 
-    - name: Setup Task
-      uses: arduino/setup-task@v1
+    - name: Install Task
+      run: go install github.com/go-task/task/v3/cmd/task@latest
 
     - name: Build
-      run: go build -v ./...
+      run: ~/go/bin/task build
 
     - name: Test
-      run: go test -v ./...
+      run: ~/go/bin/task test
