@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/vcs"
 
 	"github.com/spf13/cobra"
@@ -31,8 +32,10 @@ var allCmd = &cobra.Command{
 
 		for _, repoURL := range repos {
 			log.Info("cloning repository", "url", repoURL)
+			bar := ui.NewProgressBar(-1, "Cloning repository")
+			defer bar.Finish()
 
-			dn, err := vcs.CloneGitRepository(repoURL)
+			dn, err := vcs.CloneGitRepository(repoURL, bar)
 			if err != nil {
 				log.Error("failed to clone repository", "url", repoURL, "err", err)
 				continue

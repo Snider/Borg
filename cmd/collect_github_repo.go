@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/vcs"
 
 	"github.com/spf13/cobra"
@@ -19,7 +20,10 @@ var collectGithubRepoCmd = &cobra.Command{
 		repoURL := args[0]
 		outputFile, _ := cmd.Flags().GetString("output")
 
-		dn, err := vcs.CloneGitRepository(repoURL)
+		bar := ui.NewProgressBar(-1, "Cloning repository")
+		defer bar.Finish()
+
+		dn, err := vcs.CloneGitRepository(repoURL, bar)
 		if err != nil {
 			fmt.Printf("Error cloning repository: %v\n", err)
 			return
