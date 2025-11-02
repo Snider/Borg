@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/website"
 
 	"github.com/spf13/cobra"
@@ -20,7 +21,10 @@ var collectWebsiteCmd = &cobra.Command{
 		outputFile, _ := cmd.Flags().GetString("output")
 		depth, _ := cmd.Flags().GetInt("depth")
 
-		dn, err := website.DownloadAndPackageWebsite(websiteURL, depth)
+		bar := ui.NewProgressBar(-1, "Crawling website")
+		defer bar.Finish()
+
+		dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
 		if err != nil {
 			fmt.Printf("Error downloading and packaging website: %v\n", err)
 			return

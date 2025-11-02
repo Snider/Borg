@@ -69,7 +69,7 @@ func TestCloneGitRepository(t *testing.T) {
 	}
 
 	// Clone the repository using the function we're testing
-	dn, err := CloneGitRepository("file://" + bareRepoPath)
+	dn, err := CloneGitRepository("file://"+bareRepoPath, os.Stdout)
 	if err != nil {
 		t.Fatalf("CloneGitRepository failed: %v", err)
 	}

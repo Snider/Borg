@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/Snider/Borg/pkg/pwa"
+	"github.com/Snider/Borg/pkg/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -26,16 +27,16 @@ Example:
 			return
 		}
 
-		fmt.Println("Finding PWA manifest...")
+		bar := ui.NewProgressBar(-1, "Finding PWA manifest")
+		defer bar.Finish()
+
 		manifestURL, err := pwa.FindManifest(pwaURL)
 		if err != nil {
 			fmt.Printf("Error finding manifest: %v\n", err)
 			return
 		}
-		fmt.Printf("Found manifest: %s\n", manifestURL)
-
-		fmt.Println("Downloading and packaging PWA...")
-		dn, err := pwa.DownloadAndPackagePWA(pwaURL, manifestURL)
+		bar.Describe("Downloading and packaging PWA")
+		dn, err := pwa.DownloadAndPackagePWA(pwaURL, manifestURL, bar)
 		if err != nil {
 			fmt.Printf("Error downloading and packaging PWA: %v\n", err)
 			return

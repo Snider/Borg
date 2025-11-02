@@ -1,6 +1,7 @@
 package vcs
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 
@@ -10,7 +11,7 @@ import (
 )
 
 // CloneGitRepository clones a Git repository from a URL and packages it into a DataNode.
-func CloneGitRepository(repoURL string) (*datanode.DataNode, error) {
+func CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error) {
 	tempPath, err := os.MkdirTemp("", "borg-clone-*")
 	if err != nil {
 		return nil, err
@@ -19,7 +20,7 @@ func CloneGitRepository(repoURL string) (*datanode.DataNode, error) {
 
 	_, err = git.PlainClone(tempPath, false, &git.CloneOptions{
 		URL:      repoURL,
-		Progress: os.Stdout,
+		Progress: progress,
 	})
 	if err != nil {
 		return nil, err

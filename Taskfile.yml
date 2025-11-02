@@ -1,0 +1,30 @@
+version: '3'
+
+tasks:
+  clean:
+    cmds:
+      - rm -f borg
+  build:
+    cmds:
+      - task: clean
+      - GOOS=linux GOARCH=amd64 go build -o borg main.go
+    sources:
+      - main.go
+      - ./pkg/**/*.go
+    generates:
+      - borg
+  run:
+    cmds:
+      - task: build
+      - chmod +x borg
+      - ./borg
+    deps:
+      - build
+  test:
+    cmds:
+      - go test ./...
+  test-e2e:
+    cmds:
+      - task: build
+      - chmod +x borg
+      - ./borg --help

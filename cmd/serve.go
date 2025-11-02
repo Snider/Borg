@@ -44,6 +44,6 @@ var serveCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(serveCmd)
+	RootCmd.AddCommand(serveCmd)
 	serveCmd.PersistentFlags().String("port", "8080", "Port to serve the PWA on")
 }
