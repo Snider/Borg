@@ -89,7 +89,6 @@ Example:
 	},
 }
 
-// init registers the 'pwa' command and its flags under the collect command.
 func init() {
 	collectCmd.AddCommand(collectPWACmd)
 	collectPWACmd.Flags().String("uri", "", "The URI of the PWA to collect")

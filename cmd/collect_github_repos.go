@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// collectGithubReposCmd represents the command that lists public repositories for a user or organization.
 var collectGithubReposCmd = &cobra.Command{
 	Use:   "repos [user-or-org]",
 	Short: "Collects all public repositories for a user or organization",
@@ -24,7 +23,6 @@ var collectGithubReposCmd = &cobra.Command{
 	},
 }
 
-// init registers the collectGithubReposCmd subcommand under the GitHub command.
 func init() {
 	collectGithubCmd.AddCommand(collectGithubReposCmd)
 }

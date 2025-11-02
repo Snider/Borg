@@ -84,7 +84,6 @@ var collectGithubRepoCmd = &cobra.Command{
 	},
 }
 
-// init registers the 'repo' subcommand and its flags under the GitHub command.
 func init() {
 	collectGithubCmd.AddCommand(collectGithubRepoCmd)
 	collectGithubRepoCmd.PersistentFlags().String("output", "", "Output file for the DataNode")

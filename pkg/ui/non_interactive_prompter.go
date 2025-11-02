@@ -1,3 +1,4 @@
+
 package ui
 
 import (
@@ -10,24 +11,21 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-// NonInteractivePrompter periodically prints quotes when stdout is non-interactive.
 type NonInteractivePrompter struct {
-	stopChan  chan struct{}
-	quoteFunc func() (string, error)
-	started   bool
-	mu        sync.Mutex
-	stopOnce  sync.Once
+	stopChan    chan struct{}
+	quoteFunc   func() (string, error)
+	started     bool
+	mu          sync.Mutex
+	stopOnce    sync.Once
 }
 
-// NewNonInteractivePrompter constructs a NonInteractivePrompter using the provided quote function.
 func NewNonInteractivePrompter(quoteFunc func() (string, error)) *NonInteractivePrompter {
 	return &NonInteractivePrompter{
-		stopChan:  make(chan struct{}),
-		quoteFunc: quoteFunc,
+		stopChan:    make(chan struct{}),
+		quoteFunc:   quoteFunc,
 	}
 }
 
-// Start begins periodic quote printing in a background goroutine when not interactive.
 func (p *NonInteractivePrompter) Start() {
 	p.mu.Lock()
 	if p.started {
@@ -62,7 +60,6 @@ func (p *NonInteractivePrompter) Start() {
 	}()
 }
 
-// Stop signals the background goroutine to stop printing quotes.
 func (p *NonInteractivePrompter) Stop() {
 	if p.IsInteractive() {
 		return
@@ -72,7 +69,6 @@ func (p *NonInteractivePrompter) Stop() {
 	})
 }
 
-// IsInteractive reports whether stdout is attached to an interactive terminal.
 func (p *NonInteractivePrompter) IsInteractive() bool {
 	return isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
 }
