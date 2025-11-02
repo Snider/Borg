@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/matrix"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/vcs"
 
@@ -19,6 +21,8 @@ var collectGithubRepoCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		repoURL := args[0]
 		outputFile, _ := cmd.Flags().GetString("output")
+		format, _ := cmd.Flags().GetString("format")
+		compression, _ := cmd.Flags().GetString("compression")
 
 		bar := ui.NewProgressBar(-1, "Cloning repository")
 		defer bar.Finish()
@@ -29,13 +33,40 @@ var collectGithubRepoCmd = &cobra.Command{
 			return
 		}
 
-		data, err := dn.ToTar()
+		var data []byte
+		if format == "matrix" {
+			matrix, err := matrix.FromDataNode(dn)
+			if err != nil {
+				fmt.Printf("Error creating matrix: %v\n", err)
+				return
+			}
+			data, err = matrix.ToTar()
+			if err != nil {
+				fmt.Printf("Error serializing matrix: %v\n", err)
+				return
+			}
+		} else {
+			data, err = dn.ToTar()
+			if err != nil {
+				fmt.Printf("Error serializing DataNode: %v\n", err)
+				return
+			}
+		}
+
+		compressedData, err := compress.Compress(data, compression)
 		if err != nil {
-			fmt.Printf("Error serializing DataNode: %v\n", err)
+			fmt.Printf("Error compressing data: %v\n", err)
 			return
 		}
 
-		err = os.WriteFile(outputFile, data, 0644)
+		if outputFile == "" {
+			outputFile = "repo." + format
+			if compression != "none" {
+				outputFile += "." + compression
+			}
+		}
+
+		err = os.WriteFile(outputFile, compressedData, 0644)
 		if err != nil {
 			fmt.Printf("Error writing DataNode to file: %v\n", err)
 			return
@@ -47,5 +78,7 @@ var collectGithubRepoCmd = &cobra.Command{
 
 func init() {
 	collectGithubCmd.AddCommand(collectGithubRepoCmd)
-	collectGithubRepoCmd.PersistentFlags().String("output", "repo.dat", "Output file for the DataNode")
+	collectGithubRepoCmd.PersistentFlags().String("output", "", "Output file for the DataNode")
+	collectGithubRepoCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
+	collectGithubRepoCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 }
