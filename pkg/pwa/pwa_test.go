@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 func TestFindManifest(t *testing.T) {
@@ -78,7 +80,8 @@ func TestDownloadAndPackagePWA(t *testing.T) {
 	}))
 	defer server.Close()
 
-	dn, err := DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json")
+	bar := progressbar.New(1)
+	dn, err := DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", bar)
 	if err != nil {
 		t.Fatalf("DownloadAndPackagePWA failed: %v", err)
 	}

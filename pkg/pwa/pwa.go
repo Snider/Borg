@@ -9,6 +9,7 @@ import (
 	"path"
 
 	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/schollz/progressbar/v3"
 
 	"golang.org/x/net/html"
 )
@@ -80,7 +81,10 @@ func FindManifest(pageURL string) (string, error) {
 }
 
 // DownloadAndPackagePWA downloads all assets of a PWA and packages them into a DataNode.
-func DownloadAndPackagePWA(baseURL string, manifestURL string) (*datanode.DataNode, error) {
+func DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	if bar == nil {
+		return nil, fmt.Errorf("progress bar cannot be nil")
+	}
 	manifestAbsURL, err := resolveURL(baseURL, manifestURL)
 	if err != nil {
 		return nil, fmt.Errorf("could not resolve manifest URL: %w", err)
@@ -110,7 +114,7 @@ func DownloadAndPackagePWA(baseURL string, manifestURL string) (*datanode.DataNo
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve start_url: %w", err)
 		}
-		err = downloadAndAddFile(dn, startURLAbs, manifest.StartURL)
+		err = downloadAndAddFile(dn, startURLAbs, manifest.StartURL, bar)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download start_url asset: %w", err)
 		}
@@ -122,14 +126,14 @@ func DownloadAndPackagePWA(baseURL string, manifestURL string) (*datanode.DataNo
 			fmt.Printf("Warning: could not resolve icon URL %s: %v\n", icon.Src, err)
 			continue
 		}
-		err = downloadAndAddFile(dn, iconURLAbs, icon.Src)
+		err = downloadAndAddFile(dn, iconURLAbs, icon.Src, bar)
 		if err != nil {
 			fmt.Printf("Warning: failed to download icon %s: %v\n", icon.Src, err)
 		}
 	}
 
 	baseURLAbs, _ := url.Parse(baseURL)
-	err = downloadAndAddFile(dn, baseURLAbs, "index.html")
+	err = downloadAndAddFile(dn, baseURLAbs, "index.html", bar)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download base HTML: %w", err)
 	}
@@ -149,7 +153,7 @@ func resolveURL(base, ref string) (*url.URL, error) {
 	return baseURL.ResolveReference(refURL), nil
 }
 
-func downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath string) error {
+func downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath string, bar *progressbar.ProgressBar) error {
 	resp, err := http.Get(fileURL.String())
 	if err != nil {
 		return err
@@ -165,5 +169,6 @@ func downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath st
 		return err
 	}
 	dn.AddData(path.Clean(internalPath), data)
+	bar.Add(1)
 	return nil
 }

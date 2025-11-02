@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 func TestDownloadAndPackageWebsite(t *testing.T) {
@@ -64,7 +66,8 @@ func TestDownloadAndPackageWebsite(t *testing.T) {
 	}))
 	defer server.Close()
 
-	dn, err := DownloadAndPackageWebsite(server.URL, 2)
+	bar := progressbar.New(1)
+	dn, err := DownloadAndPackageWebsite(server.URL, 2, bar)
 	if err != nil {
 		t.Fatalf("DownloadAndPackageWebsite failed: %v", err)
 	}
