@@ -126,6 +126,7 @@ var collectGithubReleaseCmd = &cobra.Command{
 	},
 }
 
+// init registers the 'release' subcommand and its flags under the GitHub command.
 func init() {
 	collectGithubCmd.AddCommand(collectGithubReleaseCmd)
 	collectGithubReleaseCmd.PersistentFlags().String("output", ".", "Output directory for the downloaded file")

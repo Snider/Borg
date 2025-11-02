@@ -63,6 +63,7 @@ var allCmd = &cobra.Command{
 	},
 }
 
+// init registers the 'all' subcommand and its flags.
 func init() {
 	RootCmd.AddCommand(allCmd)
 	allCmd.PersistentFlags().String("output", ".", "Output directory for the DataNodes")

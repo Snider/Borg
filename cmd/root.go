@@ -30,3 +30,8 @@ func Execute(log *slog.Logger) error {
 	RootCmd.SetContext(context.WithValue(context.Background(), "logger", log))
 	return RootCmd.Execute()
 }
+
+// init configures persistent flags for the root command.
+func init() {
+	RootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose logging")
+}

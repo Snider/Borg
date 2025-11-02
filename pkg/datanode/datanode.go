@@ -260,19 +260,35 @@ type dataFile struct {
 	modTime time.Time
 }
 
+// Stat returns a FileInfo describing the dataFile.
 func (d *dataFile) Stat() (fs.FileInfo, error) { return &dataFileInfo{file: d}, nil }
+
+// Read implements fs.File by returning EOF for write-only dataFile handles.
 func (d *dataFile) Read(p []byte) (int, error) { return 0, io.EOF }
-func (d *dataFile) Close() error               { return nil }
+
+// Close is a no-op for in-memory dataFile values.
+func (d *dataFile) Close() error { return nil }
 
 // dataFileInfo implements fs.FileInfo for a dataFile.
 type dataFileInfo struct{ file *dataFile }
 
-func (d *dataFileInfo) Name() string       { return path.Base(d.file.name) }
-func (d *dataFileInfo) Size() int64        { return int64(len(d.file.content)) }
-func (d *dataFileInfo) Mode() fs.FileMode  { return 0444 }
+// Name returns the base name of the data file.
+func (d *dataFileInfo) Name() string { return path.Base(d.file.name) }
+
+// Size returns the size of the data file in bytes.
+func (d *dataFileInfo) Size() int64 { return int64(len(d.file.content)) }
+
+// Mode returns the file mode bits for a read-only regular file.
+func (d *dataFileInfo) Mode() fs.FileMode { return 0444 }
+
+// ModTime returns the modification time of the data file.
 func (d *dataFileInfo) ModTime() time.Time { return d.file.modTime }
-func (d *dataFileInfo) IsDir() bool        { return false }
-func (d *dataFileInfo) Sys() interface{}   { return nil }
+
+// IsDir reports whether the FileInfo describes a directory (always false).
+func (d *dataFileInfo) IsDir() bool { return false }
+
+// Sys returns underlying data source (always nil).
+func (d *dataFileInfo) Sys() interface{} { return nil }
 
 // dataFileReader implements fs.File for a dataFile.
 type dataFileReader struct {
@@ -280,13 +296,18 @@ type dataFileReader struct {
 	reader *bytes.Reader
 }
 
+// Stat returns a FileInfo describing the underlying data file.
 func (d *dataFileReader) Stat() (fs.FileInfo, error) { return d.file.Stat() }
+
+// Read reads from the underlying byte slice, initializing the reader on first use.
 func (d *dataFileReader) Read(p []byte) (int, error) {
 	if d.reader == nil {
 		d.reader = bytes.NewReader(d.file.content)
 	}
 	return d.reader.Read(p)
 }
+
+// Close is a no-op for in-memory readers.
 func (d *dataFileReader) Close() error { return nil }
 
 // dirInfo implements fs.FileInfo for an implicit directory.
@@ -295,12 +316,23 @@ type dirInfo struct {
 	modTime time.Time
 }
 
-func (d *dirInfo) Name() string       { return d.name }
-func (d *dirInfo) Size() int64        { return 0 }
-func (d *dirInfo) Mode() fs.FileMode  { return fs.ModeDir | 0555 }
+// Name returns the directory name.
+func (d *dirInfo) Name() string { return d.name }
+
+// Size returns the size for a directory (always 0).
+func (d *dirInfo) Size() int64 { return 0 }
+
+// Mode returns the file mode bits indicating a read-only directory.
+func (d *dirInfo) Mode() fs.FileMode { return fs.ModeDir | 0555 }
+
+// ModTime returns the modification time of the directory.
 func (d *dirInfo) ModTime() time.Time { return d.modTime }
-func (d *dirInfo) IsDir() bool        { return true }
-func (d *dirInfo) Sys() interface{}   { return nil }
+
+// IsDir reports that this FileInfo describes a directory.
+func (d *dirInfo) IsDir() bool { return true }
+
+// Sys returns underlying data source (always nil).
+func (d *dirInfo) Sys() interface{} { return nil }
 
 // dirFile implements fs.File for a directory.
 type dirFile struct {
