@@ -1,5 +1,7 @@
 # Borg Data Collector 
 
+[![codecov](https://codecov.io/github/Snider/Borg/branch/main/graph/badge.svg?token=XWWU0SBIR4)](https://codecov.io/github/Snider/Borg)
+
 As the name might sugest; this pkg collects information and stores it in a Cube file or passes it on;
 comes as both a cli tool and a usable package for your go project with a clean export only top level interface.
 
