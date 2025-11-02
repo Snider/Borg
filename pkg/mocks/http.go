@@ -13,6 +13,13 @@ type MockRoundTripper struct {
 	responses map[string]*http.Response
 }
 
+// SetResponses sets the mock responses in a thread-safe way.
+func (m *MockRoundTripper) SetResponses(responses map[string]*http.Response) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.responses = responses
+}
+
 // RoundTrip implements the http.RoundTripper interface.
 func (m *MockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	url := req.URL.String()
@@ -59,9 +66,15 @@ func (m *MockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 
 // NewMockClient creates a new http.Client with a MockRoundTripper.
 func NewMockClient(responses map[string]*http.Response) *http.Client {
+	responsesCopy := make(map[string]*http.Response)
+	if responses != nil {
+		for k, v := range responses {
+			responsesCopy[k] = v
+		}
+	}
 	return &http.Client{
 		Transport: &MockRoundTripper{
-			responses: responses,
+			responses: responsesCopy,
 		},
 	}
 }

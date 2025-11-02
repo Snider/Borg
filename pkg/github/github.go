@@ -1,12 +1,9 @@
 package github
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Snider/Borg/pkg/mocks"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -18,27 +15,23 @@ type Repo struct {
 	CloneURL string `json:"clone_url"`
 }
 
-func GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error) {
-	return GetPublicReposWithAPIURL(ctx, "https://api.github.com", userOrOrg)
+// GithubClient is an interface for interacting with the Github API.
+type GithubClient interface {
+	GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error)
 }
 
-func newAuthenticatedClient(ctx context.Context) *http.Client {
-	if os.Getenv("BORG_PLEXSUS") == "0" {
-		// Define mock responses for testing
-		responses := map[string]*http.Response{
-			"https://api.github.com/users/test/repos": {
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/test/repo1.git"}]`)),
-				Header:     make(http.Header),
-			},
-			"https://api.github.com/orgs/test/repos": {
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/test/repo2.git"}]`)),
-				Header:     make(http.Header),
-			},
-		}
-		return mocks.NewMockClient(responses)
-	}
+// NewGithubClient creates a new GithubClient.
+func NewGithubClient() GithubClient {
+	return &githubClient{}
+}
+
+type githubClient struct{}
+
+func (g *githubClient) GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error) {
+	return g.getPublicReposWithAPIURL(ctx, "https://api.github.com", userOrOrg)
+}
+
+func (g *githubClient) newAuthenticatedClient(ctx context.Context) *http.Client {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
 		return http.DefaultClient
@@ -49,8 +42,8 @@ func newAuthenticatedClient(ctx context.Context) *http.Client {
 	return oauth2.NewClient(ctx, ts)
 }
 
-func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]string, error) {
-	client := newAuthenticatedClient(ctx)
+func (g *githubClient) getPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]string, error) {
+	client := g.newAuthenticatedClient(ctx)
 	var allCloneURLs []string
 	url := fmt.Sprintf("%s/users/%s/repos", apiURL, userOrOrg)
 
@@ -103,7 +96,7 @@ func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]
 		if linkHeader == "" {
 			break
 		}
-		nextURL := findNextURL(linkHeader)
+		nextURL := g.findNextURL(linkHeader)
 		if nextURL == "" {
 			break
 		}
@@ -113,7 +106,7 @@ func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]
 	return allCloneURLs, nil
 }
 
-func findNextURL(linkHeader string) string {
+func (g *githubClient) findNextURL(linkHeader string) string {
 	links := strings.Split(linkHeader, ",")
 	for _, link := range links {
 		parts := strings.Split(link, ";")

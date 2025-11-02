@@ -7,9 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Snider/Borg/pkg/github"
 	"github.com/Snider/Borg/pkg/ui"
-	"github.com/Snider/Borg/pkg/vcs"
 
 	"github.com/spf13/cobra"
 )
@@ -27,7 +25,7 @@ var allCmd = &cobra.Command{
 			fmt.Fprintln(os.Stderr, "Error: logger not properly initialised")
 			return
 		}
-		repos, err := github.GetPublicRepos(context.Background(), args[0])
+		repos, err := GithubClient.GetPublicRepos(context.Background(), args[0])
 		if err != nil {
 			log.Error("failed to get public repos", "err", err)
 			return
@@ -39,7 +37,7 @@ var allCmd = &cobra.Command{
 			log.Info("cloning repository", "url", repoURL)
 			bar := ui.NewProgressBar(-1, "Cloning repository")
 
-			dn, err := vcs.CloneGitRepository(repoURL, bar)
+			dn, err := GitCloner.CloneGitRepository(repoURL, bar)
 			bar.Finish()
 			if err != nil {
 				log.Error("failed to clone repository", "url", repoURL, "err", err)

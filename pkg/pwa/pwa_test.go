@@ -1,12 +1,33 @@
 package pwa
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/schollz/progressbar/v3"
 )
+
+func newTestPWAClient(serverURL string) PWAClient {
+	return &pwaClient{
+		client: &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				ForceAttemptHTTP2:     true,
+				MaxIdleConns:          100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
+		},
+	}
+}
 
 func TestFindManifest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,8 +47,9 @@ func TestFindManifest(t *testing.T) {
 	}))
 	defer server.Close()
 
+	client := newTestPWAClient(server.URL)
 	expectedURL := server.URL + "/manifest.json"
-	actualURL, err := FindManifest(server.URL)
+	actualURL, err := client.FindManifest(server.URL)
 	if err != nil {
 		t.Fatalf("FindManifest failed: %v", err)
 	}
@@ -80,8 +102,9 @@ func TestDownloadAndPackagePWA(t *testing.T) {
 	}))
 	defer server.Close()
 
+	client := newTestPWAClient(server.URL)
 	bar := progressbar.New(1)
-	dn, err := DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", bar)
+	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", bar)
 	if err != nil {
 		t.Fatalf("DownloadAndPackagePWA failed: %v", err)
 	}
@@ -99,6 +122,7 @@ func TestDownloadAndPackagePWA(t *testing.T) {
 }
 
 func TestResolveURL(t *testing.T) {
+	client := NewPWAClient()
 	tests := []struct {
 		base string
 		ref  string
@@ -113,7 +137,7 @@ func TestResolveURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := resolveURL(tt.base, tt.ref)
+		got, err := client.(*pwaClient).resolveURL(tt.base, tt.ref)
 		if err != nil {
 			t.Errorf("resolveURL(%q, %q) returned error: %v", tt.base, tt.ref, err)
 			continue

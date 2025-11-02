@@ -12,6 +12,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	// PWAClient is the pwa client used by the command. It can be replaced for testing.
+	PWAClient = pwa.NewPWAClient()
+)
+
 // collectPWACmd represents the collect pwa command
 var collectPWACmd = &cobra.Command{
 	Use:   "pwa",
@@ -34,13 +39,13 @@ Example:
 		bar := ui.NewProgressBar(-1, "Finding PWA manifest")
 		defer bar.Finish()
 
-		manifestURL, err := pwa.FindManifest(pwaURL)
+		manifestURL, err := PWAClient.FindManifest(pwaURL)
 		if err != nil {
 			fmt.Fprintln(cmd.ErrOrStderr(), "Error finding manifest:", err)
 			return
 		}
 		bar.Describe("Downloading and packaging PWA")
-		dn, err := pwa.DownloadAndPackagePWA(pwaURL, manifestURL, bar)
+		dn, err := PWAClient.DownloadAndPackagePWA(pwaURL, manifestURL, bar)
 		if err != nil {
 			fmt.Fprintln(cmd.ErrOrStderr(), "Error downloading and packaging PWA:", err)
 			return

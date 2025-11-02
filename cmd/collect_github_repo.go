@@ -13,6 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	// GitCloner is the git cloner used by the command. It can be replaced for testing.
+	GitCloner = vcs.NewGitCloner()
+)
+
 // collectGithubRepoCmd represents the collect github repo command
 var collectGithubRepoCmd = &cobra.Command{
 	Use:   "repo [repository-url]",
@@ -35,7 +40,7 @@ var collectGithubRepoCmd = &cobra.Command{
 			progressWriter = ui.NewProgressWriter(bar)
 		}
 
-		dn, err := vcs.CloneGitRepository(repoURL, progressWriter)
+		dn, err := GitCloner.CloneGitRepository(repoURL, progressWriter)
 		if err != nil {
 			fmt.Fprintln(cmd.ErrOrStderr(), "Error cloning repository:", err)
 			return
