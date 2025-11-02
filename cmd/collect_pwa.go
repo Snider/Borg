@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Snider/Borg/pkg/matrix"
 	"github.com/Snider/Borg/pkg/pwa"
 	"github.com/Snider/Borg/pkg/ui"
 
@@ -21,6 +22,7 @@ Example:
 	Run: func(cmd *cobra.Command, args []string) {
 		pwaURL, _ := cmd.Flags().GetString("uri")
 		outputFile, _ := cmd.Flags().GetString("output")
+		format, _ := cmd.Flags().GetString("format")
 
 		if pwaURL == "" {
 			fmt.Println("Error: uri is required")
@@ -42,13 +44,27 @@ Example:
 			return
 		}
 
-		pwaData, err := dn.ToTar()
-		if err != nil {
-			fmt.Printf("Error converting PWA to bytes: %v\n", err)
-			return
+		var data []byte
+		if format == "matrix" {
+			matrix, err := matrix.FromDataNode(dn)
+			if err != nil {
+				fmt.Printf("Error creating matrix: %v\n", err)
+				return
+			}
+			data, err = matrix.ToTar()
+			if err != nil {
+				fmt.Printf("Error serializing matrix: %v\n", err)
+				return
+			}
+		} else {
+			data, err = dn.ToTar()
+			if err != nil {
+				fmt.Printf("Error serializing DataNode: %v\n", err)
+				return
+			}
 		}
 
-		err = os.WriteFile(outputFile, pwaData, 0644)
+		err = os.WriteFile(outputFile, data, 0644)
 		if err != nil {
 			fmt.Printf("Error writing PWA to file: %v\n", err)
 			return
@@ -62,4 +78,5 @@ func init() {
 	collectCmd.AddCommand(collectPWACmd)
 	collectPWACmd.Flags().String("uri", "", "The URI of the PWA to collect")
 	collectPWACmd.Flags().String("output", "pwa.dat", "Output file for the DataNode")
+	collectPWACmd.Flags().String("format", "datanode", "Output format (datanode or matrix)")
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Snider/Borg/pkg/matrix"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/vcs"
 
@@ -19,6 +20,7 @@ var collectGithubRepoCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		repoURL := args[0]
 		outputFile, _ := cmd.Flags().GetString("output")
+		format, _ := cmd.Flags().GetString("format")
 
 		bar := ui.NewProgressBar(-1, "Cloning repository")
 		defer bar.Finish()
@@ -29,10 +31,24 @@ var collectGithubRepoCmd = &cobra.Command{
 			return
 		}
 
-		data, err := dn.ToTar()
-		if err != nil {
-			fmt.Printf("Error serializing DataNode: %v\n", err)
-			return
+		var data []byte
+		if format == "matrix" {
+			matrix, err := matrix.FromDataNode(dn)
+			if err != nil {
+				fmt.Printf("Error creating matrix: %v\n", err)
+				return
+			}
+			data, err = matrix.ToTar()
+			if err != nil {
+				fmt.Printf("Error serializing matrix: %v\n", err)
+				return
+			}
+		} else {
+			data, err = dn.ToTar()
+			if err != nil {
+				fmt.Printf("Error serializing DataNode: %v\n", err)
+				return
+			}
 		}
 
 		err = os.WriteFile(outputFile, data, 0644)
@@ -48,4 +64,5 @@ var collectGithubRepoCmd = &cobra.Command{
 func init() {
 	collectGithubCmd.AddCommand(collectGithubRepoCmd)
 	collectGithubRepoCmd.PersistentFlags().String("output", "repo.dat", "Output file for the DataNode")
+	collectGithubRepoCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
 }

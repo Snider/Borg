@@ -19,6 +19,7 @@ borg collect github repo [repository-url] [flags]
 
 **Flags:**
 - `--output string`: Output file for the DataNode (default "repo.dat")
+- `--format string`: Output format (datanode or matrix) (default "datanode")
 
 **Example:**
 ```
@@ -37,6 +38,7 @@ borg collect website [url] [flags]
 **Flags:**
 - `--output string`: Output file for the DataNode (default "website.dat")
 - `--depth int`: Recursion depth for downloading (default 2)
+- `--format string`: Output format (datanode or matrix) (default "datanode")
 
 **Example:**
 ```
@@ -55,6 +57,7 @@ borg collect pwa [flags]
 **Flags:**
 - `--uri string`: The URI of the PWA to collect
 - `--output string`: Output file for the DataNode (default "pwa.dat")
+- `--format string`: Output format (datanode or matrix) (default "datanode")
 
 **Example:**
 ```
@@ -76,6 +79,30 @@ borg serve [file] [flags]
 **Example:**
 ```
 ./borg serve squoosh.dat --port 8888
+```
+
+## Terminal Isolation Matrix
+
+The `matrix` format creates a `runc` compatible bundle. This bundle can be executed by `runc` to create a container with the collected files. This is useful for creating isolated environments for testing or analysis.
+
+To create a Matrix, use the `--format matrix` flag with any of the `collect` subcommands.
+
+**Example:**
+```
+./borg collect github repo https://github.com/Snider/Borg --output borg.matrix --format matrix
+```
+
+You can then execute the Matrix with `runc`:
+```
+# Create a directory for the bundle
+mkdir borg-bundle
+
+# Unpack the matrix into the bundle directory
+tar -xf borg.matrix -C borg-bundle
+
+# Run the bundle
+cd borg-bundle
+runc run borg
 ```
 
 ## Inspecting a DataNode
