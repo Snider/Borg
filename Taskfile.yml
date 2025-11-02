@@ -22,7 +22,7 @@ tasks:
       - build
   test:
     cmds:
-      - go test ./...
+      - go test -coverprofile=coverage.txt ./...
   test-e2e:
     cmds:
       - task: build
