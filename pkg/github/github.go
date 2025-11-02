@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
+
+	"golang.org/x/oauth2"
 )
 
 type Repo struct {
@@ -16,7 +19,19 @@ func GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error) {
 	return GetPublicReposWithAPIURL(ctx, "https://api.github.com", userOrOrg)
 }
 
+func newAuthenticatedClient(ctx context.Context) *http.Client {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		return http.DefaultClient
+	}
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: token},
+	)
+	return oauth2.NewClient(ctx, ts)
+}
+
 func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]string, error) {
+	client := newAuthenticatedClient(ctx)
 	var allCloneURLs []string
 	url := fmt.Sprintf("%s/users/%s/repos", apiURL, userOrOrg)
 
@@ -26,7 +41,7 @@ func GetPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]
 			return nil, err
 		}
 		req.Header.Set("User-Agent", "Borg-Data-Collector")
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}

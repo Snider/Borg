@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"bytes"
-	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,6 +23,7 @@ var collectGithubReleaseCmd = &cobra.Command{
 	Long:  `Download the latest release of a file from GitHub releases. If the file or URL has a version number, it will check for a higher version and download it if found.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		log := cmd.Context().Value("logger").(*slog.Logger)
 		repoURL := args[0]
 		outputDir, _ := cmd.Flags().GetString("output")
 		pack, _ := cmd.Flags().GetBool("pack")
@@ -31,25 +32,25 @@ var collectGithubReleaseCmd = &cobra.Command{
 
 		owner, repo, err := borg_github.ParseRepoFromURL(repoURL)
 		if err != nil {
-			fmt.Printf("Error parsing repository URL: %v\n", err)
+			log.Error("failed to parse repository url", "err", err)
 			return
 		}
 
 		release, err := borg_github.GetLatestRelease(owner, repo)
 		if err != nil {
-			fmt.Printf("Error getting latest release: %v\n", err)
+			log.Error("failed to get latest release", "err", err)
 			return
 		}
 
-		fmt.Printf("Found latest release: %s\n", release.GetTagName())
+		log.Info("found latest release", "tag", release.GetTagName())
 
 		if version != "" {
 			if !semver.IsValid(version) {
-				fmt.Printf("Invalid version string: %s\n", version)
+				log.Error("invalid version string", "version", version)
 				return
 			}
 			if semver.Compare(release.GetTagName(), version) <= 0 {
-				fmt.Printf("Latest release (%s) is not newer than the provided version (%s).\n", release.GetTagName(), version)
+				log.Info("latest release is not newer than the provided version", "latest", release.GetTagName(), "provided", version)
 				return
 			}
 		}
@@ -57,24 +58,24 @@ var collectGithubReleaseCmd = &cobra.Command{
 		if pack {
 			dn := datanode.New()
 			for _, asset := range release.Assets {
-				fmt.Printf("Downloading asset: %s\n", asset.GetName())
+				log.Info("downloading asset", "name", asset.GetName())
 				resp, err := http.Get(asset.GetBrowserDownloadURL())
 				if err != nil {
-					fmt.Printf("Error downloading asset: %v\n", err)
+					log.Error("failed to download asset", "name", asset.GetName(), "err", err)
 					continue
 				}
 				defer resp.Body.Close()
 				var buf bytes.Buffer
 				_, err = io.Copy(&buf, resp.Body)
 				if err != nil {
-					fmt.Printf("Error reading asset: %v\n", err)
+					log.Error("failed to read asset", "name", asset.GetName(), "err", err)
 					continue
 				}
 				dn.AddData(asset.GetName(), buf.Bytes())
 			}
 			tar, err := dn.ToTar()
 			if err != nil {
-				fmt.Printf("Error creating DataNode: %v\n", err)
+				log.Error("failed to create datanode", "err", err)
 				return
 			}
 			outputFile := outputDir
@@ -83,13 +84,13 @@ var collectGithubReleaseCmd = &cobra.Command{
 			}
 			err = os.WriteFile(outputFile, tar, 0644)
 			if err != nil {
-				fmt.Printf("Error writing DataNode: %v\n", err)
+				log.Error("failed to write datanode", "err", err)
 				return
 			}
-			fmt.Printf("DataNode saved to %s\n", outputFile)
+			log.Info("datanode saved", "path", outputFile)
 		} else {
 			if len(release.Assets) == 0 {
-				fmt.Println("No assets found in the latest release.")
+				log.Info("no assets found in the latest release")
 				return
 			}
 			var assetToDownload *gh.ReleaseAsset
@@ -101,20 +102,20 @@ var collectGithubReleaseCmd = &cobra.Command{
 					}
 				}
 				if assetToDownload == nil {
-					fmt.Printf("Asset '%s' not found in the latest release.\n", file)
+					log.Error("asset not found in the latest release", "asset", file)
 					return
 				}
 			} else {
 				assetToDownload = release.Assets[0]
 			}
 			outputPath := filepath.Join(outputDir, assetToDownload.GetName())
-			fmt.Printf("Downloading asset: %s\n", assetToDownload.GetName())
+			log.Info("downloading asset", "name", assetToDownload.GetName())
 			err = borg_github.DownloadReleaseAsset(assetToDownload, outputPath)
 			if err != nil {
-				fmt.Printf("Error downloading asset: %v\n", err)
+				log.Error("failed to download asset", "name", assetToDownload.GetName(), "err", err)
 				return
 			}
-			fmt.Printf("Asset downloaded to %s\n", outputPath)
+			log.Info("asset downloaded", "path", outputPath)
 		}
 	},
 }

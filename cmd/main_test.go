@@ -1,18 +1,18 @@
 package cmd
 
 import (
+	"log/slog"
+	"os"
 	"testing"
 )
 
 func TestExecute(t *testing.T) {
 	// This test simply checks that the Execute function can be called without error.
 	// It doesn't actually test any of the application's functionality.
-	rootCmd.SetArgs([]string{})
-	t.Cleanup(func() {
-		rootCmd.SetArgs(nil)
-	})
-	if err := Execute(); err != nil {
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	if err := Execute(log); err != nil {
 		t.Errorf("Execute() failed: %v", err)
 	}
-}
 }

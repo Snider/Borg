@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -19,26 +20,27 @@ var allCmd = &cobra.Command{
 	Long:  `Collect all public repositories from a user or organization and store them in a DataNode.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		log := cmd.Context().Value("logger").(*slog.Logger)
 		repos, err := github.GetPublicRepos(context.Background(), args[0])
 		if err != nil {
-			fmt.Println(err)
+			log.Error("failed to get public repos", "err", err)
 			return
 		}
 
 		outputDir, _ := cmd.Flags().GetString("output")
 
 		for _, repoURL := range repos {
-			fmt.Printf("Cloning %s...\n", repoURL)
+			log.Info("cloning repository", "url", repoURL)
 
 			dn, err := vcs.CloneGitRepository(repoURL)
 			if err != nil {
-				fmt.Printf("Error cloning %s: %s\n", repoURL, err)
+				log.Error("failed to clone repository", "url", repoURL, "err", err)
 				continue
 			}
 
 			data, err := dn.ToTar()
 			if err != nil {
-				fmt.Printf("Error serializing DataNode for %s: %v\n", repoURL, err)
+				log.Error("failed to serialize datanode", "url", repoURL, "err", err)
 				continue
 			}
 
@@ -46,7 +48,7 @@ var allCmd = &cobra.Command{
 			outputFile := fmt.Sprintf("%s/%s.dat", outputDir, repoName)
 			err = os.WriteFile(outputFile, data, 0644)
 			if err != nil {
-				fmt.Printf("Error writing DataNode for %s to file: %v\n", repoURL, err)
+				log.Error("failed to write datanode to file", "url", repoURL, "err", err)
 				continue
 			}
 		}
@@ -54,6 +56,6 @@ var allCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(allCmd)
+	RootCmd.AddCommand(allCmd)
 	allCmd.PersistentFlags().String("output", ".", "Output directory for the DataNodes")
 }
