@@ -12,6 +12,9 @@ func NewProgressWriter(bar *progressbar.ProgressBar) *progressWriter {
 }
 
 func (pw *progressWriter) Write(p []byte) (n int, err error) {
+	if pw == nil || pw.bar == nil {
+		return len(p), nil
+	}
 	s := string(p)
 	pw.bar.Describe(s)
 	return len(p), nil

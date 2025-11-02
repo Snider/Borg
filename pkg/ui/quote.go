@@ -5,10 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/Snider/Borg/data"
 	"github.com/fatih/color"
+)
+
+var (
+	cachedQuotes *Quotes
+	quotesOnce   sync.Once
+	quotesErr    error
 )
 
 func init() {
@@ -49,8 +56,15 @@ func loadQuotes() (*Quotes, error) {
 	return &quotes, nil
 }
 
+func getQuotes() (*Quotes, error) {
+	quotesOnce.Do(func() {
+		cachedQuotes, quotesErr = loadQuotes()
+	})
+	return cachedQuotes, quotesErr
+}
+
 func GetRandomQuote() (string, error) {
-	quotes, err := loadQuotes()
+	quotes, err := getQuotes()
 	if err != nil {
 		return "", err
 	}
@@ -62,6 +76,10 @@ func GetRandomQuote() (string, error) {
 	allQuotes = append(allQuotes, quotes.VCSProcessing...)
 	allQuotes = append(allQuotes, quotes.PWAProcessing...)
 	allQuotes = append(allQuotes, quotes.CodeRelatedLong...)
+
+	if len(allQuotes) == 0 {
+		return "", fmt.Errorf("no quotes available")
+	}
 
 	return allQuotes[rand.Intn(len(allQuotes))], nil
 }
@@ -77,25 +95,34 @@ func PrintQuote() {
 }
 
 func GetVCSQuote() (string, error) {
-	quotes, err := loadQuotes()
+	quotes, err := getQuotes()
 	if err != nil {
 		return "", err
+	}
+	if len(quotes.VCSProcessing) == 0 {
+		return "", fmt.Errorf("no VCS quotes available")
 	}
 	return quotes.VCSProcessing[rand.Intn(len(quotes.VCSProcessing))], nil
 }
 
 func GetPWAQuote() (string, error) {
-	quotes, err := loadQuotes()
+	quotes, err := getQuotes()
 	if err != nil {
 		return "", err
+	}
+	if len(quotes.PWAProcessing) == 0 {
+		return "", fmt.Errorf("no PWA quotes available")
 	}
 	return quotes.PWAProcessing[rand.Intn(len(quotes.PWAProcessing))], nil
 }
 
 func GetWebsiteQuote() (string, error) {
-	quotes, err := loadQuotes()
+	quotes, err := getQuotes()
 	if err != nil {
 		return "", err
+	}
+	if len(quotes.CodeRelatedLong) == 0 {
+		return "", fmt.Errorf("no website quotes available")
 	}
 	return quotes.CodeRelatedLong[rand.Intn(len(quotes.CodeRelatedLong))], nil
 }

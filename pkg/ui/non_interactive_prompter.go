@@ -4,6 +4,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/fatih/color"
@@ -11,18 +12,29 @@ import (
 )
 
 type NonInteractivePrompter struct {
-	stopChan    chan bool
+	stopChan    chan struct{}
 	quoteFunc   func() (string, error)
+	started     bool
+	mu          sync.Mutex
+	stopOnce    sync.Once
 }
 
 func NewNonInteractivePrompter(quoteFunc func() (string, error)) *NonInteractivePrompter {
 	return &NonInteractivePrompter{
-		stopChan:    make(chan bool),
+		stopChan:    make(chan struct{}),
 		quoteFunc:   quoteFunc,
 	}
 }
 
 func (p *NonInteractivePrompter) Start() {
+	p.mu.Lock()
+	if p.started {
+		p.mu.Unlock()
+		return
+	}
+	p.started = true
+	p.mu.Unlock()
+
 	if p.IsInteractive() {
 		return // Don't start in interactive mode
 	}
@@ -39,7 +51,7 @@ func (p *NonInteractivePrompter) Start() {
 				quote, err := p.quoteFunc()
 				if err != nil {
 					fmt.Println("Error getting quote:", err)
-					return
+					continue
 				}
 				c := color.New(color.FgGreen)
 				c.Println(quote)
@@ -49,10 +61,12 @@ func (p *NonInteractivePrompter) Start() {
 }
 
 func (p *NonInteractivePrompter) Stop() {
-	if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+	if p.IsInteractive() {
 		return
 	}
-	p.stopChan <- true
+	p.stopOnce.Do(func() {
+		close(p.stopChan)
+	})
 }
 
 func (p *NonInteractivePrompter) IsInteractive() bool {
