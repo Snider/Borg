@@ -10,7 +10,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-func newTestPWAClient(serverURL string) PWAClient {
+func newTestPWAClient() PWAClient {
 	return &pwaClient{
 		client: &http.Client{
 			Transport: &http.Transport{
