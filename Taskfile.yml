@@ -7,7 +7,7 @@ tasks:
   build:
     cmds:
       - task: clean
-      - GOOS=linux GOARCH=amd64 go build -o borg main.go
+      - go build -o borg main.go
     sources:
       - main.go
       - ./pkg/**/*.go

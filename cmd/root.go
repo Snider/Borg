@@ -9,14 +9,12 @@ import (
 
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "borg-data-collector",
+		Use:   "borg",
 		Short: "A tool for collecting and managing data.",
 		Long: `Borg Data Collector is a command-line tool for cloning Git repositories,
 packaging their contents into a single file, and managing the data within.`,
 	}
-	rootCmd.AddCommand(allCmd)
-	rootCmd.AddCommand(collectCmd)
-	rootCmd.AddCommand(serveCmd)
+
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose logging")
 	return rootCmd
 }

@@ -1,4 +1,3 @@
-
 package ui
 
 import (
@@ -12,17 +11,17 @@ import (
 )
 
 type NonInteractivePrompter struct {
-	stopChan    chan struct{}
-	quoteFunc   func() (string, error)
-	started     bool
-	mu          sync.Mutex
-	stopOnce    sync.Once
+	stopChan  chan struct{}
+	quoteFunc func() (string, error)
+	started   bool
+	mu        sync.Mutex
+	stopOnce  sync.Once
 }
 
 func NewNonInteractivePrompter(quoteFunc func() (string, error)) *NonInteractivePrompter {
 	return &NonInteractivePrompter{
-		stopChan:    make(chan struct{}),
-		quoteFunc:   quoteFunc,
+		stopChan:  make(chan struct{}),
+		quoteFunc: quoteFunc,
 	}
 }
 
@@ -35,9 +34,9 @@ func (p *NonInteractivePrompter) Start() {
 	p.started = true
 	p.mu.Unlock()
 
-	if p.IsInteractive() {
-		return // Don't start in interactive mode
-	}
+	//if p.IsInteractive() {
+	//	return // Don't start in interactive mode
+	//}
 
 	go func() {
 		ticker := time.NewTicker(3 * time.Second)

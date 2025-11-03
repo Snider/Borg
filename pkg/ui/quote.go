@@ -1,4 +1,3 @@
-
 package ui
 
 import (
@@ -8,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Snider/Borg/data"
 	"github.com/fatih/color"
 )
 
@@ -44,7 +42,7 @@ type Quotes struct {
 }
 
 func loadQuotes() (*Quotes, error) {
-	quotesFile, err := data.QuotesJSON.ReadFile("quotes.json")
+	quotesFile, err := QuotesJSON.ReadFile("quotes.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read quotes.json: %w", err)
 	}
