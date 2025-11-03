@@ -14,39 +14,39 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// collectGithubReleaseCmd represents the collect github-release command
-var collectGithubReleaseCmd = &cobra.Command{
-	Use:   "release [repository-url]",
-	Short: "Download the latest release of a file from GitHub releases",
-	Long:  `Download the latest release of a file from GitHub releases. If the file or URL has a version number, it will check for a higher version and download it if found.`,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		logVal := cmd.Context().Value("logger")
-		log, ok := logVal.(*slog.Logger)
-		if !ok || log == nil {
-			return errors.New("logger not properly initialised")
-		}
-		repoURL := args[0]
-		outputDir, _ := cmd.Flags().GetString("output")
-		pack, _ := cmd.Flags().GetBool("pack")
-		file, _ := cmd.Flags().GetString("file")
-		version, _ := cmd.Flags().GetString("version")
+func NewCollectGithubReleaseCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "release [repository-url]",
+		Short: "Download the latest release of a file from GitHub releases",
+		Long:  `Download the latest release of a file from GitHub releases. If the file or URL has a version number, it will check for a higher version and download it if found.`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			logVal := cmd.Context().Value("logger")
+			log, ok := logVal.(*slog.Logger)
+			if !ok || log == nil {
+				return errors.New("logger not properly initialised")
+			}
+			repoURL := args[0]
+			outputDir, _ := cmd.Flags().GetString("output")
+			pack, _ := cmd.Flags().GetBool("pack")
+			file, _ := cmd.Flags().GetString("file")
+			version, _ := cmd.Flags().GetString("version")
 
-		_, err := GetRelease(log, repoURL, outputDir, pack, file, version)
-		return err
-	},
+			_, err := GetRelease(log, repoURL, outputDir, pack, file, version)
+			return err
+		},
+	}
+	cmd.PersistentFlags().String("output", ".", "Output directory for the downloaded file")
+	cmd.PersistentFlags().Bool("pack", false, "Pack all assets into a DataNode")
+	cmd.PersistentFlags().String("file", "", "The file to download from the release")
+	cmd.PersistentFlags().String("version", "", "The version to check against")
+	return cmd
 }
 
 func init() {
-	collectGithubCmd.AddCommand(collectGithubReleaseCmd)
-	collectGithubReleaseCmd.PersistentFlags().String("output", ".", "Output directory for the downloaded file")
-	collectGithubReleaseCmd.PersistentFlags().Bool("pack", false, "Pack all assets into a DataNode")
-	collectGithubReleaseCmd.PersistentFlags().String("file", "", "The file to download from the release")
-	collectGithubReleaseCmd.PersistentFlags().String("version", "", "The version to check against")
+	collectGithubCmd.AddCommand(NewCollectGithubReleaseCmd())
 }
-func NewCollectGithubReleaseCmd() *cobra.Command {
-	return collectGithubReleaseCmd
-}
+
 func GetRelease(log *slog.Logger, repoURL string, outputDir string, pack bool, file string, version string) (*github.RepositoryRelease, error) {
 	owner, repo, err := borg_github.ParseRepoFromURL(repoURL)
 	if err != nil {
@@ -61,26 +61,37 @@ func GetRelease(log *slog.Logger, repoURL string, outputDir string, pack bool, f
 	log.Info("found latest release", "tag", release.GetTagName())
 
 	if version != "" {
-		if !semver.IsValid(version) {
-			return nil, fmt.Errorf("invalid version string: %s", version)
-		}
-		if semver.Compare(release.GetTagName(), version) <= 0 {
-			log.Info("latest release is not newer than the provided version", "latest", release.GetTagName(), "provided", version)
-			return nil, nil
+		tag := release.GetTagName()
+		if !semver.IsValid(tag) {
+			log.Info("latest release tag is not a valid semantic version, skipping comparison", "tag", tag)
+		} else {
+			if !semver.IsValid(version) {
+				return nil, fmt.Errorf("invalid version string: %s", version)
+			}
+			if semver.Compare(tag, version) <= 0 {
+				log.Info("latest release is not newer than the provided version", "latest", tag, "provided", version)
+				return nil, nil
+			}
 		}
 	}
 
 	if pack {
 		dn := datanode.New()
+		var failedAssets []string
 		for _, asset := range release.Assets {
 			log.Info("downloading asset", "name", asset.GetName())
 			data, err := borg_github.DownloadReleaseAsset(asset)
 			if err != nil {
 				log.Error("failed to download asset", "name", asset.GetName(), "err", err)
+				failedAssets = append(failedAssets, asset.GetName())
 				continue
 			}
 			dn.AddData(asset.GetName(), data)
 		}
+		if len(failedAssets) > 0 {
+			return nil, fmt.Errorf("failed to download assets: %v", failedAssets)
+		}
+
 		tar, err := dn.ToTar()
 		if err != nil {
 			return nil, fmt.Errorf("failed to create datanode: %w", err)
