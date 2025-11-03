@@ -62,7 +62,6 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-// init registers the 'serve' command and its flags with the root command.
 func init() {
 	RootCmd.AddCommand(serveCmd)
 	serveCmd.PersistentFlags().String("port", "8080", "Port to serve the PWA on")

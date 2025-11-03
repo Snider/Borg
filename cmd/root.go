@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewRootCmd constructs the root cobra.Command for the Borg CLI and wires common flags.
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "borg",

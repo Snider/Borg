@@ -2,66 +2,157 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
+	"io"
+	"io/fs"
+	"net/url"
 	"os"
 	"strings"
 
+	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/matrix"
 	"github.com/Snider/Borg/pkg/ui"
-
+	"github.com/Snider/Borg/pkg/vcs"
 	"github.com/spf13/cobra"
 )
 
 // allCmd represents the all command
 var allCmd = &cobra.Command{
-	Use:   "all [user/org]",
-	Short: "Collect all public repositories from a user or organization",
-	Long:  `Collect all public repositories from a user or organization and store them in a DataNode.`,
+	Use:   "all [url]",
+	Short: "Collect all resources from a URL",
+	Long:  `Collect all resources from a URL, dispatching to the appropriate collector based on the URL type.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		logVal := cmd.Context().Value("logger")
-		log, ok := logVal.(*slog.Logger)
-		if !ok || log == nil {
-			fmt.Fprintln(os.Stderr, "Error: logger not properly initialised")
-			return
-		}
-		repos, err := GithubClient.GetPublicRepos(cmd.Context(), args[0])
+	RunE: func(cmd *cobra.Command, args []string) error {
+		url := args[0]
+		outputFile, _ := cmd.Flags().GetString("output")
+		format, _ := cmd.Flags().GetString("format")
+		compression, _ := cmd.Flags().GetString("compression")
+
+		owner, err := parseGithubOwner(url)
 		if err != nil {
-			log.Error("failed to get public repos", "err", err)
-			return
+			return err
 		}
 
-		outputDir, _ := cmd.Flags().GetString("output")
+		repos, err := GithubClient.GetPublicRepos(cmd.Context(), owner)
+		if err != nil {
+			return err
+		}
+
+		prompter := ui.NewNonInteractivePrompter(ui.GetVCSQuote)
+		prompter.Start()
+		defer prompter.Stop()
+
+		var progressWriter io.Writer
+		if prompter.IsInteractive() {
+			bar := ui.NewProgressBar(len(repos), "Cloning repositories")
+			progressWriter = ui.NewProgressWriter(bar)
+		}
+
+		cloner := vcs.NewGitCloner()
+		allDataNodes := datanode.New()
 
 		for _, repoURL := range repos {
-			log.Info("cloning repository", "url", repoURL)
-			bar := ui.NewProgressBar(-1, "Cloning repository")
-
-			dn, err := GitCloner.CloneGitRepository(repoURL, bar)
-			bar.Finish()
+			dn, err := cloner.CloneGitRepository(repoURL, progressWriter)
 			if err != nil {
-				log.Error("failed to clone repository", "url", repoURL, "err", err)
+				// Log the error and continue
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error cloning repository:", err)
 				continue
 			}
+			// This is not an efficient way to merge datanodes, but it's the only way for now
+			// A better approach would be to add a Merge method to the DataNode
+			repoName := strings.TrimSuffix(repoURL, ".git")
+			parts := strings.Split(repoName, "/")
+			repoName = parts[len(parts)-1]
 
-			data, err := dn.ToTar()
+			err = dn.Walk(".", func(path string, de fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if !de.IsDir() {
+					err := func() error {
+						file, err := dn.Open(path)
+						if err != nil {
+							return err
+						}
+						defer file.Close()
+						data, err := io.ReadAll(file)
+						if err != nil {
+							return err
+						}
+						allDataNodes.AddData(repoName+"/"+path, data)
+						return nil
+					}()
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
 			if err != nil {
-				log.Error("failed to serialize datanode", "url", repoURL, "err", err)
-				continue
-			}
-
-			repoName := strings.Split(repoURL, "/")[len(strings.Split(repoURL, "/"))-1]
-			outputFile := fmt.Sprintf("%s/%s.dat", outputDir, repoName)
-			err = os.WriteFile(outputFile, data, 0644)
-			if err != nil {
-				log.Error("failed to write datanode to file", "url", repoURL, "err", err)
+				fmt.Fprintln(cmd.ErrOrStderr(), "Error walking datanode:", err)
 				continue
 			}
 		}
+
+		var data []byte
+		if format == "matrix" {
+			matrix, err := matrix.FromDataNode(allDataNodes)
+			if err != nil {
+				return fmt.Errorf("error creating matrix: %w", err)
+			}
+			data, err = matrix.ToTar()
+			if err != nil {
+				return fmt.Errorf("error serializing matrix: %w", err)
+			}
+		} else {
+			data, err = allDataNodes.ToTar()
+			if err != nil {
+				return fmt.Errorf("error serializing DataNode: %w", err)
+			}
+		}
+
+		compressedData, err := compress.Compress(data, compression)
+		if err != nil {
+			return fmt.Errorf("error compressing data: %w", err)
+		}
+
+		err = os.WriteFile(outputFile, compressedData, 0644)
+		if err != nil {
+			return fmt.Errorf("error writing DataNode to file: %w", err)
+		}
+
+		fmt.Fprintln(cmd.OutOrStdout(), "All repositories saved to", outputFile)
+
+		return nil
 	},
 }
 
-// init registers the 'all' command and its flags with the root command.
 func init() {
 	RootCmd.AddCommand(allCmd)
-	allCmd.PersistentFlags().String("output", ".", "Output directory for the DataNodes")
+	allCmd.PersistentFlags().String("output", "all.dat", "Output file for the DataNode")
+	allCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
+	allCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
+}
+
+func parseGithubOwner(u string) (string, error) {
+	owner, _, err := github.ParseRepoFromURL(u)
+	if err == nil {
+		return owner, nil
+	}
+
+	parsedURL, err := url.Parse(u)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+
+	path := strings.Trim(parsedURL.Path, "/")
+	if path == "" {
+		return "", fmt.Errorf("invalid owner URL: %s", u)
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) != 1 || parts[0] == "" {
+		return "", fmt.Errorf("invalid owner URL: %s", u)
+	}
+	return parts[0], nil
 }

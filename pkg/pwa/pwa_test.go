@@ -1,32 +1,15 @@
 package pwa
 
 import (
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/schollz/progressbar/v3"
 )
 
-func newTestPWAClient(serverURL string) PWAClient {
-	return &pwaClient{
-		client: &http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-				DialContext: (&net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-				ForceAttemptHTTP2:     true,
-				MaxIdleConns:          100,
-				IdleConnTimeout:       90 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
-			},
-		},
-	}
+func newTestPWAClient() PWAClient {
+	return NewPWAClient()
 }
 
 func TestFindManifest(t *testing.T) {
@@ -47,7 +30,7 @@ func TestFindManifest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestPWAClient(server.URL)
+	client := newTestPWAClient()
 	expectedURL := server.URL + "/manifest.json"
 	actualURL, err := client.FindManifest(server.URL)
 	if err != nil {
@@ -102,7 +85,7 @@ func TestDownloadAndPackagePWA(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestPWAClient(server.URL)
+	client := newTestPWAClient()
 	bar := progressbar.New(1)
 	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", bar)
 	if err != nil {
@@ -111,6 +94,7 @@ func TestDownloadAndPackagePWA(t *testing.T) {
 
 	expectedFiles := []string{"manifest.json", "index.html", "icon.png"}
 	for _, file := range expectedFiles {
+		// The path in the datanode is relative to the root of the domain, so we need to remove the leading slash.
 		exists, err := dn.Exists(file)
 		if err != nil {
 			t.Fatalf("Exists failed for %s: %v", file, err)
@@ -122,7 +106,7 @@ func TestDownloadAndPackagePWA(t *testing.T) {
 }
 
 func TestResolveURL(t *testing.T) {
-	client := NewPWAClient()
+	client := NewPWAClient().(*pwaClient)
 	tests := []struct {
 		base string
 		ref  string
@@ -137,7 +121,7 @@ func TestResolveURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := client.(*pwaClient).resolveURL(tt.base, tt.ref)
+		got, err := client.resolveURL(tt.base, tt.ref)
 		if err != nil {
 			t.Errorf("resolveURL(%q, %q) returned error: %v", tt.base, tt.ref, err)
 			continue
@@ -145,5 +129,37 @@ func TestResolveURL(t *testing.T) {
 		if got.String() != tt.want {
 			t.Errorf("resolveURL(%q, %q) = %q, want %q", tt.base, tt.ref, got.String(), tt.want)
 		}
+	}
+}
+
+func TestPWA_Bad(t *testing.T) {
+	client := NewPWAClient()
+
+	// Test FindManifest with no manifest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<title>Test PWA</title>
+			</head>
+			<body>
+				<h1>Hello, PWA!</h1>
+			</body>
+			</html>
+		`))
+	}))
+	defer server.Close()
+
+	_, err := client.FindManifest(server.URL)
+	if err == nil {
+		t.Fatalf("expected an error, but got none")
+	}
+
+	// Test DownloadAndPackagePWA with bad manifest
+	_, err = client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
+	if err == nil {
+		t.Fatalf("expected an error, but got none")
 	}
 }
