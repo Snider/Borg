@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"strings"
 
@@ -28,14 +29,9 @@ var allCmd = &cobra.Command{
 		format, _ := cmd.Flags().GetString("format")
 		compression, _ := cmd.Flags().GetString("compression")
 
-		// For now, we only support github user/org urls
-		if !strings.Contains(url, "github.com") {
-			return fmt.Errorf("unsupported URL type: %s", url)
-		}
-
-		owner, _, err := github.ParseRepoFromURL(url)
+		owner, err := parseGithubOwner(url)
 		if err != nil {
-			return fmt.Errorf("failed to parse repository url: %w", err)
+			return err
 		}
 
 		repos, err := GithubClient.GetPublicRepos(cmd.Context(), owner)
@@ -65,21 +61,31 @@ var allCmd = &cobra.Command{
 			}
 			// This is not an efficient way to merge datanodes, but it's the only way for now
 			// A better approach would be to add a Merge method to the DataNode
+			repoName := strings.TrimSuffix(repoURL, ".git")
+			parts := strings.Split(repoName, "/")
+			repoName = parts[len(parts)-1]
+
 			err = dn.Walk(".", func(path string, de fs.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
 				if !de.IsDir() {
-					file, err := dn.Open(path)
+					err := func() error {
+						file, err := dn.Open(path)
+						if err != nil {
+							return err
+						}
+						defer file.Close()
+						data, err := io.ReadAll(file)
+						if err != nil {
+							return err
+						}
+						allDataNodes.AddData(repoName+"/"+path, data)
+						return nil
+					}()
 					if err != nil {
 						return err
 					}
-					defer file.Close()
-					data, err := io.ReadAll(file)
-					if err != nil {
-						return err
-					}
-					allDataNodes.AddData(path, data)
 				}
 				return nil
 			})
@@ -122,10 +128,28 @@ var allCmd = &cobra.Command{
 	},
 }
 
-// init registers the 'all' command and its flags with the root command.
 func init() {
 	RootCmd.AddCommand(allCmd)
 	allCmd.PersistentFlags().String("output", "all.dat", "Output file for the DataNode")
 	allCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
 	allCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
+}
+
+func parseGithubOwner(u string) (string, error) {
+	owner, _, err := github.ParseRepoFromURL(u)
+	if err == nil {
+		return owner, nil
+	}
+
+	parsedURL, err := url.Parse(u)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+
+	path := strings.Trim(parsedURL.Path, "/")
+	parts := strings.Split(path, "/")
+	if len(parts) != 1 {
+		return "", fmt.Errorf("invalid owner URL: %s", u)
+	}
+	return parts[0], nil
 }

@@ -13,6 +13,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	defaultFilePermission = 0644
+)
+
 var (
 	// GitCloner is the git cloner used by the command. It can be replaced for testing.
 	GitCloner = vcs.NewGitCloner()
@@ -31,6 +35,13 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 
+			if format != "datanode" && format != "matrix" {
+				return fmt.Errorf("invalid format: %s (must be 'datanode' or 'matrix')", format)
+			}
+			if compression != "none" && compression != "gz" && compression != "xz" {
+				return fmt.Errorf("invalid compression: %s (must be 'none', 'gz', or 'xz')", compression)
+			}
+
 			prompter := ui.NewNonInteractivePrompter(ui.GetVCSQuote)
 			prompter.Start()
 			defer prompter.Stop()
@@ -43,29 +54,29 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 
 			dn, err := GitCloner.CloneGitRepository(repoURL, progressWriter)
 			if err != nil {
-				return fmt.Errorf("Error cloning repository: %w", err)
+				return fmt.Errorf("error cloning repository: %w", err)
 			}
 
 			var data []byte
 			if format == "matrix" {
 				matrix, err := matrix.FromDataNode(dn)
 				if err != nil {
-					return fmt.Errorf("Error creating matrix: %w", err)
+					return fmt.Errorf("error creating matrix: %w", err)
 				}
 				data, err = matrix.ToTar()
 				if err != nil {
-					return fmt.Errorf("Error serializing matrix: %w", err)
+					return fmt.Errorf("error serializing matrix: %w", err)
 				}
 			} else {
 				data, err = dn.ToTar()
 				if err != nil {
-					return fmt.Errorf("Error serializing DataNode: %w", err)
+					return fmt.Errorf("error serializing DataNode: %w", err)
 				}
 			}
 
 			compressedData, err := compress.Compress(data, compression)
 			if err != nil {
-				return fmt.Errorf("Error compressing data: %w", err)
+				return fmt.Errorf("error compressing data: %w", err)
 			}
 
 			if outputFile == "" {
@@ -75,22 +86,21 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 				}
 			}
 
-			err = os.WriteFile(outputFile, compressedData, 0644)
+			err = os.WriteFile(outputFile, compressedData, defaultFilePermission)
 			if err != nil {
-				return fmt.Errorf("Error writing DataNode to file: %w", err)
+				return fmt.Errorf("error writing DataNode to file: %w", err)
 			}
 
 			fmt.Fprintln(cmd.OutOrStdout(), "Repository saved to", outputFile)
 			return nil
 		},
 	}
-	cmd.PersistentFlags().String("output", "", "Output file for the DataNode")
-	cmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
-	cmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
+	cmd.Flags().String("output", "", "Output file for the DataNode")
+	cmd.Flags().String("format", "datanode", "Output format (datanode or matrix)")
+	cmd.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
 	return cmd
 }
 
-// init registers the 'collect github repo' subcommand and its flags.
 func init() {
 	collectGithubCmd.AddCommand(NewCollectGithubRepoCmd())
 }

@@ -46,6 +46,9 @@ func TestParseRepoFromURL(t *testing.T) {
 }
 
 func TestGetLatestRelease(t *testing.T) {
+	oldNewClient := NewClient
+	t.Cleanup(func() { NewClient = oldNewClient })
+
 	mockClient := mocks.NewMockClient(map[string]*http.Response{
 		"https://api.github.com/repos/owner/repo/releases/latest": {
 			StatusCode: http.StatusOK,
@@ -115,6 +118,9 @@ func TestDownloadReleaseAsset_BadRequest(t *testing.T) {
 	}()
 
 	_, err := DownloadReleaseAsset(asset)
+	if err == nil {
+		t.Fatalf("expected error but got nil")
+	}
 	if err.Error() != expectedErr {
 		t.Fatalf("DownloadReleaseAsset failed: %v", err)
 	}
@@ -141,6 +147,9 @@ func TestDownloadReleaseAsset_NewRequestError(t *testing.T) {
 }
 
 func TestGetLatestRelease_Error(t *testing.T) {
+	oldNewClient := NewClient
+	t.Cleanup(func() { NewClient = oldNewClient })
+
 	u, _ := url.Parse("https://api.github.com/repos/owner/repo/releases/latest")
 	mockClient := mocks.NewMockClient(map[string]*http.Response{
 		"https://api.github.com/repos/owner/repo/releases/latest": {
@@ -181,5 +190,25 @@ func TestDownloadReleaseAsset_DoError(t *testing.T) {
 	_, err := DownloadReleaseAsset(asset)
 	if err == nil {
 		t.Fatalf("DownloadReleaseAsset should have failed")
+	}
+}
+func TestParseRepoFromURL_More(t *testing.T) {
+	testCases := []struct {
+		url       string
+		owner     string
+		repo      string
+		expectErr bool
+	}{
+		{"git:github.com:owner/repo.git", "owner", "repo", false},
+	}
+
+	for _, tc := range testCases {
+		owner, repo, err := ParseRepoFromURL(tc.url)
+		if (err != nil) != tc.expectErr {
+			t.Errorf("unexpected error for URL %s: %v", tc.url, err)
+		}
+		if owner != tc.owner || repo != tc.repo {
+			t.Errorf("unexpected owner/repo for URL %s: %s/%s", tc.url, owner, repo)
+		}
 	}
 }

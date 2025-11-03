@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/Snider/Borg/pkg/datanode"
 	borg_github "github.com/Snider/Borg/pkg/github"
@@ -38,7 +37,6 @@ var collectGithubReleaseCmd = &cobra.Command{
 	},
 }
 
-// init registers the 'collect github release' subcommand and its flags.
 func init() {
 	collectGithubCmd.AddCommand(collectGithubReleaseCmd)
 	collectGithubReleaseCmd.PersistentFlags().String("output", ".", "Output directory for the downloaded file")
@@ -87,10 +85,16 @@ func GetRelease(log *slog.Logger, repoURL string, outputDir string, pack bool, f
 		if err != nil {
 			return nil, fmt.Errorf("failed to create datanode: %w", err)
 		}
-		outputFile := outputDir
-		if !strings.HasSuffix(outputFile, ".dat") {
-			outputFile = outputFile + ".dat"
+
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create output directory: %w", err)
 		}
+		basename := release.GetTagName()
+		if basename == "" {
+			basename = "release"
+		}
+		outputFile := filepath.Join(outputDir, basename+".dat")
+
 		err = os.WriteFile(outputFile, tar, 0644)
 		if err != nil {
 			return nil, fmt.Errorf("failed to write datanode: %w", err)

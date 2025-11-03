@@ -99,6 +99,10 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 		}
 		defer resp.Body.Close()
 
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return fmt.Errorf("failed to download %s: status code %d", assetURL, resp.StatusCode)
+		}
+
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read body of %s: %w", assetURL, err)
@@ -158,13 +162,14 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 			// Skip icons with bad URLs
 			continue
 		}
-		downloadAndAdd(iconURL.String())
+		if err := downloadAndAdd(iconURL.String()); err != nil {
+			return nil, err
+		}
 	}
 
 	return dn, nil
 }
 
-// resolveURL resolves ref against base and returns the absolute URL.
 func (p *pwaClient) resolveURL(base, ref string) (*url.URL, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {

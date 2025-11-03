@@ -107,3 +107,18 @@ func TestFindNextURL(t *testing.T) {
 		t.Errorf("unexpected next URL: %s", nextURL)
 	}
 }
+
+func TestNewAuthenticatedClient(t *testing.T) {
+	// Test with no token
+	client := NewAuthenticatedClient(context.Background())
+	if client != http.DefaultClient {
+		t.Errorf("expected http.DefaultClient, but got something else")
+	}
+
+	// Test with token
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	client = NewAuthenticatedClient(context.Background())
+	if client == http.DefaultClient {
+		t.Errorf("expected an authenticated client, but got http.DefaultClient")
+	}
+}

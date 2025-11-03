@@ -35,11 +35,11 @@ Example:
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 
-			err := CollectPWA(c.PWAClient, pwaURL, outputFile, format, compression)
+			finalPath, err := CollectPWA(c.PWAClient, pwaURL, outputFile, format, compression)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "PWA saved to", outputFile)
+			fmt.Fprintln(cmd.OutOrStdout(), "PWA saved to", finalPath)
 			return nil
 		},
 	}
@@ -50,13 +50,12 @@ Example:
 	return c
 }
 
-// init registers the 'collect pwa' subcommand and its flags.
 func init() {
 	collectCmd.AddCommand(&NewCollectPWACmd().Command)
 }
-func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format string, compression string) error {
+func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format string, compression string) (string, error) {
 	if pwaURL == "" {
-		return fmt.Errorf("uri is required")
+		return "", fmt.Errorf("uri is required")
 	}
 
 	bar := ui.NewProgressBar(-1, "Finding PWA manifest")
@@ -64,34 +63,34 @@ func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format s
 
 	manifestURL, err := client.FindManifest(pwaURL)
 	if err != nil {
-		return fmt.Errorf("error finding manifest: %w", err)
+		return "", fmt.Errorf("error finding manifest: %w", err)
 	}
 	bar.Describe("Downloading and packaging PWA")
 	dn, err := client.DownloadAndPackagePWA(pwaURL, manifestURL, bar)
 	if err != nil {
-		return fmt.Errorf("error downloading and packaging PWA: %w", err)
+		return "", fmt.Errorf("error downloading and packaging PWA: %w", err)
 	}
 
 	var data []byte
 	if format == "matrix" {
 		matrix, err := matrix.FromDataNode(dn)
 		if err != nil {
-			return fmt.Errorf("error creating matrix: %w", err)
+			return "", fmt.Errorf("error creating matrix: %w", err)
 		}
 		data, err = matrix.ToTar()
 		if err != nil {
-			return fmt.Errorf("error serializing matrix: %w", err)
+			return "", fmt.Errorf("error serializing matrix: %w", err)
 		}
 	} else {
 		data, err = dn.ToTar()
 		if err != nil {
-			return fmt.Errorf("error serializing DataNode: %w", err)
+			return "", fmt.Errorf("error serializing DataNode: %w", err)
 		}
 	}
 
 	compressedData, err := compress.Compress(data, compression)
 	if err != nil {
-		return fmt.Errorf("error compressing data: %w", err)
+		return "", fmt.Errorf("error compressing data: %w", err)
 	}
 
 	if outputFile == "" {
@@ -103,7 +102,7 @@ func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format s
 
 	err = os.WriteFile(outputFile, compressedData, 0644)
 	if err != nil {
-		return fmt.Errorf("error writing PWA to file: %w", err)
+		return "", fmt.Errorf("error writing PWA to file: %w", err)
 	}
-	return nil
+	return outputFile, nil
 }

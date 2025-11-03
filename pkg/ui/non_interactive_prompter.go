@@ -10,8 +10,6 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-// NonInteractivePrompter periodically prints status quotes when the terminal is non-interactive.
-// It is intended to give the user feedback during long-running operations.
 type NonInteractivePrompter struct {
 	stopChan  chan struct{}
 	quoteFunc func() (string, error)
@@ -20,8 +18,6 @@ type NonInteractivePrompter struct {
 	stopOnce  sync.Once
 }
 
-// NewNonInteractivePrompter returns a new NonInteractivePrompter that will call
-// the provided quoteFunc to retrieve text to display.
 func NewNonInteractivePrompter(quoteFunc func() (string, error)) *NonInteractivePrompter {
 	return &NonInteractivePrompter{
 		stopChan:  make(chan struct{}),
@@ -29,7 +25,6 @@ func NewNonInteractivePrompter(quoteFunc func() (string, error)) *NonInteractive
 	}
 }
 
-// Start begins the periodic display of quotes until Stop is called.
 func (p *NonInteractivePrompter) Start() {
 	p.mu.Lock()
 	if p.started {
@@ -64,7 +59,6 @@ func (p *NonInteractivePrompter) Start() {
 	}()
 }
 
-// Stop signals the prompter to stop printing further messages.
 func (p *NonInteractivePrompter) Stop() {
 	if p.IsInteractive() {
 		return
@@ -74,7 +68,6 @@ func (p *NonInteractivePrompter) Stop() {
 	})
 }
 
-// IsInteractive reports whether stdout is attached to an interactive terminal.
 func (p *NonInteractivePrompter) IsInteractive() bool {
 	return isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
 }

@@ -11,7 +11,6 @@ var collectGithubCmd = &cobra.Command{
 	Long:  `Collect a resource from a GitHub repository, such as a repository or a release.`,
 }
 
-// init registers the GitHub collection parent command.
 func init() {
 	collectCmd.AddCommand(collectGithubCmd)
 }

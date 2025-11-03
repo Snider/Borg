@@ -8,7 +8,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-func newTestPWAClient(serverURL string) PWAClient {
+func newTestPWAClient() PWAClient {
 	return NewPWAClient()
 }
 
@@ -30,7 +30,7 @@ func TestFindManifest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestPWAClient(server.URL)
+	client := newTestPWAClient()
 	expectedURL := server.URL + "/manifest.json"
 	actualURL, err := client.FindManifest(server.URL)
 	if err != nil {
@@ -85,7 +85,7 @@ func TestDownloadAndPackagePWA(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newTestPWAClient(server.URL)
+	client := newTestPWAClient()
 	bar := progressbar.New(1)
 	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", bar)
 	if err != nil {
@@ -129,5 +129,37 @@ func TestResolveURL(t *testing.T) {
 		if got.String() != tt.want {
 			t.Errorf("resolveURL(%q, %q) = %q, want %q", tt.base, tt.ref, got.String(), tt.want)
 		}
+	}
+}
+
+func TestPWA_Bad(t *testing.T) {
+	client := NewPWAClient()
+
+	// Test FindManifest with no manifest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<title>Test PWA</title>
+			</head>
+			<body>
+				<h1>Hello, PWA!</h1>
+			</body>
+			</html>
+		`))
+	}))
+	defer server.Close()
+
+	_, err := client.FindManifest(server.URL)
+	if err == nil {
+		t.Fatalf("expected an error, but got none")
+	}
+
+	// Test DownloadAndPackagePWA with bad manifest
+	_, err = client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
+	if err == nil {
+		t.Fatalf("expected an error, but got none")
 	}
 }

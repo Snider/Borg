@@ -1,8 +1,13 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/website"
+	"github.com/schollz/progressbar/v3"
 )
 
 func TestCollectWebsiteCmd_NoArgs(t *testing.T) {
@@ -22,5 +27,41 @@ func TestCollectWebsiteCmd_NoArgs(t *testing.T) {
 func Test_NewCollectWebsiteCmd(t *testing.T) {
 	if NewCollectWebsiteCmd() == nil {
 		t.Errorf("NewCollectWebsiteCmd is nil")
+	}
+}
+
+func TestCollectWebsiteCmd_Good(t *testing.T) {
+	oldDownloadAndPackageWebsite := website.DownloadAndPackageWebsite
+	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+		return datanode.New(), nil
+	}
+	defer func() {
+		website.DownloadAndPackageWebsite = oldDownloadAndPackageWebsite
+	}()
+
+	rootCmd := NewRootCmd()
+	rootCmd.AddCommand(collectCmd)
+
+	_, err := executeCommand(rootCmd, "collect", "website", "https://example.com", "--output", "/dev/null")
+	if err != nil {
+		t.Fatalf("collect website command failed: %v", err)
+	}
+}
+
+func TestCollectWebsiteCmd_Bad(t *testing.T) {
+	oldDownloadAndPackageWebsite := website.DownloadAndPackageWebsite
+	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+		return nil, fmt.Errorf("website error")
+	}
+	defer func() {
+		website.DownloadAndPackageWebsite = oldDownloadAndPackageWebsite
+	}()
+
+	rootCmd := NewRootCmd()
+	rootCmd.AddCommand(collectCmd)
+
+	_, err := executeCommand(rootCmd, "collect", "website", "https://example.com", "--output", "/dev/null")
+	if err == nil {
+		t.Fatalf("expected an error, but got none")
 	}
 }
