@@ -11,6 +11,7 @@ var collectCmd = &cobra.Command{
 	Long:  `Collect a resource from a git repository, a website, or other URI and store it in a DataNode.`,
 }
 
+// init registers the collect command with the root.
 func init() {
 	RootCmd.AddCommand(collectCmd)
 }

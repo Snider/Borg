@@ -158,6 +158,7 @@ func (p *pwaClient) DownloadAndPackagePWA(baseURL string, manifestURL string, ba
 	return dn, nil
 }
 
+// resolveURL resolves ref against base and returns the absolute URL.
 func (p *pwaClient) resolveURL(base, ref string) (*url.URL, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {
@@ -170,6 +171,7 @@ func (p *pwaClient) resolveURL(base, ref string) (*url.URL, error) {
 	return baseURL.ResolveReference(refURL), nil
 }
 
+// downloadAndAddFile downloads fileURL and adds it to dn at internalPath, updating the progress bar.
 func (p *pwaClient) downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath string, bar *progressbar.ProgressBar) error {
 	resp, err := p.client.Get(fileURL.String())
 	if err != nil {

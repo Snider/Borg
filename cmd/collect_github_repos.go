@@ -28,6 +28,7 @@ var collectGithubReposCmd = &cobra.Command{
 	},
 }
 
+// init registers the 'collect github repos' subcommand.
 func init() {
 	collectGithubCmd.AddCommand(collectGithubReposCmd)
 }

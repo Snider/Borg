@@ -31,6 +31,8 @@ func (g *githubClient) GetPublicRepos(ctx context.Context, userOrOrg string) ([]
 	return g.getPublicReposWithAPIURL(ctx, "https://api.github.com", userOrOrg)
 }
 
+// newAuthenticatedClient returns an *http.Client that uses GITHUB_TOKEN if set.
+// When no token is present, it falls back to http.DefaultClient.
 func (g *githubClient) newAuthenticatedClient(ctx context.Context) *http.Client {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
@@ -42,6 +44,8 @@ func (g *githubClient) newAuthenticatedClient(ctx context.Context) *http.Client 
 	return oauth2.NewClient(ctx, ts)
 }
 
+// getPublicReposWithAPIURL fetches public repository clone URLs for the given user/org
+// using the provided GitHub API base URL, following pagination links as needed.
 func (g *githubClient) getPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]string, error) {
 	client := g.newAuthenticatedClient(ctx)
 	var allCloneURLs []string
@@ -106,6 +110,7 @@ func (g *githubClient) getPublicReposWithAPIURL(ctx context.Context, apiURL, use
 	return allCloneURLs, nil
 }
 
+// findNextURL parses the HTTP Link header and returns the URL with rel="next", if any.
 func (g *githubClient) findNextURL(linkHeader string) string {
 	links := strings.Split(linkHeader, ",")
 	for _, link := range links {

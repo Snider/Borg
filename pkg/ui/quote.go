@@ -16,6 +16,7 @@ var (
 	quotesErr    error
 )
 
+// init seeds the random number generator for quote selection.
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
@@ -41,6 +42,7 @@ type Quotes struct {
 	} `json:"image_related"`
 }
 
+// loadQuotes reads and unmarshals the embedded quotes.json file into a Quotes struct.
 func loadQuotes() (*Quotes, error) {
 	quotesFile, err := QuotesJSON.ReadFile("quotes.json")
 	if err != nil {
@@ -54,6 +56,7 @@ func loadQuotes() (*Quotes, error) {
 	return &quotes, nil
 }
 
+// getQuotes returns the cached Quotes, loading them once on first use.
 func getQuotes() (*Quotes, error) {
 	quotesOnce.Do(func() {
 		cachedQuotes, quotesErr = loadQuotes()
@@ -61,6 +64,7 @@ func getQuotes() (*Quotes, error) {
 	return cachedQuotes, quotesErr
 }
 
+// GetRandomQuote returns a random quote string from the combined quote sets.
 func GetRandomQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {
@@ -82,6 +86,7 @@ func GetRandomQuote() (string, error) {
 	return allQuotes[rand.Intn(len(allQuotes))], nil
 }
 
+// PrintQuote prints a random quote to stdout in green for user feedback.
 func PrintQuote() {
 	quote, err := GetRandomQuote()
 	if err != nil {
@@ -92,6 +97,7 @@ func PrintQuote() {
 	c.Println(quote)
 }
 
+// GetVCSQuote returns a random quote related to VCS processing.
 func GetVCSQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {
@@ -103,6 +109,7 @@ func GetVCSQuote() (string, error) {
 	return quotes.VCSProcessing[rand.Intn(len(quotes.VCSProcessing))], nil
 }
 
+// GetPWAQuote returns a random quote related to PWA processing.
 func GetPWAQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {
@@ -114,6 +121,7 @@ func GetPWAQuote() (string, error) {
 	return quotes.PWAProcessing[rand.Intn(len(quotes.PWAProcessing))], nil
 }
 
+// GetWebsiteQuote returns a random quote related to website processing.
 func GetWebsiteQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {

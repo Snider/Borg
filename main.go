@@ -7,6 +7,7 @@ import (
 	"github.com/Snider/Borg/pkg/logger"
 )
 
+// main is the entry point for the Borg CLI application.
 func main() {
 	verbose, _ := cmd.RootCmd.PersistentFlags().GetBool("verbose")
 	log := logger.New(verbose)
