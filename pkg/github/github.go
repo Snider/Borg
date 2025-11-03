@@ -107,6 +107,7 @@ func (g *githubClient) getPublicReposWithAPIURL(ctx context.Context, apiURL, use
 	return allCloneURLs, nil
 }
 
+// findNextURL parses the HTTP Link header and returns the URL with rel="next", if any.
 func (g *githubClient) findNextURL(linkHeader string) string {
 	links := strings.Split(linkHeader, ",")
 	for _, link := range links {

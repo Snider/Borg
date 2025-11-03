@@ -122,6 +122,7 @@ var allCmd = &cobra.Command{
 	},
 }
 
+// init registers the 'all' command and its flags with the root command.
 func init() {
 	RootCmd.AddCommand(allCmd)
 	allCmd.PersistentFlags().String("output", "all.dat", "Output file for the DataNode")

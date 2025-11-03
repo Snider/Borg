@@ -164,6 +164,7 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 	return dn, nil
 }
 
+// resolveURL resolves ref against base and returns the absolute URL.
 func (p *pwaClient) resolveURL(base, ref string) (*url.URL, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {

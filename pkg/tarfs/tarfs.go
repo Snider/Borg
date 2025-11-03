@@ -67,16 +67,23 @@ type tarFile struct {
 	modTime time.Time
 }
 
-func (f *tarFile) Close() error               { return nil }
+// Close implements http.File Close with a no-op for tar-backed files.
+func (f *tarFile) Close() error { return nil }
+
+// Read implements io.Reader by delegating to the underlying bytes.Reader.
 func (f *tarFile) Read(p []byte) (int, error) { return f.content.Read(p) }
+
+// Seek implements io.Seeker by delegating to the underlying bytes.Reader.
 func (f *tarFile) Seek(offset int64, whence int) (int64, error) {
 	return f.content.Seek(offset, whence)
 }
 
+// Readdir is unsupported for files in the tar filesystem and returns os.ErrInvalid.
 func (f *tarFile) Readdir(count int) ([]os.FileInfo, error) {
 	return nil, os.ErrInvalid
 }
 
+// Stat returns a FileInfo describing the tar-backed file.
 func (f *tarFile) Stat() (os.FileInfo, error) {
 	return &tarFileInfo{
 		name:    path.Base(f.header.Name),
@@ -92,9 +99,20 @@ type tarFileInfo struct {
 	modTime time.Time
 }
 
-func (i *tarFileInfo) Name() string       { return i.name }
-func (i *tarFileInfo) Size() int64        { return i.size }
-func (i *tarFileInfo) Mode() os.FileMode  { return 0444 }
+// Name returns the base name of the tar file.
+func (i *tarFileInfo) Name() string { return i.name }
+
+// Size returns the size of the tar file in bytes.
+func (i *tarFileInfo) Size() int64 { return i.size }
+
+// Mode returns a read-only file mode for tar entries.
+func (i *tarFileInfo) Mode() os.FileMode { return 0444 }
+
+// ModTime returns the modification time recorded in the tar header.
 func (i *tarFileInfo) ModTime() time.Time { return i.modTime }
-func (i *tarFileInfo) IsDir() bool        { return false }
-func (i *tarFileInfo) Sys() interface{}   { return nil }
+
+// IsDir reports whether the entry is a directory (always false for files here).
+func (i *tarFileInfo) IsDir() bool { return false }
+
+// Sys returns underlying data source (unused for tar entries).
+func (i *tarFileInfo) Sys() interface{} { return nil }

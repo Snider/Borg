@@ -50,6 +50,7 @@ Example:
 	return c
 }
 
+// init registers the 'collect pwa' subcommand and its flags.
 func init() {
 	collectCmd.AddCommand(&NewCollectPWACmd().Command)
 }

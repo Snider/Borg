@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/matrix"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/website"
+	"github.com/schollz/progressbar/v3"
 
 	"github.com/spf13/cobra"
 )
@@ -78,6 +78,7 @@ var collectWebsiteCmd = &cobra.Command{
 	},
 }
 
+// init registers the 'collect website' subcommand and its flags.
 func init() {
 	collectCmd.AddCommand(collectWebsiteCmd)
 	collectWebsiteCmd.PersistentFlags().String("output", "", "Output file for the DataNode")

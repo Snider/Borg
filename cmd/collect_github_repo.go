@@ -90,6 +90,7 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 	return cmd
 }
 
+// init registers the 'collect github repo' subcommand and its flags.
 func init() {
 	collectGithubCmd.AddCommand(NewCollectGithubRepoCmd())
 }

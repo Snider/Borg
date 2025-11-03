@@ -53,6 +53,8 @@ func DownloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.P
 	return d.dn, nil
 }
 
+// crawl traverses the website starting from pageURL up to maxDepth,
+// storing pages and discovered local assets into the DataNode.
 func (d *Downloader) crawl(pageURL string, depth int) {
 	if depth > d.maxDepth || d.visited[pageURL] {
 		return
@@ -110,6 +112,7 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 	f(doc)
 }
 
+// downloadAsset fetches a single asset URL and stores it into the DataNode.
 func (d *Downloader) downloadAsset(assetURL string) {
 	if d.visited[assetURL] {
 		return
@@ -136,6 +139,7 @@ func (d *Downloader) downloadAsset(assetURL string) {
 	d.dn.AddData(relPath, body)
 }
 
+// getRelativePath returns a path relative to the site's root for the given URL.
 func (d *Downloader) getRelativePath(pageURL string) string {
 	u, err := url.Parse(pageURL)
 	if err != nil {
@@ -144,6 +148,7 @@ func (d *Downloader) getRelativePath(pageURL string) string {
 	return strings.TrimPrefix(u.Path, "/")
 }
 
+// resolveURL resolves ref against base and returns the absolute URL string.
 func (d *Downloader) resolveURL(base, ref string) (string, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {
@@ -156,6 +161,7 @@ func (d *Downloader) resolveURL(base, ref string) (string, error) {
 	return baseURL.ResolveReference(refURL).String(), nil
 }
 
+// isLocal reports whether pageURL belongs to the same host as the base URL.
 func (d *Downloader) isLocal(pageURL string) bool {
 	u, err := url.Parse(pageURL)
 	if err != nil {
@@ -164,6 +170,7 @@ func (d *Downloader) isLocal(pageURL string) bool {
 	return u.Hostname() == d.baseURL.Hostname()
 }
 
+// isAsset reports whether the URL likely points to a static asset we should download.
 func isAsset(pageURL string) bool {
 	ext := []string{".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico"}
 	for _, e := range ext {
