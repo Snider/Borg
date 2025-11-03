@@ -19,7 +19,7 @@ var collectWebsiteCmd = &cobra.Command{
 	Short: "Collect a single website",
 	Long:  `Collect a single website and store it in a DataNode.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		websiteURL := args[0]
 		outputFile, _ := cmd.Flags().GetString("output")
 		depth, _ := cmd.Flags().GetInt("depth")
@@ -36,34 +36,29 @@ var collectWebsiteCmd = &cobra.Command{
 
 		dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
 		if err != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(), "Error downloading and packaging website:", err)
-			return
+			return fmt.Errorf("error downloading and packaging website: %w", err)
 		}
 
 		var data []byte
 		if format == "matrix" {
 			matrix, err := matrix.FromDataNode(dn)
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Error creating matrix:", err)
-				return
+				return fmt.Errorf("error creating matrix: %w", err)
 			}
 			data, err = matrix.ToTar()
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing matrix:", err)
-				return
+				return fmt.Errorf("error serializing matrix: %w", err)
 			}
 		} else {
 			data, err = dn.ToTar()
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing DataNode:", err)
-				return
+				return fmt.Errorf("error serializing DataNode: %w", err)
 			}
 		}
 
 		compressedData, err := compress.Compress(data, compression)
 		if err != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(), "Error compressing data:", err)
-			return
+			return fmt.Errorf("error compressing data: %w", err)
 		}
 
 		if outputFile == "" {
@@ -75,11 +70,11 @@ var collectWebsiteCmd = &cobra.Command{
 
 		err = os.WriteFile(outputFile, compressedData, 0644)
 		if err != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(), "Error writing website to file:", err)
-			return
+			return fmt.Errorf("error writing website to file: %w", err)
 		}
 
 		fmt.Fprintln(cmd.OutOrStdout(), "Website saved to", outputFile)
+		return nil
 	},
 }
 
@@ -89,4 +84,7 @@ func init() {
 	collectWebsiteCmd.PersistentFlags().Int("depth", 2, "Recursion depth for downloading")
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
+}
+func NewCollectWebsiteCmd() *cobra.Command {
+	return collectWebsiteCmd
 }

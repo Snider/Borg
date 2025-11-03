@@ -6,49 +6,31 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path"
+	"strings"
 
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/schollz/progressbar/v3"
-
 	"golang.org/x/net/html"
 )
 
-// Manifest represents a simple PWA manifest structure.
-type Manifest struct {
-	Name      string `json:"name"`
-	ShortName string `json:"short_name"`
-	StartURL  string `json:"start_url"`
-	Icons     []Icon `json:"icons"`
-}
-
-// Icon represents an icon in the PWA manifest.
-type Icon struct {
-	Src   string `json:"src"`
-	Sizes string `json:"sizes"`
-	Type  string `json:"type"`
-}
-
-// PWAClient is an interface for finding and downloading PWAs.
+// PWAClient is an interface for interacting with PWAs.
 type PWAClient interface {
-	FindManifest(pageURL string) (string, error)
-	DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error)
+	FindManifest(pwaURL string) (string, error)
+	DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error)
 }
 
 // NewPWAClient creates a new PWAClient.
 func NewPWAClient() PWAClient {
-	return &pwaClient{
-		client: http.DefaultClient,
-	}
+	return &pwaClient{client: http.DefaultClient}
 }
 
 type pwaClient struct {
 	client *http.Client
 }
 
-// FindManifest finds the manifest URL from a given HTML page.
-func (p *pwaClient) FindManifest(pageURL string) (string, error) {
-	resp, err := p.client.Get(pageURL)
+// FindManifest finds the manifest for a PWA.
+func (p *pwaClient) FindManifest(pwaURL string) (string, error) {
+	resp, err := p.client.Get(pwaURL)
 	if err != nil {
 		return "", err
 	}
@@ -59,100 +41,124 @@ func (p *pwaClient) FindManifest(pageURL string) (string, error) {
 		return "", err
 	}
 
-	var manifestPath string
+	var manifestURL string
 	var f func(*html.Node)
 	f = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "link" {
-			isManifest := false
+			var isManifest bool
+			var href string
 			for _, a := range n.Attr {
 				if a.Key == "rel" && a.Val == "manifest" {
 					isManifest = true
-					break
+				}
+				if a.Key == "href" {
+					href = a.Val
 				}
 			}
-			if isManifest {
-				for _, a := range n.Attr {
-					if a.Key == "href" {
-						manifestPath = a.Val
-						return // exit once found
-					}
-				}
+			if isManifest && href != "" {
+				manifestURL = href
+				return
 			}
 		}
-		for c := n.FirstChild; c != nil && manifestPath == ""; c = c.NextSibling {
+		for c := n.FirstChild; c != nil && manifestURL == ""; c = c.NextSibling {
 			f(c)
 		}
 	}
 	f(doc)
 
-	if manifestPath == "" {
+	if manifestURL == "" {
 		return "", fmt.Errorf("manifest not found")
 	}
 
-	resolvedURL, err := p.resolveURL(pageURL, manifestPath)
+	resolvedURL, err := p.resolveURL(pwaURL, manifestURL)
 	if err != nil {
-		return "", fmt.Errorf("could not resolve manifest URL: %w", err)
+		return "", err
 	}
 
 	return resolvedURL.String(), nil
 }
 
-// DownloadAndPackagePWA downloads all assets of a PWA and packages them into a DataNode.
-func (p *pwaClient) DownloadAndPackagePWA(baseURL string, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
-	if bar == nil {
-		return nil, fmt.Errorf("progress bar cannot be nil")
-	}
-	manifestAbsURL, err := p.resolveURL(baseURL, manifestURL)
-	if err != nil {
-		return nil, fmt.Errorf("could not resolve manifest URL: %w", err)
+// DownloadAndPackagePWA downloads and packages a PWA into a DataNode.
+func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	dn := datanode.New()
+
+	type Manifest struct {
+		StartURL string `json:"start_url"`
+		Icons    []struct {
+			Src string `json:"src"`
+		} `json:"icons"`
 	}
 
-	resp, err := p.client.Get(manifestAbsURL.String())
-	if err != nil {
-		return nil, fmt.Errorf("could not download manifest: %w", err)
-	}
-	defer resp.Body.Close()
+	downloadAndAdd := func(assetURL string) error {
+		if bar != nil {
+			bar.Add(1)
+		}
+		resp, err := p.client.Get(assetURL)
+		if err != nil {
+			return fmt.Errorf("failed to download %s: %w", assetURL, err)
+		}
+		defer resp.Body.Close()
 
-	manifestBody, err := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read body of %s: %w", assetURL, err)
+		}
+
+		u, err := url.Parse(assetURL)
+		if err != nil {
+			return fmt.Errorf("failed to parse asset URL %s: %w", assetURL, err)
+		}
+		dn.AddData(strings.TrimPrefix(u.Path, "/"), body)
+		return nil
+	}
+
+	// Download manifest
+	if err := downloadAndAdd(manifestURL); err != nil {
+		return nil, err
+	}
+
+	// Parse manifest and download assets
+	var manifestPath string
+	u, parseErr := url.Parse(manifestURL)
+	if parseErr != nil {
+		manifestPath = "manifest.json"
+	} else {
+		manifestPath = strings.TrimPrefix(u.Path, "/")
+	}
+
+	manifestFile, err := dn.Open(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not read manifest body: %w", err)
+		return nil, fmt.Errorf("failed to open manifest from datanode: %w", err)
+	}
+	defer manifestFile.Close()
+
+	manifestData, err := io.ReadAll(manifestFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read manifest from datanode: %w", err)
 	}
 
 	var manifest Manifest
-	if err := json.Unmarshal(manifestBody, &manifest); err != nil {
-		return nil, fmt.Errorf("could not parse manifest JSON: %w", err)
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse manifest: %w", err)
 	}
 
-	dn := datanode.New()
-	dn.AddData("manifest.json", manifestBody)
-
-	if manifest.StartURL != "" {
-		startURLAbs, err := p.resolveURL(manifestAbsURL.String(), manifest.StartURL)
-		if err != nil {
-			return nil, fmt.Errorf("could not resolve start_url: %w", err)
-		}
-		err = p.downloadAndAddFile(dn, startURLAbs, manifest.StartURL, bar)
-		if err != nil {
-			return nil, fmt.Errorf("failed to download start_url asset: %w", err)
-		}
+	// Download start_url
+	startURL, err := p.resolveURL(manifestURL, manifest.StartURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve start_url: %w", err)
+	}
+	if err := downloadAndAdd(startURL.String()); err != nil {
+		return nil, err
 	}
 
+	// Download icons
 	for _, icon := range manifest.Icons {
-		iconURLAbs, err := p.resolveURL(manifestAbsURL.String(), icon.Src)
+		iconURL, err := p.resolveURL(manifestURL, icon.Src)
 		if err != nil {
-			fmt.Printf("Warning: could not resolve icon URL %s: %v\n", icon.Src, err)
+			// Skip icons with bad URLs
 			continue
 		}
-		err = p.downloadAndAddFile(dn, iconURLAbs, icon.Src, bar)
-		if err != nil {
-			fmt.Printf("Warning: failed to download icon %s: %v\n", icon.Src, err)
-		}
-	}
-
-	baseURLAbs, _ := url.Parse(baseURL)
-	err = p.downloadAndAddFile(dn, baseURLAbs, "index.html", bar)
-	if err != nil {
-		return nil, fmt.Errorf("failed to download base HTML: %w", err)
+		downloadAndAdd(iconURL.String())
 	}
 
 	return dn, nil
@@ -170,22 +176,28 @@ func (p *pwaClient) resolveURL(base, ref string) (*url.URL, error) {
 	return baseURL.ResolveReference(refURL), nil
 }
 
-func (p *pwaClient) downloadAndAddFile(dn *datanode.DataNode, fileURL *url.URL, internalPath string, bar *progressbar.ProgressBar) error {
-	resp, err := p.client.Get(fileURL.String())
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+// MockPWAClient is a mock implementation of the PWAClient interface.
+type MockPWAClient struct {
+	ManifestURL string
+	DN          *datanode.DataNode
+	Err         error
+}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
+// NewMockPWAClient creates a new MockPWAClient.
+func NewMockPWAClient(manifestURL string, dn *datanode.DataNode, err error) PWAClient {
+	return &MockPWAClient{
+		ManifestURL: manifestURL,
+		DN:          dn,
+		Err:         err,
 	}
+}
 
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	dn.AddData(path.Clean(internalPath), data)
-	bar.Add(1)
-	return nil
+// FindManifest mocks the finding of a PWA manifest.
+func (m *MockPWAClient) FindManifest(pwaURL string) (string, error) {
+	return m.ManifestURL, m.Err
+}
+
+// DownloadAndPackagePWA mocks the downloading and packaging of a PWA.
+func (m *MockPWAClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	return m.DN, m.Err
 }

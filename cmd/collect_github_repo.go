@@ -18,80 +18,78 @@ var (
 	GitCloner = vcs.NewGitCloner()
 )
 
-// collectGithubRepoCmd represents the collect github repo command
-var collectGithubRepoCmd = &cobra.Command{
-	Use:   "repo [repository-url]",
-	Short: "Collect a single Git repository",
-	Long:  `Collect a single Git repository and store it in a DataNode.`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		repoURL := args[0]
-		outputFile, _ := cmd.Flags().GetString("output")
-		format, _ := cmd.Flags().GetString("format")
-		compression, _ := cmd.Flags().GetString("compression")
+// NewCollectGithubRepoCmd creates a new cobra command for collecting a single git repository.
+func NewCollectGithubRepoCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "repo [repository-url]",
+		Short: "Collect a single Git repository",
+		Long:  `Collect a single Git repository and store it in a DataNode.`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repoURL := args[0]
+			outputFile, _ := cmd.Flags().GetString("output")
+			format, _ := cmd.Flags().GetString("format")
+			compression, _ := cmd.Flags().GetString("compression")
 
-		prompter := ui.NewNonInteractivePrompter(ui.GetVCSQuote)
-		prompter.Start()
-		defer prompter.Stop()
+			prompter := ui.NewNonInteractivePrompter(ui.GetVCSQuote)
+			prompter.Start()
+			defer prompter.Stop()
 
-		var progressWriter io.Writer
-		if prompter.IsInteractive() {
-			bar := ui.NewProgressBar(-1, "Cloning repository")
-			progressWriter = ui.NewProgressWriter(bar)
-		}
+			var progressWriter io.Writer
+			if prompter.IsInteractive() {
+				bar := ui.NewProgressBar(-1, "Cloning repository")
+				progressWriter = ui.NewProgressWriter(bar)
+			}
 
-		dn, err := GitCloner.CloneGitRepository(repoURL, progressWriter)
-		if err != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(), "Error cloning repository:", err)
-			return
-		}
-
-		var data []byte
-		if format == "matrix" {
-			matrix, err := matrix.FromDataNode(dn)
+			dn, err := GitCloner.CloneGitRepository(repoURL, progressWriter)
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Error creating matrix:", err)
-				return
+				return fmt.Errorf("Error cloning repository: %w", err)
 			}
-			data, err = matrix.ToTar()
+
+			var data []byte
+			if format == "matrix" {
+				matrix, err := matrix.FromDataNode(dn)
+				if err != nil {
+					return fmt.Errorf("Error creating matrix: %w", err)
+				}
+				data, err = matrix.ToTar()
+				if err != nil {
+					return fmt.Errorf("Error serializing matrix: %w", err)
+				}
+			} else {
+				data, err = dn.ToTar()
+				if err != nil {
+					return fmt.Errorf("Error serializing DataNode: %w", err)
+				}
+			}
+
+			compressedData, err := compress.Compress(data, compression)
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing matrix:", err)
-				return
+				return fmt.Errorf("Error compressing data: %w", err)
 			}
-		} else {
-			data, err = dn.ToTar()
+
+			if outputFile == "" {
+				outputFile = "repo." + format
+				if compression != "none" {
+					outputFile += "." + compression
+				}
+			}
+
+			err = os.WriteFile(outputFile, compressedData, 0644)
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Error serializing DataNode:", err)
-				return
+				return fmt.Errorf("Error writing DataNode to file: %w", err)
 			}
-		}
 
-		compressedData, err := compress.Compress(data, compression)
-		if err != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(), "Error compressing data:", err)
-			return
-		}
-
-		if outputFile == "" {
-			outputFile = "repo." + format
-			if compression != "none" {
-				outputFile += "." + compression
-			}
-		}
-
-		err = os.WriteFile(outputFile, compressedData, 0644)
-		if err != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(), "Error writing DataNode to file:", err)
-			return
-		}
-
-		fmt.Fprintln(cmd.OutOrStdout(), "Repository saved to", outputFile)
-	},
+			fmt.Fprintln(cmd.OutOrStdout(), "Repository saved to", outputFile)
+			return nil
+		},
+	}
+	cmd.PersistentFlags().String("output", "", "Output file for the DataNode")
+	cmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
+	cmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
+	return cmd
 }
 
 func init() {
-	collectGithubCmd.AddCommand(collectGithubRepoCmd)
-	collectGithubRepoCmd.PersistentFlags().String("output", "", "Output file for the DataNode")
-	collectGithubRepoCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
-	collectGithubRepoCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
+	collectGithubCmd.AddCommand(NewCollectGithubRepoCmd())
 }
