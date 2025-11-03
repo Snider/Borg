@@ -57,6 +57,12 @@ func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format s
 	if pwaURL == "" {
 		return "", fmt.Errorf("uri is required")
 	}
+	if format != "datanode" && format != "matrix" {
+		return "", fmt.Errorf("invalid format: %s (must be 'datanode' or 'matrix')", format)
+	}
+	if compression != "none" && compression != "gz" && compression != "xz" {
+		return "", fmt.Errorf("invalid compression: %s (must be 'none', 'gz', or 'xz')", compression)
+	}
 
 	bar := ui.NewProgressBar(-1, "Finding PWA manifest")
 	defer bar.Finish()

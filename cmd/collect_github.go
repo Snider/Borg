@@ -14,6 +14,6 @@ var collectGithubCmd = &cobra.Command{
 func init() {
 	collectCmd.AddCommand(collectGithubCmd)
 }
-func NewCollectGithubCmd() *cobra.Command {
+func GetCollectGithubCmd() *cobra.Command {
 	return collectGithubCmd
 }

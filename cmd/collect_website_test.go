@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -42,7 +43,8 @@ func TestCollectWebsiteCmd_Good(t *testing.T) {
 	rootCmd := NewRootCmd()
 	rootCmd.AddCommand(collectCmd)
 
-	_, err := executeCommand(rootCmd, "collect", "website", "https://example.com", "--output", "/dev/null")
+	out := filepath.Join(t.TempDir(), "out")
+	_, err := executeCommand(rootCmd, "collect", "website", "https://example.com", "--output", out)
 	if err != nil {
 		t.Fatalf("collect website command failed: %v", err)
 	}
@@ -60,7 +62,8 @@ func TestCollectWebsiteCmd_Bad(t *testing.T) {
 	rootCmd := NewRootCmd()
 	rootCmd.AddCommand(collectCmd)
 
-	_, err := executeCommand(rootCmd, "collect", "website", "https://example.com", "--output", "/dev/null")
+	out := filepath.Join(t.TempDir(), "out")
+	_, err := executeCommand(rootCmd, "collect", "website", "https://example.com", "--output", out)
 	if err == nil {
 		t.Fatalf("expected an error, but got none")
 	}

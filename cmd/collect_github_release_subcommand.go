@@ -119,6 +119,11 @@ func GetRelease(log *slog.Logger, repoURL string, outputDir string, pack bool, f
 		} else {
 			assetToDownload = release.Assets[0]
 		}
+		if outputDir != "" {
+			if err := os.MkdirAll(outputDir, 0755); err != nil {
+				return nil, fmt.Errorf("failed to create output directory: %w", err)
+			}
+		}
 		outputPath := filepath.Join(outputDir, assetToDownload.GetName())
 		log.Info("downloading asset", "name", assetToDownload.GetName())
 		data, err := borg_github.DownloadReleaseAsset(assetToDownload)

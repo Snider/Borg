@@ -167,6 +167,9 @@ func TestGetLatestRelease_Error(t *testing.T) {
 	}
 
 	_, err := GetLatestRelease("owner", "repo")
+	if err == nil {
+		t.Fatalf("expected error but got nil")
+	}
 	if err.Error() != expectedErr {
 		t.Fatalf("GetLatestRelease failed: %v", err)
 	}

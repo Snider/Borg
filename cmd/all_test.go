@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"path/filepath"
 	"testing"
 
 	"github.com/Snider/Borg/pkg/datanode"
@@ -41,7 +42,8 @@ func TestAllCmd_Good(t *testing.T) {
 	rootCmd := NewRootCmd()
 	rootCmd.AddCommand(allCmd)
 
-	_, err := executeCommand(rootCmd, "all", "https://github.com/testuser", "--output", "/dev/null")
+	out := filepath.Join(t.TempDir(), "out")
+	_, err := executeCommand(rootCmd, "all", "https://github.com/testuser", "--output", out)
 	if err != nil {
 		t.Fatalf("all command failed: %v", err)
 	}
@@ -65,7 +67,8 @@ func TestAllCmd_Bad(t *testing.T) {
 	rootCmd := NewRootCmd()
 	rootCmd.AddCommand(allCmd)
 
-	_, err := executeCommand(rootCmd, "all", "https://github.com/testuser", "--output", "/dev/null")
+	out := filepath.Join(t.TempDir(), "out")
+	_, err := executeCommand(rootCmd, "all", "https://github.com/testuser", "--output", out)
 	if err == nil {
 		t.Fatalf("expected an error, but got none")
 	}

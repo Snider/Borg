@@ -147,8 +147,11 @@ func parseGithubOwner(u string) (string, error) {
 	}
 
 	path := strings.Trim(parsedURL.Path, "/")
+	if path == "" {
+		return "", fmt.Errorf("invalid owner URL: %s", u)
+	}
 	parts := strings.Split(path, "/")
-	if len(parts) != 1 {
+	if len(parts) != 1 || parts[0] == "" {
 		return "", fmt.Errorf("invalid owner URL: %s", u)
 	}
 	return parts[0], nil

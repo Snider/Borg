@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -36,7 +37,9 @@ func TestCollectPWA_Good(t *testing.T) {
 		Err:         nil,
 	}
 
-	_, err := CollectPWA(mockClient, "https://example.com", "/dev/null", "datanode", "none")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "pwa.dat")
+	_, err := CollectPWA(mockClient, "https://example.com", path, "datanode", "none")
 	if err != nil {
 		t.Fatalf("CollectPWA failed: %v", err)
 	}
@@ -49,7 +52,9 @@ func TestCollectPWA_Bad(t *testing.T) {
 		Err:         fmt.Errorf("pwa error"),
 	}
 
-	_, err := CollectPWA(mockClient, "https://example.com", "/dev/null", "datanode", "none")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "pwa.dat")
+	_, err := CollectPWA(mockClient, "https://example.com", path, "datanode", "none")
 	if err == nil {
 		t.Fatalf("expected an error, but got none")
 	}
