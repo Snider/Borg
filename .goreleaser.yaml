@@ -1,0 +1,80 @@
+# Goreleaser config for Borg
+# Non-invasive: builds the existing CLI binary without changing functionality.
+project_name: borg
+
+version: 2
+
+dist: dist
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: borg
+    main: ./main.go
+    binary: borg
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - 6
+      - 7
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+    mod_timestamp: '{{ .CommitDate }}'
+
+archives:
+  - id: archive
+    builds:
+      - borg
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE.md
+      - README.md
+      - docs/**
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  use: github-native
+  filters:
+    exclude:
+      - '^docs: '
+      - '^test: '
+
+release:
+  # By default goreleaser creates GitHub releases from tags.
+  prerelease: auto
+  mode: replace
+
+brews:
+  - name: borg
+    repository:
+      owner: Snider
+      name: homebrew-tap
+    folder: Formula
+    homepage: https://github.com/Snider/Borg
+    description: "Borg Data Collector CLI"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    test: |
+      system "#{bin}/borg", "--help"
+    install: |
+      bin.install "borg"

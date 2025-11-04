@@ -3,3 +3,4 @@ borg
 .task
 *.datanode
 .idea
+coverage.txt

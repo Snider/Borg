@@ -1,9 +1,15 @@
-# Borg Data Collector 
+# Borg Data Collector
 
 [![codecov](https://codecov.io/github/Snider/Borg/branch/main/graph/badge.svg?token=XWWU0SBIR4)](https://codecov.io/github/Snider/Borg)
 
-As the name might sugest; this pkg collects information and stores it in a Cube file or passes it on;
-comes as both a cli tool and a usable package for your go project with a clean export only top level interface.
+Borg is a CLI and Go library that collects data from GitHub repos, websites, and PWAs into portable DataNodes or Terminal Isolation Matrices.
+
+- Go version: 1.25
+- Docs (MkDocs Material): see docs/ locally with `mkdocs serve`
+- Quick build: `go build -o borg ./` or `task build`
+- Releases: configured via GoReleaser (`.goreleaser.yaml`)
+
+Note: This update aligns the repo with Go standards/tooling (Go 1.25, go.work, GoReleaser, and docs). No functional changes were made.
 
 
 ## Borg Status Scratch Pad

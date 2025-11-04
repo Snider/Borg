@@ -1,4 +1,21 @@
 site_name: Borg Data Collector
+site_description: CLI and library for collecting repositories, websites, and PWAs into portable data artifacts.
 repo_url: https://github.com/Snider/Borg
 theme:
   name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+    - toc.integrate
+  palette:
+    - scheme: default
+      primary: blue
+      accent: indigo
+nav:
+  - Overview: index.md
+  - Installation: installation.md
+  - CLI Usage: cli.md
+  - Library Usage: library.md
+  - Development: development.md
+  - Releasing: releasing.md
