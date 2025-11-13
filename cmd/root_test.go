@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"io"
 	"log/slog"
 	"testing"
@@ -16,15 +15,6 @@ func TestExecute(t *testing.T) {
 	}
 }
 
-func executeCommand(cmd *cobra.Command, args ...string) (string, error) {
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs(args)
-
-	err := cmd.Execute()
-	return buf.String(), err
-}
 
 func Test_NewRootCmd(t *testing.T) {
 	if NewRootCmd() == nil {

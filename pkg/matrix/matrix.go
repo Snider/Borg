@@ -63,6 +63,16 @@ func (m *TerminalIsolationMatrix) ToTar() ([]byte, error) {
 		return nil, err
 	}
 
+	// Add the rootfs directory.
+	hdr = &tar.Header{
+		Name:     "rootfs/",
+		Mode:     0755,
+		Typeflag: tar.TypeDir,
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return nil, err
+	}
+
 	// Add the rootfs files.
 	err := m.RootFS.Walk(".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
