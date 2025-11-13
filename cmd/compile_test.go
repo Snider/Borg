@@ -75,3 +75,45 @@ func TestCompileCmd_Good(t *testing.T) {
 		t.Error("rootfs/test.txt not found in matrix")
 	}
 }
+
+func TestCompileCmd_Bad_InvalidBorgfile(t *testing.T) {
+	tempDir := t.TempDir()
+	borgfilePath := filepath.Join(tempDir, "Borgfile")
+	outputMatrixPath := filepath.Join(tempDir, "test.matrix")
+
+	// Create a dummy Borgfile with an invalid instruction.
+	borgfileContent := "INVALID_INSTRUCTION"
+	err := os.WriteFile(borgfilePath, []byte(borgfileContent), 0644)
+	if err != nil {
+		t.Fatalf("failed to create Borgfile: %v", err)
+	}
+
+	// Run the compile command.
+	rootCmd := NewRootCmd()
+	rootCmd.AddCommand(compileCmd)
+	_, err = executeCommand(rootCmd, "compile", "-f", borgfilePath, "-o", outputMatrixPath)
+	if err == nil {
+		t.Fatal("compile command should have failed but did not")
+	}
+}
+
+func TestCompileCmd_Bad_MissingInputFile(t *testing.T) {
+	tempDir := t.TempDir()
+	borgfilePath := filepath.Join(tempDir, "Borgfile")
+	outputMatrixPath := filepath.Join(tempDir, "test.matrix")
+
+	// Create a dummy Borgfile that references a non-existent file.
+	borgfileContent := "ADD /non/existent/file /test.txt"
+	err := os.WriteFile(borgfilePath, []byte(borgfileContent), 0644)
+	if err != nil {
+		t.Fatalf("failed to create Borgfile: %v", err)
+	}
+
+	// Run the compile command.
+	rootCmd := NewRootCmd()
+	rootCmd.AddCommand(compileCmd)
+	_, err = executeCommand(rootCmd, "compile", "-f", borgfilePath, "-o", outputMatrixPath)
+	if err == nil {
+		t.Fatal("compile command should have failed but did not")
+	}
+}

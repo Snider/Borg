@@ -75,3 +75,13 @@ func TestRunCmd_Good(t *testing.T) {
 		t.Fatalf("run command failed: %v", err)
 	}
 }
+
+func TestRunCmd_Bad_MissingInputFile(t *testing.T) {
+	// Run the run command with a non-existent file.
+	rootCmd := NewRootCmd()
+	rootCmd.AddCommand(runCmd)
+	_, err := executeCommand(rootCmd, "run", "/non/existent/file.matrix")
+	if err == nil {
+		t.Fatal("run command should have failed but did not")
+	}
+}
