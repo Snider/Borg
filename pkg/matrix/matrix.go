@@ -19,7 +19,7 @@ type TerminalIsolationMatrix struct {
 func New() (*TerminalIsolationMatrix, error) {
 	// Use the default runc spec as a starting point.
 	// This can be customized later.
-	spec, err := defaultConfig()
+	spec, err := defaultConfigVar()
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +60,16 @@ func (m *TerminalIsolationMatrix) ToTar() ([]byte, error) {
 		return nil, err
 	}
 	if _, err := tw.Write(m.Config); err != nil {
+		return nil, err
+	}
+
+	// Add the rootfs directory.
+	hdr = &tar.Header{
+		Name:     "rootfs/",
+		Mode:     0755,
+		Typeflag: tar.TypeDir,
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
 		return nil, err
 	}
 

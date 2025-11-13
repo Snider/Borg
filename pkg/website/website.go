@@ -23,6 +23,7 @@ type Downloader struct {
 	maxDepth    int
 	progressBar *progressbar.ProgressBar
 	client      *http.Client
+	errors      []error
 }
 
 // NewDownloader creates a new Downloader.
@@ -33,10 +34,11 @@ func NewDownloader(maxDepth int) *Downloader {
 // NewDownloaderWithClient creates a new Downloader with a custom http.Client.
 func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
 	return &Downloader{
-		dn:       datanode.New(),
-		visited:  make(map[string]bool),
-		maxDepth: maxDepth,
-		client:   client,
+		dn:          datanode.New(),
+		visited:     make(map[string]bool),
+		maxDepth:    maxDepth,
+		client:      client,
+		errors:      make([]error, 0),
 	}
 }
 
@@ -52,6 +54,14 @@ func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.P
 	d.progressBar = bar
 	d.crawl(startURL, 0)
 
+	if len(d.errors) > 0 {
+		var errs []string
+		for _, e := range d.errors {
+			errs = append(errs, e.Error())
+		}
+		return nil, fmt.Errorf("failed to download website:\n%s", strings.Join(errs, "\n"))
+	}
+
 	return d.dn, nil
 }
 
@@ -66,23 +76,33 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 
 	resp, err := d.client.Get(pageURL)
 	if err != nil {
-		fmt.Printf("Error getting %s: %v\n", pageURL, err)
+		d.errors = append(d.errors, fmt.Errorf("Error getting %s: %w", pageURL, err))
 		return
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 400 {
+		d.errors = append(d.errors, fmt.Errorf("bad status for %s: %s", pageURL, resp.Status))
+		return
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading body of %s: %v\n", pageURL, err)
+		d.errors = append(d.errors, fmt.Errorf("Error reading body of %s: %w", pageURL, err))
 		return
 	}
 
 	relPath := d.getRelativePath(pageURL)
 	d.dn.AddData(relPath, body)
 
+	// Don't try to parse non-html content
+	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {
+		return
+	}
+
 	doc, err := html.Parse(strings.NewReader(string(body)))
 	if err != nil {
-		fmt.Printf("Error parsing HTML of %s: %v\n", pageURL, err)
+		d.errors = append(d.errors, fmt.Errorf("Error parsing HTML of %s: %w", pageURL, err))
 		return
 	}
 
@@ -123,14 +143,19 @@ func (d *Downloader) downloadAsset(assetURL string) {
 
 	resp, err := d.client.Get(assetURL)
 	if err != nil {
-		fmt.Printf("Error getting asset %s: %v\n", assetURL, err)
+		d.errors = append(d.errors, fmt.Errorf("Error getting asset %s: %w", assetURL, err))
 		return
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 400 {
+		d.errors = append(d.errors, fmt.Errorf("bad status for asset %s: %s", assetURL, resp.Status))
+		return
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading body of asset %s: %v\n", assetURL, err)
+		d.errors = append(d.errors, fmt.Errorf("Error reading body of asset %s: %w", assetURL, err))
 		return
 	}
 
