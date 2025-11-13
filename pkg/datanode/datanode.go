@@ -78,6 +78,14 @@ func (d *DataNode) ToTar() ([]byte, error) {
 // AddData adds a file to the DataNode.
 func (d *DataNode) AddData(name string, content []byte) {
 	name = strings.TrimPrefix(name, "/")
+	if name == "" {
+		return
+	}
+	// Directories are implicit, so we don't store them.
+	// A name ending in "/" is treated as a directory.
+	if strings.HasSuffix(name, "/") {
+		return
+	}
 	d.files[name] = &dataFile{
 		name:    name,
 		content: content,
@@ -223,15 +231,37 @@ func (d *DataNode) Walk(root string, fn fs.WalkDirFunc, opts ...WalkOptions) err
 			return fn(path, de, err)
 		}
 		if filter != nil && !filter(path, de) {
+			if de.IsDir() {
+				return fs.SkipDir
+			}
 			return nil
 		}
+
+		// Process the entry first.
+		if err := fn(path, de, nil); err != nil {
+			return err
+		}
+
 		if maxDepth > 0 {
-			currentDepth := strings.Count(strings.TrimPrefix(path, root), "/")
+			// Calculate depth relative to root
+			cleanedPath := strings.TrimPrefix(path, root)
+			cleanedPath = strings.TrimPrefix(cleanedPath, "/")
+
+			currentDepth := 0
+			if path != root {
+				if cleanedPath == "" {
+					// This can happen if root is "bar" and path is "bar"
+					currentDepth = 0
+				} else {
+					currentDepth = strings.Count(cleanedPath, "/") + 1
+				}
+			}
+
 			if de.IsDir() && currentDepth >= maxDepth {
 				return fs.SkipDir
 			}
 		}
-		return fn(path, de, nil)
+		return nil
 	})
 }
 

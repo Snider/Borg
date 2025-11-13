@@ -180,7 +180,7 @@ const DefaultConfigJSON = `{
 }`
 
 // defaultConfig returns the default runc spec.
-func defaultConfig() (map[string]interface{}, error) {
+var defaultConfigVar = func() (map[string]interface{}, error) {
 	var spec map[string]interface{}
 	err := json.Unmarshal([]byte(DefaultConfigJSON), &spec)
 	if err != nil {

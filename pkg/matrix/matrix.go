@@ -19,7 +19,7 @@ type TerminalIsolationMatrix struct {
 func New() (*TerminalIsolationMatrix, error) {
 	// Use the default runc spec as a starting point.
 	// This can be customized later.
-	spec, err := defaultConfig()
+	spec, err := defaultConfigVar()
 	if err != nil {
 		return nil, err
 	}
