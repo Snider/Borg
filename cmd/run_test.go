@@ -65,7 +65,11 @@ func TestRunCmd_Good(t *testing.T) {
 	}
 
 	// Mock the exec.Command function.
+	origExecCommand := execCommand
 	execCommand = helperProcess
+	t.Cleanup(func() {
+		execCommand = origExecCommand
+	})
 
 	// Run the run command.
 	rootCmd := NewRootCmd()

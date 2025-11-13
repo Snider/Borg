@@ -3,6 +3,7 @@ package matrix
 import (
 	"archive/tar"
 	"bytes"
+	"io"
 	"testing"
 
 	"github.com/Snider/Borg/pkg/datanode"
@@ -60,7 +61,7 @@ func TestToTar(t *testing.T) {
 	for {
 		header, err := tr.Next()
 		if err != nil {
-			if err.Error() == "EOF" {
+			if err == io.EOF {
 				break
 			}
 			t.Fatalf("failed to read tar header: %v", err)

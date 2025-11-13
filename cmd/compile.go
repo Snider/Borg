@@ -44,6 +44,8 @@ var compileCmd = &cobra.Command{
 					return err
 				}
 				m.RootFS.AddData(dest, data)
+			default:
+				return fmt.Errorf("unknown instruction: %s", parts[0])
 			}
 		}
 
