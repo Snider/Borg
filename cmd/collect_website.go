@@ -6,7 +6,7 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/website"
 
@@ -37,6 +37,10 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 
+			if format != "datanode" && format != "tim" {
+				return fmt.Errorf("invalid format: %s (must be 'datanode' or 'tim')", format)
+			}
+
 			prompter := ui.NewNonInteractivePrompter(ui.GetWebsiteQuote)
 			prompter.Start()
 			defer prompter.Stop()
@@ -51,12 +55,12 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			}
 
 			var data []byte
-			if format == "matrix" {
-				matrix, err := matrix.FromDataNode(dn)
+			if format == "tim" {
+				t, err := tim.FromDataNode(dn)
 				if err != nil {
 					return fmt.Errorf("error creating matrix: %w", err)
 				}
-				data, err = matrix.ToTar()
+				data, err = t.ToTar()
 				if err != nil {
 					return fmt.Errorf("error serializing matrix: %w", err)
 				}
@@ -90,7 +94,7 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	}
 	collectWebsiteCmd.PersistentFlags().String("output", "", "Output file for the DataNode")
 	collectWebsiteCmd.PersistentFlags().Int("depth", 2, "Recursion depth for downloading")
-	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
+	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or tim)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	return collectWebsiteCmd
 }

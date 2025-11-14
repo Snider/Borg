@@ -12,17 +12,37 @@ import (
 	"time"
 )
 
-// DataNode is an in-memory filesystem that is compatible with fs.FS.
+// DataNode represents an in-memory filesystem, compatible with the standard
+// library's io/fs.FS interface. It stores files and their contents in memory,
+// making it useful for manipulating collections of files, such as those from
+// a tar archive or a Git repository, without writing them to disk.
 type DataNode struct {
 	files map[string]*dataFile
 }
 
-// New creates a new, empty DataNode.
+// New creates and returns a new, empty DataNode. This is the starting point
+// for building an in-memory filesystem.
+//
+// Example:
+//
+//	dn := datanode.New()
 func New() *DataNode {
 	return &DataNode{files: make(map[string]*dataFile)}
 }
 
-// FromTar creates a new DataNode from a tarball.
+// FromTar creates a new DataNode by reading a tar archive. The tarball's
+// contents are unpacked into the in-memory filesystem.
+//
+// Example:
+//
+//	tarData, err := os.ReadFile("my-archive.tar")
+//	if err != nil {
+//		// handle error
+//	}
+//	dn, err := datanode.FromTar(tarData)
+//	if err != nil {
+//		// handle error
+//	}
 func FromTar(tarball []byte) (*DataNode, error) {
 	dn := New()
 	tarReader := tar.NewReader(bytes.NewReader(tarball))
@@ -48,7 +68,20 @@ func FromTar(tarball []byte) (*DataNode, error) {
 	return dn, nil
 }
 
-// ToTar serializes the DataNode to a tarball.
+// ToTar serializes the DataNode into a tar archive. This is useful for
+// saving the in-memory filesystem to disk or for transmitting it over a
+// network.
+//
+// Example:
+//
+//	tarData, err := dn.ToTar()
+//	if err != nil {
+//		// handle error
+//	}
+//	err = os.WriteFile("my-archive.tar", tarData, 0644)
+//	if err != nil {
+//		// handle error
+//	}
 func (d *DataNode) ToTar() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
@@ -75,7 +108,14 @@ func (d *DataNode) ToTar() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// AddData adds a file to the DataNode.
+// AddData adds a file to the DataNode with the given name and content. If the
+// file already exists, it will be overwritten. Directory paths are created
+// implicitly and do not need to be added separately.
+//
+// Example:
+//
+//	dn.AddData("my-file.txt", []byte("hello world"))
+//	dn.AddData("my-dir/my-other-file.txt", []byte("hello again"))
 func (d *DataNode) AddData(name string, content []byte) {
 	name = strings.TrimPrefix(name, "/")
 	if name == "" {
@@ -93,7 +133,21 @@ func (d *DataNode) AddData(name string, content []byte) {
 	}
 }
 
-// Open opens a file from the DataNode.
+// Open opens a file from the DataNode for reading. It returns an fs.File,
+// which can be used with standard library functions that operate on files.
+// This method is part of the fs.FS interface implementation.
+//
+// Example:
+//
+//	file, err := dn.Open("my-file.txt")
+//	if err != nil {
+//		// handle error
+//	}
+//	defer file.Close()
+//	content, err := io.ReadAll(file)
+//	if err != nil {
+//		// handle error
+//	}
 func (d *DataNode) Open(name string) (fs.File, error) {
 	name = strings.TrimPrefix(name, "/")
 	if file, ok := d.files[name]; ok {
@@ -112,7 +166,18 @@ func (d *DataNode) Open(name string) (fs.File, error) {
 	return nil, fs.ErrNotExist
 }
 
-// ReadDir reads and returns all directory entries for the named directory.
+// ReadDir reads the named directory and returns a list of directory entries.
+// This method is part of the fs.ReadDirFS interface implementation.
+//
+// Example:
+//
+//	entries, err := dn.ReadDir("my-dir")
+//	if err != nil {
+//		// handle error
+//	}
+//	for _, entry := range entries {
+//		fmt.Println(entry.Name())
+//	}
 func (d *DataNode) ReadDir(name string) ([]fs.DirEntry, error) {
 	name = strings.TrimPrefix(name, "/")
 	if name == "." {
@@ -165,7 +230,16 @@ func (d *DataNode) ReadDir(name string) ([]fs.DirEntry, error) {
 	return entries, nil
 }
 
-// Stat returns the FileInfo structure describing file.
+// Stat returns the fs.FileInfo structure describing the named file or directory.
+// This method is part of the fs.StatFS interface implementation.
+//
+// Example:
+//
+//	info, err := dn.Stat("my-file.txt")
+//	if err != nil {
+//		// handle error
+//	}
+//	fmt.Println(info.Size())
 func (d *DataNode) Stat(name string) (fs.FileInfo, error) {
 	name = strings.TrimPrefix(name, "/")
 	if file, ok := d.files[name]; ok {
@@ -185,12 +259,31 @@ func (d *DataNode) Stat(name string) (fs.FileInfo, error) {
 	return nil, fs.ErrNotExist
 }
 
-// ExistsOptions allows customizing the Exists check.
+// ExistsOptions provides options for customizing the behavior of the Exists
+// method.
 type ExistsOptions struct {
+	// WantType specifies the desired file type (e.g., fs.ModeDir for a
+	// directory). If the file exists but is not of the desired type, Exists
+	// will return false.
 	WantType fs.FileMode
 }
 
-// Exists returns true if the file or directory exists.
+// Exists checks if a file or directory at the given path exists in the DataNode.
+// It can optionally check if the file is of a specific type (e.g., a directory).
+//
+// Example:
+//
+//	// Check if a file exists
+//	exists, err := dn.Exists("my-file.txt")
+//	if err != nil {
+//		// handle error
+//	}
+//
+//	// Check if a directory exists
+//	exists, err = dn.Exists("my-dir", datanode.ExistsOptions{WantType: fs.ModeDir})
+//	if err != nil {
+//		// handle error
+//	}
 func (d *DataNode) Exists(name string, opts ...ExistsOptions) (bool, error) {
 	info, err := d.Stat(name)
 	if err != nil {
@@ -210,14 +303,30 @@ func (d *DataNode) Exists(name string, opts ...ExistsOptions) (bool, error) {
 	return true, nil
 }
 
-// WalkOptions allows customizing the Walk behavior.
+// WalkOptions provides options for customizing the behavior of the Walk method.
 type WalkOptions struct {
-	MaxDepth   int
-	Filter     func(path string, d fs.DirEntry) bool
+	// MaxDepth limits the depth of the walk. A value of 0 means no limit.
+	MaxDepth int
+	// Filter is a function that can be used to skip files or directories. If
+	// the function returns false for an entry, that entry is skipped. If the
+	// entry is a directory, the entire subdirectory is skipped.
+	Filter func(path string, d fs.DirEntry) bool
+	// SkipErrors causes the walk to continue when an error is encountered.
 	SkipErrors bool
 }
 
-// Walk recursively descends the file tree rooted at root, calling fn for each file or directory.
+// Walk walks the in-memory file tree rooted at root, calling fn for each file or
+// directory in the tree, including root. The walk is depth-first.
+//
+// Example:
+//
+//	err := dn.Walk(".", func(path string, d fs.DirEntry, err error) error {
+//		if err != nil {
+//			return err
+//		}
+//		fmt.Println(path)
+//		return nil
+//	})
 func (d *DataNode) Walk(root string, fn fs.WalkDirFunc, opts ...WalkOptions) error {
 	var maxDepth int
 	var filter func(string, fs.DirEntry) bool
@@ -270,7 +379,15 @@ func (d *DataNode) Walk(root string, fn fs.WalkDirFunc, opts ...WalkOptions) err
 	})
 }
 
-// CopyFile copies a file from the DataNode to the local filesystem.
+// CopyFile copies a file from the DataNode to a specified path on the local
+// filesystem.
+//
+// Example:
+//
+//	err := dn.CopyFile("my-file.txt", "/tmp/my-file.txt", 0644)
+//	if err != nil {
+//		// handle error
+//	}
 func (d *DataNode) CopyFile(sourcePath string, target string, perm os.FileMode) error {
 	sourceFile, err := d.Open(sourcePath)
 	if err != nil {

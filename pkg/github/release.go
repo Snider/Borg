@@ -12,20 +12,31 @@ import (
 )
 
 var (
-	// NewClient is a variable that holds the function to create a new GitHub client.
-	// This allows for mocking in tests.
+	// NewClient is a function that creates a new GitHub client. It is a
+	// variable to allow for mocking in tests.
 	NewClient = func(httpClient *http.Client) *github.Client {
 		return github.NewClient(httpClient)
 	}
-	// NewRequest is a variable that holds the function to create a new HTTP request.
+	// NewRequest is a function that creates a new HTTP request. It is a
+	// variable to allow for mocking in tests.
 	NewRequest = func(method, url string, body io.Reader) (*http.Request, error) {
 		return http.NewRequest(method, url, body)
 	}
-	// DefaultClient is the default http client
+	// DefaultClient is the default http client used for making requests. It is
+	// a variable to allow for mocking in tests.
 	DefaultClient = &http.Client{}
 )
 
-// GetLatestRelease gets the latest release for a repository.
+// GetLatestRelease fetches the latest release metadata for a given GitHub
+// repository.
+//
+// Example:
+//
+//	release, err := github.GetLatestRelease("my-org", "my-repo")
+//	if err != nil {
+//		// handle error
+//	}
+//	fmt.Println(release.GetTagName())
 func GetLatestRelease(owner, repo string) (*github.RepositoryRelease, error) {
 	client := NewClient(nil)
 	release, _, err := client.Repositories.GetLatestRelease(context.Background(), owner, repo)
@@ -35,7 +46,20 @@ func GetLatestRelease(owner, repo string) (*github.RepositoryRelease, error) {
 	return release, nil
 }
 
-// DownloadReleaseAsset downloads a release asset.
+// DownloadReleaseAsset downloads the content of a release asset.
+//
+// Example:
+//
+//	// Assuming 'release' is a *github.RepositoryRelease
+//	for _, asset := range release.Assets {
+//		if asset.GetName() == "my-asset.zip" {
+//			data, err := github.DownloadReleaseAsset(asset)
+//			if err != nil {
+//				// handle error
+//			}
+//			// do something with data
+//		}
+//	}
 func DownloadReleaseAsset(asset *github.ReleaseAsset) ([]byte, error) {
 	req, err := NewRequest("GET", asset.GetBrowserDownloadURL(), nil)
 	if err != nil {
@@ -61,7 +85,16 @@ func DownloadReleaseAsset(asset *github.ReleaseAsset) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// ParseRepoFromURL parses the owner and repository from a GitHub URL.
+// ParseRepoFromURL extracts the owner and repository name from a variety of
+// GitHub URL formats, including HTTPS, Git, and SCP-style URLs.
+//
+// Example:
+//
+//	owner, repo, err := github.ParseRepoFromURL("https://github.com/my-org/my-repo.git")
+//	if err != nil {
+//		// handle error
+//	}
+//	fmt.Println(owner, repo) // "my-org", "my-repo"
 func ParseRepoFromURL(u string) (owner, repo string, err error) {
 	u = strings.TrimSuffix(u, ".git")
 

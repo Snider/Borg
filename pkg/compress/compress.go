@@ -8,7 +8,17 @@ import (
 	"github.com/ulikunitz/xz"
 )
 
-// Compress compresses data using the specified format.
+// Compress compresses a byte slice using the specified format.
+// Supported formats are "gz" and "xz". If an unsupported format is provided,
+// the original data is returned unmodified.
+//
+// Example:
+//
+//	compressedData, err := compress.Compress([]byte("hello world"), "gz")
+//	if err != nil {
+//		// handle error
+//	}
+//	// compressedData now holds the gzipped version of "hello world"
 func Compress(data []byte, format string) ([]byte, error) {
 	var buf bytes.Buffer
 	var writer io.WriteCloser
@@ -39,7 +49,17 @@ func Compress(data []byte, format string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// Decompress decompresses data, detecting the format automatically.
+// Decompress decompresses a byte slice, automatically detecting the compression
+// format (gz or xz) by inspecting the header magic bytes. If the data is not
+// compressed in a recognized format, it is returned unmodified.
+//
+// Example:
+//
+//	decompressedData, err := compress.Decompress(compressedData)
+//	if err != nil {
+//		// handle error
+//	}
+//	// decompressedData now holds the original uncompressed data
 func Decompress(data []byte) ([]byte, error) {
 	// Check for gzip header
 	if len(data) > 2 && data[0] == 0x1f && data[1] == 0x8b {

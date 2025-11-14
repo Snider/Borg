@@ -20,6 +20,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// Quotes represents the structure of the quotes.json file.
 type Quotes struct {
 	InitWorkAssimilate        []string `json:"init_work_assimilate"`
 	EncryptionServiceMessages []string `json:"encryption_service_messages"`
@@ -61,6 +62,8 @@ func getQuotes() (*Quotes, error) {
 	return cachedQuotes, quotesErr
 }
 
+// GetRandomQuote selects and returns a random quote from all available quote
+// categories.
 func GetRandomQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {
@@ -82,6 +85,7 @@ func GetRandomQuote() (string, error) {
 	return allQuotes[rand.Intn(len(allQuotes))], nil
 }
 
+// PrintQuote retrieves a random quote and prints it to the console in green.
 func PrintQuote() {
 	quote, err := GetRandomQuote()
 	if err != nil {
@@ -92,6 +96,7 @@ func PrintQuote() {
 	c.Println(quote)
 }
 
+// GetVCSQuote returns a random quote specifically from the VCS processing category.
 func GetVCSQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {
@@ -103,6 +108,7 @@ func GetVCSQuote() (string, error) {
 	return quotes.VCSProcessing[rand.Intn(len(quotes.VCSProcessing))], nil
 }
 
+// GetPWAQuote returns a random quote specifically from the PWA processing category.
 func GetPWAQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {
@@ -114,6 +120,8 @@ func GetPWAQuote() (string, error) {
 	return quotes.PWAProcessing[rand.Intn(len(quotes.PWAProcessing))], nil
 }
 
+// GetWebsiteQuote returns a random quote specifically from the "code related long"
+// category, which is used for website processing.
 func GetWebsiteQuote() (string, error) {
 	quotes, err := getQuotes()
 	if err != nil {

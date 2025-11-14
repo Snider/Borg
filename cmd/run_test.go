@@ -7,16 +7,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
 )
 
 func TestRunCmd_Good(t *testing.T) {
-	// Create a dummy matrix file.
-	matrixPath := createDummyMatrix(t)
+	// Create a dummy tim file.
+	timPath := createDummyTIM(t)
 
-	// Mock the exec.Command function in the matrix package.
-	origExecCommand := matrix.ExecCommand
-	matrix.ExecCommand = func(command string, args ...string) *exec.Cmd {
+	// Mock the exec.Command function in the tim package.
+	origExecCommand := tim.ExecCommand
+	tim.ExecCommand = func(command string, args ...string) *exec.Cmd {
 		cs := []string{"-test.run=TestHelperProcess", "--", command}
 		cs = append(cs, args...)
 		cmd := exec.Command(os.Args[0], cs...)
@@ -24,13 +24,13 @@ func TestRunCmd_Good(t *testing.T) {
 		return cmd
 	}
 	t.Cleanup(func() {
-		matrix.ExecCommand = origExecCommand
+		tim.ExecCommand = origExecCommand
 	})
 
 	// Run the run command.
 	rootCmd := NewRootCmd()
 	rootCmd.AddCommand(GetRunCmd())
-	_, err := executeCommand(rootCmd, "run", matrixPath)
+	_, err := executeCommand(rootCmd, "run", timPath)
 	if err != nil {
 		t.Fatalf("run command failed: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestRunCmd_Bad(t *testing.T) {
 		// Run the run command with a non-existent file.
 		rootCmd := NewRootCmd()
 		rootCmd.AddCommand(GetRunCmd())
-		_, err := executeCommand(rootCmd, "run", "/non/existent/file.matrix")
+		_, err := executeCommand(rootCmd, "run", "/non/existent/file.tim")
 		if err == nil {
 			t.Fatal("run command should have failed but did not")
 		}
@@ -49,37 +49,37 @@ func TestRunCmd_Bad(t *testing.T) {
 }
 
 func TestRunCmd_Ugly(t *testing.T) {
-	t.Run("Invalid matrix file", func(t *testing.T) {
-		// Create an invalid (non-tar) matrix file.
+	t.Run("Invalid tim file", func(t *testing.T) {
+		// Create an invalid (non-tar) tim file.
 		tempDir := t.TempDir()
-		matrixPath := filepath.Join(tempDir, "invalid.matrix")
-		err := os.WriteFile(matrixPath, []byte("this is not a tar file"), 0644)
+		timPath := filepath.Join(tempDir, "invalid.tim")
+		err := os.WriteFile(timPath, []byte("this is not a tar file"), 0644)
 		if err != nil {
-			t.Fatalf("failed to create invalid matrix file: %v", err)
+			t.Fatalf("failed to create invalid tim file: %v", err)
 		}
 
 		// Run the run command.
 		rootCmd := NewRootCmd()
 		rootCmd.AddCommand(GetRunCmd())
-		_, err = executeCommand(rootCmd, "run", matrixPath)
+		_, err = executeCommand(rootCmd, "run", timPath)
 		if err == nil {
 			t.Fatal("run command should have failed but did not")
 		}
 	})
 }
 
-// createDummyMatrix creates a valid, empty matrix file for testing.
-func createDummyMatrix(t *testing.T) string {
+// createDummyTIM creates a valid, empty tim file for testing.
+func createDummyTIM(t *testing.T) string {
 	t.Helper()
 	tempDir := t.TempDir()
-	matrixPath := filepath.Join(tempDir, "test.matrix")
-	matrixFile, err := os.Create(matrixPath)
+	timPath := filepath.Join(tempDir, "test.tim")
+	timFile, err := os.Create(timPath)
 	if err != nil {
-		t.Fatalf("failed to create dummy matrix file: %v", err)
+		t.Fatalf("failed to create dummy tim file: %v", err)
 	}
-	defer matrixFile.Close()
+	defer timFile.Close()
 
-	tw := tar.NewWriter(matrixFile)
+	tw := tar.NewWriter(timFile)
 
 	// Add a dummy config.json. This is not a valid config, but it's enough to test the run command.
 	configContent := []byte(`{}`)
@@ -108,5 +108,5 @@ func createDummyMatrix(t *testing.T) string {
 	if err := tw.Close(); err != nil {
 		t.Fatalf("failed to close tar writer: %v", err)
 	}
-	return matrixPath
+	return timPath
 }

@@ -3,16 +3,16 @@ package main
 import (
 	"log"
 
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
 )
 
 func main() {
-	log.Println("Executing matrix with Borg...")
+	log.Println("Executing TIM with Borg...")
 
-	// Execute the matrix using the Borg package.
-	if err := matrix.Run("programmatic.matrix"); err != nil {
-		log.Fatalf("Failed to run matrix: %v", err)
+	// Execute the TIM using the Borg package.
+	if err := tim.Run("programmatic.tim"); err != nil {
+		log.Fatalf("Failed to run TIM: %v", err)
 	}
 
-	log.Println("Matrix execution finished.")
+	log.Println("TIM execution finished.")
 }

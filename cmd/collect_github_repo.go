@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/Snider/Borg/pkg/compress"
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/vcs"
 
@@ -35,8 +35,8 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 
-			if format != "datanode" && format != "matrix" {
-				return fmt.Errorf("invalid format: %s (must be 'datanode' or 'matrix')", format)
+			if format != "datanode" && format != "tim" {
+				return fmt.Errorf("invalid format: %s (must be 'datanode' or 'tim')", format)
 			}
 			if compression != "none" && compression != "gz" && compression != "xz" {
 				return fmt.Errorf("invalid compression: %s (must be 'none', 'gz', or 'xz')", compression)
@@ -58,12 +58,12 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 			}
 
 			var data []byte
-			if format == "matrix" {
-				matrix, err := matrix.FromDataNode(dn)
+			if format == "tim" {
+				t, err := tim.FromDataNode(dn)
 				if err != nil {
 					return fmt.Errorf("error creating matrix: %w", err)
 				}
-				data, err = matrix.ToTar()
+				data, err = t.ToTar()
 				if err != nil {
 					return fmt.Errorf("error serializing matrix: %w", err)
 				}
@@ -96,7 +96,7 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("output", "", "Output file for the DataNode")
-	cmd.Flags().String("format", "datanode", "Output format (datanode or matrix)")
+	cmd.Flags().String("format", "datanode", "Output format (datanode or tim)")
 	cmd.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
 	return cmd
 }

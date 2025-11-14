@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/Snider/Borg/pkg/compress"
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/pwa"
 	"github.com/Snider/Borg/pkg/ui"
 
@@ -45,7 +45,7 @@ Example:
 	}
 	c.Flags().String("uri", "", "The URI of the PWA to collect")
 	c.Flags().String("output", "", "Output file for the DataNode")
-	c.Flags().String("format", "datanode", "Output format (datanode or matrix)")
+	c.Flags().String("format", "datanode", "Output format (datanode or tim)")
 	c.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
 	return c
 }
@@ -57,8 +57,8 @@ func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format s
 	if pwaURL == "" {
 		return "", fmt.Errorf("uri is required")
 	}
-	if format != "datanode" && format != "matrix" {
-		return "", fmt.Errorf("invalid format: %s (must be 'datanode' or 'matrix')", format)
+	if format != "datanode" && format != "tim" {
+		return "", fmt.Errorf("invalid format: %s (must be 'datanode' or 'tim')", format)
 	}
 	if compression != "none" && compression != "gz" && compression != "xz" {
 		return "", fmt.Errorf("invalid compression: %s (must be 'none', 'gz', or 'xz')", compression)
@@ -78,12 +78,12 @@ func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format s
 	}
 
 	var data []byte
-	if format == "matrix" {
-		matrix, err := matrix.FromDataNode(dn)
+	if format == "tim" {
+		t, err := tim.FromDataNode(dn)
 		if err != nil {
 			return "", fmt.Errorf("error creating matrix: %w", err)
 		}
-		data, err = matrix.ToTar()
+		data, err = t.ToTar()
 		if err != nil {
 			return "", fmt.Errorf("error serializing matrix: %w", err)
 		}

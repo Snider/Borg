@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
 	"github.com/spf13/cobra"
 )
 
@@ -17,14 +17,14 @@ var compileCmd = NewCompileCmd()
 func NewCompileCmd() *cobra.Command {
 	compileCmd := &cobra.Command{
 		Use:   "compile",
-		Short: "Compile a Borgfile into a Terminal Isolation Matrix.",
+		Short: "Compile a Borgfile into a TIM.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			content, err := os.ReadFile(borgfile)
 			if err != nil {
 				return err
 			}
 
-			m, err := matrix.New()
+			m, err := tim.New()
 			if err != nil {
 				return err
 			}
@@ -61,7 +61,7 @@ func NewCompileCmd() *cobra.Command {
 		},
 	}
 	compileCmd.Flags().StringVarP(&borgfile, "file", "f", "Borgfile", "Path to the Borgfile.")
-	compileCmd.Flags().StringVarP(&output, "output", "o", "a.matrix", "Path to the output matrix file.")
+	compileCmd.Flags().StringVarP(&output, "output", "o", "a.tim", "Path to the output TIM file.")
 	return compileCmd
 }
 

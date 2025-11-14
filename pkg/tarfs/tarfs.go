@@ -1,3 +1,6 @@
+// Package tarfs provides an http.FileSystem implementation that serves files
+// from a tar archive. This is particularly useful for serving the contents of a
+// .tim file's rootfs directly without unpacking it to disk.
 package tarfs
 
 import (
@@ -11,12 +14,28 @@ import (
 	"time"
 )
 
-// TarFS is a http.FileSystem that serves files from a tar archive.
+// TarFS is an implementation of http.FileSystem that serves files from an
+// in-memory tar archive. It specifically looks for files within a "rootfs/"
+// directory in the archive, which is the convention used by .tim files.
 type TarFS struct {
 	files map[string]*tarFile
 }
 
-// New creates a new TarFS from a tar archive.
+// New creates a new TarFS from a byte slice containing a tar archive. It
+// parses the archive and stores the files from the "rootfs/" directory in
+// memory.
+//
+// Example:
+//
+//	tarData, err := os.ReadFile("my-archive.tar")
+//	if err != nil {
+//		// handle error
+//	}
+//	fs, err := tarfs.New(tarData)
+//	if err != nil {
+//		// handle error
+//	}
+//	http.Handle("/", http.FileServer(fs))
 func New(data []byte) (*TarFS, error) {
 	fs := &TarFS{
 		files: make(map[string]*tarFile),
@@ -48,7 +67,8 @@ func New(data []byte) (*TarFS, error) {
 	return fs, nil
 }
 
-// Open opens a file from the tar archive.
+// Open opens a file from the tar archive for reading. This is the implementation
+// of the http.FileSystem interface.
 func (fs *TarFS) Open(name string) (http.File, error) {
 	name = strings.TrimPrefix(name, "/")
 	if file, ok := fs.files[name]; ok {

@@ -1,3 +1,4 @@
+// Package mocks provides mock implementations of interfaces for testing purposes.
 package mocks
 
 import (
@@ -7,20 +8,28 @@ import (
 	"sync"
 )
 
-// MockRoundTripper is a mock implementation of http.RoundTripper.
+// MockRoundTripper is a mock implementation of the http.RoundTripper interface,
+// used for mocking HTTP clients in tests. It allows setting predefined responses
+// for specific URLs.
 type MockRoundTripper struct {
 	mu        sync.RWMutex
 	responses map[string]*http.Response
 }
 
-// SetResponses sets the mock responses in a thread-safe way.
+// SetResponses sets the mock responses for the MockRoundTripper in a thread-safe
+// manner. The responses map keys are URLs and values are the http.Response
+// objects to be returned for those URLs.
 func (m *MockRoundTripper) SetResponses(responses map[string]*http.Response) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.responses = responses
 }
 
-// RoundTrip implements the http.RoundTripper interface.
+// RoundTrip is the implementation of the http.RoundTripper interface. It looks
+// up the request URL in the mock responses map and returns the corresponding
+// response. If no response is found, it returns a 404 Not Found response.
+// It performs a deep copy of the response to prevent race conditions on the
+// response body.
 func (m *MockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	url := req.URL.String()
 	m.mu.RLock()
@@ -64,7 +73,21 @@ func (m *MockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	}, nil
 }
 
-// NewMockClient creates a new http.Client with a MockRoundTripper.
+// NewMockClient creates a new http.Client that uses the MockRoundTripper. This
+// is a convenience function for creating a mock HTTP client for tests. The
+// responses map is defensively copied to prevent race conditions.
+//
+// Example:
+//
+//	mockResponses := map[string]*http.Response{
+//		"https://example.com": {
+//			StatusCode: http.StatusOK,
+//			Body:       io.NopCloser(bytes.NewBufferString("Hello")),
+//		},
+//	}
+//	client := mocks.NewMockClient(mockResponses)
+//	resp, err := client.Get("https://example.com")
+//	// ...
 func NewMockClient(responses map[string]*http.Response) *http.Client {
 	responsesCopy := make(map[string]*http.Response)
 	if responses != nil {

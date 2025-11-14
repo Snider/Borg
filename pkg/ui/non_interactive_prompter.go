@@ -1,3 +1,5 @@
+// Package ui provides components for creating command-line user interfaces,
+// including progress bars and non-interactive prompters.
 package ui
 
 import (
@@ -10,6 +12,10 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
+// NonInteractivePrompter is used to display thematic quotes during long-running
+// operations in non-interactive sessions (e.g., in a CI/CD pipeline). It can be
+// started and stopped, and it will periodically print a quote from the provided
+// quote function.
 type NonInteractivePrompter struct {
 	stopChan  chan struct{}
 	quoteFunc func() (string, error)
@@ -18,6 +24,15 @@ type NonInteractivePrompter struct {
 	stopOnce  sync.Once
 }
 
+// NewNonInteractivePrompter creates a new NonInteractivePrompter with the given
+// quote function.
+//
+// Example:
+//
+//	prompter := ui.NewNonInteractivePrompter(ui.GetVCSQuote)
+//	prompter.Start()
+//	// ... long-running operation ...
+//	prompter.Stop()
 func NewNonInteractivePrompter(quoteFunc func() (string, error)) *NonInteractivePrompter {
 	return &NonInteractivePrompter{
 		stopChan:  make(chan struct{}),
@@ -25,6 +40,8 @@ func NewNonInteractivePrompter(quoteFunc func() (string, error)) *NonInteractive
 	}
 }
 
+// Start begins the prompter, which will periodically print quotes to the console
+// in non-interactive sessions. It is safe to call Start multiple times.
 func (p *NonInteractivePrompter) Start() {
 	p.mu.Lock()
 	if p.started {
@@ -59,6 +76,7 @@ func (p *NonInteractivePrompter) Start() {
 	}()
 }
 
+// Stop halts the prompter. It is safe to call Stop multiple times.
 func (p *NonInteractivePrompter) Stop() {
 	if p.IsInteractive() {
 		return
@@ -68,6 +86,8 @@ func (p *NonInteractivePrompter) Stop() {
 	})
 }
 
+// IsInteractive checks if the current session is interactive (i.e., running in
+// a terminal).
 func (p *NonInteractivePrompter) IsInteractive() bool {
 	return isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
 }

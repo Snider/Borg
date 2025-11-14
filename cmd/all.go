@@ -11,7 +11,7 @@ import (
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/Snider/Borg/pkg/github"
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/vcs"
 	"github.com/spf13/cobra"
@@ -30,6 +30,10 @@ func NewAllCmd() *cobra.Command {
 			outputFile, _ := cmd.Flags().GetString("output")
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
+
+			if format != "datanode" && format != "tim" {
+				return fmt.Errorf("invalid format: %s (must be 'datanode' or 'tim')", format)
+			}
 
 			owner, err := parseGithubOwner(url)
 			if err != nil {
@@ -98,12 +102,12 @@ func NewAllCmd() *cobra.Command {
 			}
 
 			var data []byte
-			if format == "matrix" {
-				matrix, err := matrix.FromDataNode(allDataNodes)
+			if format == "tim" {
+				t, err := tim.FromDataNode(allDataNodes)
 				if err != nil {
 					return fmt.Errorf("error creating matrix: %w", err)
 				}
-				data, err = matrix.ToTar()
+				data, err = t.ToTar()
 				if err != nil {
 					return fmt.Errorf("error serializing matrix: %w", err)
 				}
@@ -119,6 +123,13 @@ func NewAllCmd() *cobra.Command {
 				return fmt.Errorf("error compressing data: %w", err)
 			}
 
+			if outputFile == "" {
+				outputFile = "all." + format
+				if compression != "none" {
+					outputFile += "." + compression
+				}
+			}
+
 			err = os.WriteFile(outputFile, compressedData, 0644)
 			if err != nil {
 				return fmt.Errorf("error writing DataNode to file: %w", err)
@@ -129,8 +140,8 @@ func NewAllCmd() *cobra.Command {
 			return nil
 		},
 	}
-	allCmd.PersistentFlags().String("output", "all.dat", "Output file for the DataNode")
-	allCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
+	allCmd.PersistentFlags().String("output", "", "Output file for the DataNode")
+	allCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or tim)")
 	allCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	return allCmd
 }

@@ -1,3 +1,4 @@
+// Package github provides a client for interacting with the GitHub API.
 package github
 
 import (
@@ -11,23 +12,40 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// Repo represents a GitHub repository, containing the information needed to
+// clone it.
 type Repo struct {
+	// CloneURL is the URL used to clone the repository.
 	CloneURL string `json:"clone_url"`
 }
 
-// GithubClient is an interface for interacting with the Github API.
+// GithubClient defines the interface for interacting with the GitHub API. This
+// allows for mocking the client in tests.
 type GithubClient interface {
+	// GetPublicRepos retrieves a list of all public repository clone URLs for a
+	// given user or organization.
 	GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error)
 }
 
-// NewGithubClient creates a new GithubClient.
+// NewGithubClient creates and returns a new GithubClient.
+//
+// Example:
+//
+//	client := github.NewGithubClient()
+//	repos, err := client.GetPublicRepos(context.Background(), "my-org")
+//	if err != nil {
+//		// handle error
+//	}
 func NewGithubClient() GithubClient {
 	return &githubClient{}
 }
 
 type githubClient struct{}
 
-// NewAuthenticatedClient creates a new authenticated http client.
+// NewAuthenticatedClient creates a new http.Client that authenticates with the
+// GitHub API using a token from the GITHUB_TOKEN environment variable. If the
+// variable is not set, it returns the default http.Client. This variable can
+// be overridden in tests to provide a mock client.
 var NewAuthenticatedClient = func(ctx context.Context) *http.Client {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {

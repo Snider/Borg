@@ -1,4 +1,7 @@
-package matrix
+// Package tim provides types and functions for creating and manipulating
+// Terminal Isolation Matrix (.tim) files, which are runc-compatible container
+// bundles.
+package tim
 
 import (
 	"archive/tar"
@@ -11,18 +14,32 @@ import (
 )
 
 var (
+	// ErrDataNodeRequired is returned when a DataNode is required but not provided.
 	ErrDataNodeRequired = errors.New("datanode is required")
-	ErrConfigIsNil      = errors.New("config is nil")
+	// ErrConfigIsNil is returned when the config is nil.
+	ErrConfigIsNil = errors.New("config is nil")
 )
 
-// TerminalIsolationMatrix represents a runc bundle.
-type TerminalIsolationMatrix struct {
+// TIM represents a runc-compatible container bundle. It consists of a runc
+// configuration file (config.json) and a root filesystem (rootfs).
+type TIM struct {
+	// Config is the JSON representation of the runc configuration.
 	Config []byte
+	// RootFS is an in-memory filesystem representing the container's root.
 	RootFS *datanode.DataNode
 }
 
-// New creates a new, empty TerminalIsolationMatrix.
-func New() (*TerminalIsolationMatrix, error) {
+// New creates a new, empty TIM with a default runc
+// configuration.
+//
+// Example:
+//
+//	m, err := tim.New()
+//	if err != nil {
+//		// handle error
+//	}
+//	m.RootFS.AddData("hello.txt", []byte("hello world"))
+func New() (*TIM, error) {
 	// Use the default runc spec as a starting point.
 	// This can be customized later.
 	spec, err := defaultConfigVar()
@@ -35,14 +52,24 @@ func New() (*TerminalIsolationMatrix, error) {
 		return nil, err
 	}
 
-	return &TerminalIsolationMatrix{
+	return &TIM{
 		Config: specBytes,
 		RootFS: datanode.New(),
 	}, nil
 }
 
-// FromDataNode creates a new TerminalIsolationMatrix from a DataNode.
-func FromDataNode(dn *datanode.DataNode) (*TerminalIsolationMatrix, error) {
+// FromDataNode creates a new TIM using the provided DataNode
+// as the root filesystem. It uses a default runc configuration.
+//
+// Example:
+//
+//	dn := datanode.New()
+//	dn.AddData("my-file.txt", []byte("hello"))
+//	m, err := tim.FromDataNode(dn)
+//	if err != nil {
+//		// handle error
+//	}
+func FromDataNode(dn *datanode.DataNode) (*TIM, error) {
 	if dn == nil {
 		return nil, ErrDataNodeRequired
 	}
@@ -54,8 +81,22 @@ func FromDataNode(dn *datanode.DataNode) (*TerminalIsolationMatrix, error) {
 	return m, nil
 }
 
-// ToTar serializes the TerminalIsolationMatrix to a tarball.
-func (m *TerminalIsolationMatrix) ToTar() ([]byte, error) {
+// ToTar serializes the TIM into a tar archive. The resulting
+// tarball will contain a config.json file and a rootfs directory, making it
+// compatible with runc.
+//
+// Example:
+//
+//	// Assuming 'm' is a *tim.TIM
+//	tarData, err := m.ToTar()
+//	if err != nil {
+//		// handle error
+//	}
+//	err = os.WriteFile("my-bundle.tar", tarData, 0644)
+//	if err != nil {
+//		// handle error
+//	}
+func (m *TIM) ToTar() ([]byte, error) {
 	if m.Config == nil {
 		return nil, ErrConfigIsNil
 	}

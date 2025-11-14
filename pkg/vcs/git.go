@@ -1,3 +1,5 @@
+// Package vcs provides functionality for interacting with version control
+// systems, such as Git.
 package vcs
 
 import (
@@ -10,19 +12,33 @@ import (
 	"github.com/go-git/go-git/v5"
 )
 
-// GitCloner is an interface for cloning Git repositories.
+// GitCloner defines the interface for cloning Git repositories. This allows for
+// mocking the cloner in tests.
 type GitCloner interface {
+	// CloneGitRepository clones a Git repository from a URL and packages its
+	// contents into a DataNode.
 	CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error)
 }
 
-// NewGitCloner creates a new GitCloner.
+// NewGitCloner creates and returns a new GitCloner.
+//
+// Example:
+//
+//	cloner := vcs.NewGitCloner()
+//	dn, err := cloner.CloneGitRepository("https://github.com/example/repo.git", nil)
+//	if err != nil {
+//		// handle error
+//	}
 func NewGitCloner() GitCloner {
 	return &gitCloner{}
 }
 
 type gitCloner struct{}
 
-// CloneGitRepository clones a Git repository from a URL and packages it into a DataNode.
+// CloneGitRepository clones a Git repository from a URL into a temporary
+// directory, then packages the contents of the repository into a DataNode.
+// The .git directory is excluded from the DataNode. If the repository is empty,
+// an empty DataNode is returned.
 func (g *gitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error) {
 	tempPath, err := os.MkdirTemp("", "borg-clone-*")
 	if err != nil {

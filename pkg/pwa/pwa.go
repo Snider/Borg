@@ -1,3 +1,5 @@
+// Package pwa provides functionality for discovering and downloading Progressive
+// Web Application (PWA) assets.
 package pwa
 
 import (
@@ -14,13 +16,26 @@ import (
 	"golang.org/x/net/html"
 )
 
-// PWAClient is an interface for interacting with PWAs.
+// PWAClient defines the interface for interacting with Progressive Web Apps.
+// This allows for mocking the client in tests.
 type PWAClient interface {
+	// FindManifest discovers the web app manifest URL for a given PWA URL.
 	FindManifest(pwaURL string) (string, error)
+	// DownloadAndPackagePWA downloads all the assets of a PWA, including the
+	// manifest, start URL, and icons, and packages them into a DataNode.
 	DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error)
 }
 
-// NewPWAClient creates a new PWAClient.
+// NewPWAClient creates and returns a new PWAClient that uses a default
+// http.Client.
+//
+// Example:
+//
+//	client := pwa.NewPWAClient()
+//	manifestURL, err := client.FindManifest("https://example.com")
+//	if err != nil {
+//		// handle error
+//	}
 func NewPWAClient() PWAClient {
 	return &pwaClient{client: http.DefaultClient}
 }
@@ -29,7 +44,8 @@ type pwaClient struct {
 	client *http.Client
 }
 
-// FindManifest finds the manifest for a PWA.
+// FindManifest discovers the web app manifest URL for a given PWA URL. It does
+// this by fetching the PWA's HTML and looking for a <link rel="manifest"> tag.
 func (p *pwaClient) FindManifest(pwaURL string) (string, error) {
 	resp, err := p.client.Get(pwaURL)
 	if err != nil {
@@ -83,7 +99,9 @@ func (p *pwaClient) FindManifest(pwaURL string) (string, error) {
 	return resolvedURL.String(), nil
 }
 
-// DownloadAndPackagePWA downloads and packages a PWA into a DataNode.
+// DownloadAndPackagePWA downloads all the assets of a PWA, including the
+// manifest, start URL, and icons, and packages them into a DataNode. It
+// downloads the assets concurrently for performance.
 func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
 	dn := datanode.New()
 	var wg sync.WaitGroup
@@ -206,14 +224,28 @@ func (p *pwaClient) resolveURL(base, ref string) (*url.URL, error) {
 	return baseURL.ResolveReference(refURL), nil
 }
 
-// MockPWAClient is a mock implementation of the PWAClient interface.
+// MockPWAClient is a mock implementation of the PWAClient interface, used for
+// testing. It allows setting a predefined manifest URL, DataNode, and error to
+// be returned by its methods.
 type MockPWAClient struct {
+	// ManifestURL is the manifest URL to be returned by FindManifest.
 	ManifestURL string
-	DN          *datanode.DataNode
-	Err         error
+	// DN is the DataNode to be returned by DownloadAndPackagePWA.
+	DN *datanode.DataNode
+	// Err is the error to be returned by the mock methods.
+	Err error
 }
 
-// NewMockPWAClient creates a new MockPWAClient.
+// NewMockPWAClient creates a new MockPWAClient with the given manifest URL,
+// DataNode, and error. This is a convenience function for creating a mock PWA
+// client for tests.
+//
+// Example:
+//
+//	mockDN := datanode.New()
+//	mockDN.AddData("manifest.json", []byte("{}"))
+//	mockClient := pwa.NewMockPWAClient("https://example.com/manifest.json", mockDN, nil)
+//	// use mockClient in tests
 func NewMockPWAClient(manifestURL string, dn *datanode.DataNode, err error) PWAClient {
 	return &MockPWAClient{
 		ManifestURL: manifestURL,
@@ -222,12 +254,14 @@ func NewMockPWAClient(manifestURL string, dn *datanode.DataNode, err error) PWAC
 	}
 }
 
-// FindManifest mocks the finding of a PWA manifest.
+// FindManifest is the mock implementation of the PWAClient interface. It
+// returns the pre-configured manifest URL and error.
 func (m *MockPWAClient) FindManifest(pwaURL string) (string, error) {
 	return m.ManifestURL, m.Err
 }
 
-// DownloadAndPackagePWA mocks the downloading and packaging of a PWA.
+// DownloadAndPackagePWA is the mock implementation of the PWAClient interface.
+// It returns the pre-configured DataNode and error.
 func (m *MockPWAClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
 	return m.DN, m.Err
 }

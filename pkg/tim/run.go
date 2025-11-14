@@ -1,4 +1,4 @@
-package matrix
+package tim
 
 import (
 	"archive/tar"
@@ -8,20 +8,25 @@ import (
 	"path/filepath"
 )
 
-// ExecCommand is a wrapper around exec.Command that can be overridden for testing.
+// ExecCommand is a function variable that creates a new exec.Cmd. It is a
+// variable to allow for mocking in tests.
 var ExecCommand = exec.Command
 
-// Run executes a Terminal Isolation Matrix from a given path.
-func Run(matrixPath string) error {
-	// Create a temporary directory to unpack the matrix file.
+// Run unpacks and executes a TIM from a given tarball path
+// using runc. It unpacks the bundle into a temporary directory, then executes it
+// with "runc run".
+//
+// Note: This function requires "runc" to be installed and in the system's PATH.
+func Run(timPath string) error {
+	// Create a temporary directory to unpack the TIM file.
 	tempDir, err := os.MkdirTemp("", "borg-run-*")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Unpack the matrix file.
-	file, err := os.Open(matrixPath)
+	// Unpack the TIM file.
+	file, err := os.Open(timPath)
 	if err != nil {
 		return err
 	}
@@ -55,7 +60,7 @@ func Run(matrixPath string) error {
 		}
 	}
 
-	// Run the matrix.
+	// Run the TIM.
 	runc := ExecCommand("runc", "run", "borg-container")
 	runc.Dir = tempDir
 	runc.Stdout = os.Stdout

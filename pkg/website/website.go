@@ -1,3 +1,5 @@
+// Package website provides functionality for recursively downloading a website's
+// assets and packaging them into a DataNode.
 package website
 
 import (
@@ -13,9 +15,13 @@ import (
 	"golang.org/x/net/html"
 )
 
+// DownloadAndPackageWebsite is a function variable that can be overridden for
+// testing. It defaults to the internal downloadAndPackageWebsite function.
 var DownloadAndPackageWebsite = downloadAndPackageWebsite
 
-// Downloader is a recursive website downloader.
+// Downloader is a recursive website downloader that stores the downloaded files
+// in a DataNode. It keeps track of visited URLs to avoid infinite loops and
+// respects a maximum crawl depth.
 type Downloader struct {
 	baseURL     *url.URL
 	dn          *datanode.DataNode
@@ -26,12 +32,19 @@ type Downloader struct {
 	errors      []error
 }
 
-// NewDownloader creates a new Downloader.
+// NewDownloader creates a new Downloader with a default http.Client.
+//
+// Example:
+//
+//	downloader := website.NewDownloader(2)
+//	// The downloader can be further configured before starting the crawl.
 func NewDownloader(maxDepth int) *Downloader {
 	return NewDownloaderWithClient(maxDepth, http.DefaultClient)
 }
 
 // NewDownloaderWithClient creates a new Downloader with a custom http.Client.
+// This is useful for testing or for configuring a client with specific
+// transport settings.
 func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
 	return &Downloader{
 		dn:          datanode.New(),

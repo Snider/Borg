@@ -1,4 +1,4 @@
-package matrix
+package tim
 
 import (
 	"archive/tar"
