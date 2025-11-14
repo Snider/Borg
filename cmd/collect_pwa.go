@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"github.com/Snider/Borg/pkg/compress"
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
+	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/pwa"
 	"github.com/Snider/Borg/pkg/ui"
 
@@ -34,8 +35,9 @@ Example:
 			outputFile, _ := cmd.Flags().GetString("output")
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
+			password, _ := cmd.Flags().GetString("password")
 
-			finalPath, err := CollectPWA(c.PWAClient, pwaURL, outputFile, format, compression)
+			finalPath, err := CollectPWA(c.PWAClient, pwaURL, outputFile, format, compression, password)
 			if err != nil {
 				return err
 			}
@@ -45,20 +47,21 @@ Example:
 	}
 	c.Flags().String("uri", "", "The URI of the PWA to collect")
 	c.Flags().String("output", "", "Output file for the DataNode")
-	c.Flags().String("format", "datanode", "Output format (datanode or matrix)")
+	c.Flags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	c.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
+	c.Flags().String("password", "", "Password for encryption")
 	return c
 }
 
 func init() {
 	collectCmd.AddCommand(&NewCollectPWACmd().Command)
 }
-func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format string, compression string) (string, error) {
+func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format string, compression string, password string) (string, error) {
 	if pwaURL == "" {
 		return "", fmt.Errorf("uri is required")
 	}
-	if format != "datanode" && format != "matrix" {
-		return "", fmt.Errorf("invalid format: %s (must be 'datanode' or 'matrix')", format)
+	if format != "datanode" && format != "tim" && format != "trix" {
+		return "", fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
 	}
 	if compression != "none" && compression != "gz" && compression != "xz" {
 		return "", fmt.Errorf("invalid compression: %s (must be 'none', 'gz', or 'xz')", compression)
@@ -78,14 +81,19 @@ func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format s
 	}
 
 	var data []byte
-	if format == "matrix" {
-		matrix, err := matrix.FromDataNode(dn)
+	if format == "tim" {
+		tim, err := tim.FromDataNode(dn)
 		if err != nil {
-			return "", fmt.Errorf("error creating matrix: %w", err)
+			return "", fmt.Errorf("error creating tim: %w", err)
 		}
-		data, err = matrix.ToTar()
+		data, err = tim.ToTar()
 		if err != nil {
-			return "", fmt.Errorf("error serializing matrix: %w", err)
+			return "", fmt.Errorf("error serializing tim: %w", err)
+		}
+	} else if format == "trix" {
+		data, err = trix.ToTrix(dn, password)
+		if err != nil {
+			return "", fmt.Errorf("error serializing trix: %w", err)
 		}
 	} else {
 		data, err = dn.ToTar()
