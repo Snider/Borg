@@ -5,120 +5,180 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/Snider/Borg/pkg/mocks"
 )
 
-func TestGetPublicRepos(t *testing.T) {
-	mockClient := mocks.NewMockClient(map[string]*http.Response{
-		"https://api.github.com/users/testuser/repos": {
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/testuser/repo1.git"}]`)),
-		},
-		"https://api.github.com/orgs/testorg/repos": {
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}, "Link": []string{`<https://api.github.com/organizations/123/repos?page=2>; rel="next"`}},
-			Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/testorg/repo1.git"}]`)),
-		},
-		"https://api.github.com/organizations/123/repos?page=2": {
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/testorg/repo2.git"}]`)),
-		},
+func TestGetPublicRepos_Good(t *testing.T) {
+	t.Run("User Repos", func(t *testing.T) {
+		mockClient := mocks.NewMockClient(map[string]*http.Response{
+			"https://api.github.com/users/testuser/repos": {
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/testuser/repo1.git"}]`)),
+			},
+		})
+		client := setupMockClient(t, mockClient)
+		repos, err := client.getPublicReposWithAPIURL(context.Background(), "https://api.github.com", "testuser")
+		if err != nil {
+			t.Fatalf("getPublicReposWithAPIURL for user failed: %v", err)
+		}
+		if len(repos) != 1 || repos[0] != "https://github.com/testuser/repo1.git" {
+			t.Errorf("unexpected user repos: %v", repos)
+		}
 	})
 
-	client := &githubClient{}
-	oldClient := NewAuthenticatedClient
-	NewAuthenticatedClient = func(ctx context.Context) *http.Client {
-		return mockClient
-	}
-	defer func() {
-		NewAuthenticatedClient = oldClient
-	}()
-
-	// Test user repos
-	repos, err := client.getPublicReposWithAPIURL(context.Background(), "https://api.github.com", "testuser")
-	if err != nil {
-		t.Fatalf("getPublicReposWithAPIURL for user failed: %v", err)
-	}
-	if len(repos) != 1 || repos[0] != "https://github.com/testuser/repo1.git" {
-		t.Errorf("unexpected user repos: %v", repos)
-	}
-
-	// Test org repos with pagination
-	repos, err = client.getPublicReposWithAPIURL(context.Background(), "https://api.github.com", "testorg")
-	if err != nil {
-		t.Fatalf("getPublicReposWithAPIURL for org failed: %v", err)
-	}
-	if len(repos) != 2 || repos[0] != "https://github.com/testorg/repo1.git" || repos[1] != "https://github.com/testorg/repo2.git" {
-		t.Errorf("unexpected org repos: %v", repos)
-	}
-}
-func TestGetPublicRepos_Error(t *testing.T) {
-	u, _ := url.Parse("https://api.github.com/users/testuser/repos")
-	mockClient := mocks.NewMockClient(map[string]*http.Response{
-		"https://api.github.com/users/testuser/repos": {
-			StatusCode: http.StatusNotFound,
-			Status:     "404 Not Found",
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(bytes.NewBufferString("")),
-			Request:    &http.Request{Method: "GET", URL: u},
-		},
-		"https://api.github.com/orgs/testuser/repos": {
-			StatusCode: http.StatusNotFound,
-			Status:     "404 Not Found",
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(bytes.NewBufferString("")),
-			Request:    &http.Request{Method: "GET", URL: u},
-		},
+	t.Run("Org Repos with Pagination", func(t *testing.T) {
+		mockClient := mocks.NewMockClient(map[string]*http.Response{
+			"https://api.github.com/users/testorg/repos": {
+				StatusCode: http.StatusNotFound, // Trigger fallback to org
+				Status:     "404 Not Found",
+				Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
+			},
+			"https://api.github.com/orgs/testorg/repos": {
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}, "Link": []string{`<https://api.github.com/organizations/123/repos?page=2>; rel="next"`}},
+				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/testorg/repo1.git"}]`)),
+			},
+			"https://api.github.com/organizations/123/repos?page=2": {
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/testorg/repo2.git"}]`)),
+			},
+		})
+		client := setupMockClient(t, mockClient)
+		repos, err := client.getPublicReposWithAPIURL(context.Background(), "https://api.github.com", "testorg")
+		if err != nil {
+			t.Fatalf("getPublicReposWithAPIURL for org failed: %v", err)
+		}
+		if len(repos) != 2 || repos[0] != "https://github.com/testorg/repo1.git" || repos[1] != "https://github.com/testorg/repo2.git" {
+			t.Errorf("unexpected org repos: %v", repos)
+		}
 	})
-	expectedErr := "failed to fetch repos: 404 Not Found"
-
-	client := &githubClient{}
-	oldClient := NewAuthenticatedClient
-	NewAuthenticatedClient = func(ctx context.Context) *http.Client {
-		return mockClient
-	}
-	defer func() {
-		NewAuthenticatedClient = oldClient
-	}()
-
-	// Test user repos
-	_, err := client.getPublicReposWithAPIURL(context.Background(), "https://api.github.com", "testuser")
-	if err.Error() != expectedErr {
-		t.Fatalf("getPublicReposWithAPIURL for user failed: %v", err)
-	}
 }
 
-func TestFindNextURL(t *testing.T) {
+func TestGetPublicRepos_Bad(t *testing.T) {
+	t.Run("Not Found", func(t *testing.T) {
+		mockClient := mocks.NewMockClient(map[string]*http.Response{
+			"https://api.github.com/users/testuser/repos": {
+				StatusCode: http.StatusNotFound,
+				Status:     "404 Not Found",
+				Body:       io.NopCloser(bytes.NewBufferString(`{"message": "Not Found"}`)),
+			},
+			"https://api.github.com/orgs/testuser/repos": {
+				StatusCode: http.StatusNotFound,
+				Status:     "404 Not Found",
+				Body:       io.NopCloser(bytes.NewBufferString(`{"message": "Not Found"}`)),
+			},
+		})
+		client := setupMockClient(t, mockClient)
+		_, err := client.getPublicReposWithAPIURL(context.Background(), "https://api.github.com", "testuser")
+		if err == nil {
+			t.Fatal("expected an error but got nil")
+		}
+		if !strings.Contains(err.Error(), "404 Not Found") {
+			t.Errorf("expected '404 Not Found' in error message, got %q", err)
+		}
+	})
+
+	t.Run("Invalid JSON", func(t *testing.T) {
+		mockClient := mocks.NewMockClient(map[string]*http.Response{
+			"https://api.github.com/users/badjson/repos": {
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "invalid}`)),
+			},
+		})
+		client := setupMockClient(t, mockClient)
+		_, err := client.getPublicReposWithAPIURL(context.Background(), "https://api.github.com", "badjson")
+		if err == nil {
+			t.Fatal("expected an error for invalid JSON, but got nil")
+		}
+	})
+}
+
+func TestGetPublicRepos_Ugly(t *testing.T) {
+	t.Run("Empty Repo List", func(t *testing.T) {
+		mockClient := mocks.NewMockClient(map[string]*http.Response{
+			"https://api.github.com/users/empty/repos": {
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewBufferString(`[]`)),
+			},
+		})
+		client := setupMockClient(t, mockClient)
+		repos, err := client.getPublicReposWithAPIURL(context.Background(), "https://api.github.com", "empty")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(repos) != 0 {
+			t.Errorf("expected 0 repos, got %d", len(repos))
+		}
+	})
+}
+
+func TestFindNextURL_Good(t *testing.T) {
 	client := &githubClient{}
 	linkHeader := `<https://api.github.com/organizations/123/repos?page=2>; rel="next", <https://api.github.com/organizations/123/repos?page=1>; rel="prev"`
 	nextURL := client.findNextURL(linkHeader)
 	if nextURL != "https://api.github.com/organizations/123/repos?page=2" {
 		t.Errorf("unexpected next URL: %s", nextURL)
 	}
+}
 
-	linkHeader = `<https://api.github.com/organizations/123/repos?page=1>; rel="prev"`
-	nextURL = client.findNextURL(linkHeader)
+func TestFindNextURL_Bad(t *testing.T) {
+	client := &githubClient{}
+	linkHeader := `<https://api.github.com/organizations/123/repos?page=1>; rel="prev"`
+	nextURL := client.findNextURL(linkHeader)
 	if nextURL != "" {
-		t.Errorf("unexpected next URL: %s", nextURL)
+		t.Errorf("unexpected next URL for header with no 'next': %s", nextURL)
+	}
+
+	nextURL = client.findNextURL("")
+	if nextURL != "" {
+		t.Errorf("unexpected next URL for empty header: %s", nextURL)
 	}
 }
 
-func TestNewAuthenticatedClient(t *testing.T) {
-	// Test with no token
+func TestFindNextURL_Ugly(t *testing.T) {
+	client := &githubClient{}
+	// Malformed: missing angle brackets
+	linkHeader := `https://api.github.com/organizations/123/repos?page=2; rel="next"`
+	nextURL := client.findNextURL(linkHeader)
+	if nextURL != "" {
+		t.Errorf("unexpected next URL for malformed header: %s", nextURL)
+	}
+}
+
+func TestNewAuthenticatedClient_Good(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	client := NewAuthenticatedClient(context.Background())
+	if client == http.DefaultClient {
+		t.Error("expected an authenticated client, but got http.DefaultClient")
+	}
+}
+
+func TestNewAuthenticatedClient_Bad(t *testing.T) {
+	// Unset the variable to ensure it's not present
+	t.Setenv("GITHUB_TOKEN", "")
 	client := NewAuthenticatedClient(context.Background())
 	if client != http.DefaultClient {
-		t.Errorf("expected http.DefaultClient, but got something else")
+		t.Error("expected http.DefaultClient when no token is set, but got something else")
 	}
+}
 
-	// Test with token
-	t.Setenv("GITHUB_TOKEN", "test-token")
-	client = NewAuthenticatedClient(context.Background())
-	if client == http.DefaultClient {
-		t.Errorf("expected an authenticated client, but got http.DefaultClient")
+// setupMockClient is a helper function to inject a mock http.Client.
+func setupMockClient(t *testing.T, mock *http.Client) *githubClient {
+	client := &githubClient{}
+	originalNewAuthenticatedClient := NewAuthenticatedClient
+	NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+		return mock
 	}
+	// Restore the original function after the test
+	t.Cleanup(func() {
+		NewAuthenticatedClient = originalNewAuthenticatedClient
+	})
+	return client
 }

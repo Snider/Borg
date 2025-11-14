@@ -5,15 +5,19 @@ import (
 )
 
 // collectCmd represents the collect command
-var collectCmd = &cobra.Command{
-	Use:   "collect",
-	Short: "Collect a resource from a URI.",
-	Long:  `Collect a resource from a URI and store it in a DataNode.`,
-}
+var collectCmd = NewCollectCmd()
 
 func init() {
-	RootCmd.AddCommand(collectCmd)
+	RootCmd.AddCommand(GetCollectCmd())
 }
 func NewCollectCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "collect",
+		Short: "Collect a resource from a URI.",
+		Long:  `Collect a resource from a URI and store it in a DataNode.`,
+	}
+}
+
+func GetCollectCmd() *cobra.Command {
 	return collectCmd
 }

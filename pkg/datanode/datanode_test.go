@@ -1,96 +1,298 @@
 package datanode
 
 import (
+	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
-func TestDataNode(t *testing.T) {
+func TestNew_Good(t *testing.T) {
+	dn := New()
+	if dn == nil {
+		t.Fatal("New() returned nil")
+	}
+	if dn.files == nil {
+		t.Error("New() did not initialize the files map")
+	}
+}
+
+func TestAddData_Good(t *testing.T) {
+	dn := New()
+	path := "foo.txt"
+	data := []byte("foo")
+	dn.AddData(path, data)
+
+	file, ok := dn.files[path]
+	if !ok {
+		t.Fatalf("file %q not found in datanode", path)
+	}
+	if string(file.content) != string(data) {
+		t.Errorf("expected data %q, got %q", data, file.content)
+	}
+	info, err := file.Stat()
+	if err != nil {
+		t.Fatalf("file.Stat() failed: %v", err)
+	}
+	if info.Name() != "foo.txt" {
+		t.Errorf("expected name foo.txt, got %s", info.Name())
+	}
+}
+
+func TestAddData_Ugly(t *testing.T) {
+	t.Run("Overwrite", func(t *testing.T) {
+		dn := New()
+		dn.AddData("foo.txt", []byte("foo"))
+		dn.AddData("foo.txt", []byte("bar"))
+
+		file, _ := dn.files["foo.txt"]
+		if string(file.content) != "bar" {
+			t.Errorf("expected data to be overwritten to 'bar', got %q", file.content)
+		}
+	})
+
+	t.Run("Weird Path", func(t *testing.T) {
+		dn := New()
+		// path.Clean treats "a/../b/./c.txt" as "b/c.txt" but our implementation is simpler
+		// and doesn't handle `..`. Let's test what it does handle.
+		path := "./b/./c.txt"
+		dn.AddData(path, []byte("c"))
+		if _, ok := dn.files["./b/./c.txt"]; !ok {
+			t.Errorf("expected path to be stored as is")
+		}
+	})
+}
+
+func TestOpen_Good(t *testing.T) {
 	dn := New()
 	dn.AddData("foo.txt", []byte("foo"))
-	dn.AddData("bar/baz.txt", []byte("baz"))
-	dn.AddData("bar/qux.txt", []byte("qux"))
-
-	// Test Open
 	file, err := dn.Open("foo.txt")
 	if err != nil {
 		t.Fatalf("Open failed: %v", err)
 	}
-	file.Close()
+	defer file.Close()
+}
 
-	_, err = dn.Open("nonexistent.txt")
+func TestOpen_Bad(t *testing.T) {
+	dn := New()
+	_, err := dn.Open("nonexistent.txt")
 	if err == nil {
-		t.Fatalf("Expected error opening nonexistent file, got nil")
+		t.Fatal("expected error opening nonexistent file, got nil")
 	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("expected fs.ErrNotExist, got %v", err)
+	}
+}
 
-	// Test Stat
+func TestOpen_Ugly(t *testing.T) {
+	dn := New()
+	dn.AddData("bar/baz.txt", []byte("baz"))
+	file, err := dn.Open("bar") // Opening a directory
+	if err != nil {
+		t.Fatalf("expected no error when opening a directory, got %v", err)
+	}
+	defer file.Close()
+
+	// Reading from a directory should fail
+	_, err = file.Read(make([]byte, 1))
+	if err == nil {
+		t.Fatal("expected error reading from a directory, got nil")
+	}
+	var pathErr *fs.PathError
+	if !errors.As(err, &pathErr) || pathErr.Err != fs.ErrInvalid {
+		t.Errorf("expected fs.ErrInvalid when reading a directory, got %v", err)
+	}
+}
+
+func TestStat_Good(t *testing.T) {
+	dn := New()
+	dn.AddData("foo.txt", []byte("foo"))
+	dn.AddData("bar/baz.txt", []byte("baz"))
+
+	// Test file
 	info, err := dn.Stat("bar/baz.txt")
 	if err != nil {
 		t.Fatalf("Stat failed: %v", err)
 	}
 	if info.Name() != "baz.txt" {
-		t.Errorf("Expected name baz.txt, got %s", info.Name())
+		t.Errorf("expected name baz.txt, got %s", info.Name())
 	}
 	if info.Size() != 3 {
-		t.Errorf("Expected size 3, got %d", info.Size())
+		t.Errorf("expected size 3, got %d", info.Size())
 	}
 	if info.IsDir() {
-		t.Errorf("Expected baz.txt to not be a directory")
+		t.Error("expected baz.txt to not be a directory")
 	}
 
+	// Test directory
 	dirInfo, err := dn.Stat("bar")
 	if err != nil {
 		t.Fatalf("Stat directory failed: %v", err)
 	}
 	if !dirInfo.IsDir() {
-		t.Errorf("Expected 'bar' to be a directory")
+		t.Error("expected 'bar' to be a directory")
 	}
+	if dirInfo.Name() != "bar" {
+		t.Errorf("expected dir name 'bar', got %s", dirInfo.Name())
+	}
+}
 
-	// Test Exists
+func TestStat_Bad(t *testing.T) {
+	dn := New()
+	_, err := dn.Stat("nonexistent")
+	if err == nil {
+		t.Fatal("expected error stating nonexistent file, got nil")
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("expected fs.ErrNotExist, got %v", err)
+	}
+}
+
+func TestStat_Ugly(t *testing.T) {
+	dn := New()
+	dn.AddData("foo.txt", []byte("foo"))
+
+	// Test root
+	info, err := dn.Stat(".")
+	if err != nil {
+		t.Fatalf("Stat('.') failed: %v", err)
+	}
+	if !info.IsDir() {
+		t.Error("expected '.' to be a directory")
+	}
+	if info.Name() != "." {
+		t.Errorf("expected name '.', got %s", info.Name())
+	}
+}
+
+func TestExists_Good(t *testing.T) {
+	dn := New()
+	dn.AddData("foo.txt", []byte("foo"))
+	dn.AddData("bar/baz.txt", []byte("baz"))
+
 	exists, err := dn.Exists("foo.txt")
 	if err != nil || !exists {
-		t.Errorf("Expected foo.txt to exist, err: %v", err)
-	}
-	exists, err = dn.Exists("bar")
-	if err != nil || !exists {
-		t.Errorf("Expected 'bar' directory to exist, err: %v", err)
-	}
-	exists, err = dn.Exists("nonexistent")
-	if err != nil || exists {
-		t.Errorf("Expected 'nonexistent' to not exist, err: %v", err)
+		t.Errorf("expected foo.txt to exist, err: %v", err)
 	}
 
-	// Test ReadDir
+	exists, err = dn.Exists("bar")
+	if err != nil || !exists {
+		t.Errorf("expected 'bar' directory to exist, err: %v", err)
+	}
+}
+
+func TestExists_Bad(t *testing.T) {
+	dn := New()
+	exists, err := dn.Exists("nonexistent")
+	if err != nil {
+		t.Errorf("unexpected error for nonexistent file: %v", err)
+	}
+	if exists {
+		t.Error("expected 'nonexistent' to not exist")
+	}
+}
+
+func TestExists_Ugly(t *testing.T) {
+	dn := New()
+	dn.AddData("dummy.txt", []byte("dummy"))
+	// Test root
+	exists, err := dn.Exists(".")
+	if err != nil || !exists {
+		t.Error("expected root '.' to exist")
+	}
+	// Test empty path
+	exists, err = dn.Exists("")
+	if err != nil {
+		// our stat treats "" as "."
+		if !strings.Contains(err.Error(), "exists") {
+			t.Errorf("unexpected error for empty path: %v", err)
+		}
+	}
+	if !exists {
+		t.Error("expected empty path '' to exist (as root)")
+	}
+}
+
+func TestReadDir_Good(t *testing.T) {
+	dn := New()
+	dn.AddData("foo.txt", []byte("foo"))
+	dn.AddData("bar/baz.txt", []byte("baz"))
+	dn.AddData("bar/qux.txt", []byte("qux"))
+
+	// Read root
 	entries, err := dn.ReadDir(".")
 	if err != nil {
 		t.Fatalf("ReadDir failed: %v", err)
 	}
 	expectedRootEntries := []string{"bar", "foo.txt"}
-	if len(entries) != len(expectedRootEntries) {
-		t.Errorf("Expected %d entries in root, got %d", len(expectedRootEntries), len(entries))
-	}
-	var rootEntryNames []string
-	for _, e := range entries {
-		rootEntryNames = append(rootEntryNames, e.Name())
-	}
-	sort.Strings(rootEntryNames)
-	if !reflect.DeepEqual(rootEntryNames, expectedRootEntries) {
-		t.Errorf("Expected entries %v, got %v", expectedRootEntries, rootEntryNames)
+	entryNames := toSortedNames(entries)
+	if !reflect.DeepEqual(entryNames, expectedRootEntries) {
+		t.Errorf("expected entries %v, got %v", expectedRootEntries, entryNames)
 	}
 
+	// Read subdirectory
 	barEntries, err := dn.ReadDir("bar")
 	if err != nil {
 		t.Fatalf("ReadDir('bar') failed: %v", err)
 	}
 	expectedBarEntries := []string{"baz.txt", "qux.txt"}
-	if len(barEntries) != len(expectedBarEntries) {
-		t.Errorf("Expected %d entries in 'bar', got %d", len(expectedBarEntries), len(barEntries))
+	barEntryNames := toSortedNames(barEntries)
+	if !reflect.DeepEqual(barEntryNames, expectedBarEntries) {
+		t.Errorf("expected entries %v, got %v", expectedBarEntries, barEntryNames)
+	}
+}
+
+func TestReadDir_Bad(t *testing.T) {
+	dn := New()
+	dn.AddData("foo.txt", []byte("foo"))
+
+	// Read nonexistent dir
+	entries, err := dn.ReadDir("nonexistent")
+	if err != nil {
+		t.Fatalf("expected no error reading nonexistent dir, got %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries for nonexistent dir, got %d", len(entries))
 	}
 
-	// Test Walk
+	// Read file
+	_, err = dn.ReadDir("foo.txt")
+	if err == nil {
+		t.Fatal("expected error reading a file")
+	}
+	var pathErr *fs.PathError
+	if !errors.As(err, &pathErr) || pathErr.Err != fs.ErrInvalid {
+		t.Errorf("expected fs.ErrInvalid when reading a file, got %v", err)
+	}
+}
+
+func TestReadDir_Ugly(t *testing.T) {
+	dn := New()
+	dn.AddData("bar/baz.txt", []byte("baz"))
+	dn.AddData("empty_dir/", nil)
+
+	// Read dir with another dir but no files
+	entries, err := dn.ReadDir(".")
+	if err != nil {
+		t.Fatalf("ReadDir failed: %v", err)
+	}
+	expected := []string{"bar"} // empty_dir/ is ignored by AddData
+	names := toSortedNames(entries)
+	if !reflect.DeepEqual(names, expected) {
+		t.Errorf("expected %v, got %v", expected, names)
+	}
+}
+
+func TestWalk_Good(t *testing.T) {
+	dn := New()
+	dn.AddData("foo.txt", []byte("foo"))
+	dn.AddData("bar/baz.txt", []byte("baz"))
+	dn.AddData("bar/qux.txt", []byte("qux"))
+
 	var paths []string
 	dn.Walk(".", func(path string, d fs.DirEntry, err error) error {
 		paths = append(paths, path)
@@ -101,24 +303,105 @@ func TestDataNode(t *testing.T) {
 	if !reflect.DeepEqual(paths, expectedPaths) {
 		t.Errorf("Walk expected paths %v, got %v", expectedPaths, paths)
 	}
+}
 
-	// Test CopyFile
-	tmpfile, err := os.CreateTemp("", "datanode-test-")
-	if err != nil {
-		t.Fatalf("CreateTemp failed: %v", err)
+func TestWalk_Bad(t *testing.T) {
+	dn := New()
+	// Walk non-existent path. fs.WalkDir will call the func with the error.
+	var called bool
+	err := dn.Walk("nonexistent", func(path string, d fs.DirEntry, err error) error {
+		called = true
+		if err == nil {
+			t.Error("expected error for nonexistent path")
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("unexpected error message: %v", err)
+		}
+		return err // propagate error
+	})
+	if !called {
+		t.Fatal("walk function was not called for nonexistent root")
 	}
-	defer os.Remove(tmpfile.Name())
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("expected Walk to return fs.ErrNotExist, got %v", err)
+	}
+}
 
-	err = dn.CopyFile("foo.txt", tmpfile.Name(), 0644)
+func TestWalk_Ugly(t *testing.T) {
+	dn := New()
+	dn.AddData("a/b.txt", []byte("b"))
+	dn.AddData("a/c.txt", []byte("c"))
+
+	// Test stopping walk
+	walkErr := errors.New("stop walking")
+	var paths []string
+	err := dn.Walk(".", func(path string, d fs.DirEntry, err error) error {
+		if path == "a/b.txt" {
+			return walkErr
+		}
+		paths = append(paths, path)
+		return nil
+	})
+
+	if err != walkErr {
+		t.Errorf("expected walk to return the callback error, got %v", err)
+	}
+}
+
+func TestCopyFile_Good(t *testing.T) {
+	dn := New()
+	dn.AddData("foo.txt", []byte("foo"))
+
+	tmpfile := filepath.Join(t.TempDir(), "test.txt")
+	err := dn.CopyFile("foo.txt", tmpfile, 0644)
 	if err != nil {
 		t.Fatalf("CopyFile failed: %v", err)
 	}
 
-	content, err := os.ReadFile(tmpfile.Name())
+	content, err := os.ReadFile(tmpfile)
 	if err != nil {
 		t.Fatalf("ReadFile failed: %v", err)
 	}
 	if string(content) != "foo" {
-		t.Errorf("Expected foo, got %s", string(content))
+		t.Errorf("expected foo, got %s", string(content))
 	}
+}
+
+func TestCopyFile_Bad(t *testing.T) {
+	dn := New()
+	tmpfile := filepath.Join(t.TempDir(), "test.txt")
+
+	// Source does not exist
+	err := dn.CopyFile("nonexistent.txt", tmpfile, 0644)
+	if err == nil {
+		t.Fatal("expected error for nonexistent source file")
+	}
+
+	// Destination is not writable
+	dn.AddData("foo.txt", []byte("foo"))
+	err = dn.CopyFile("foo.txt", "/nonexistent_dir/test.txt", 0644)
+	if err == nil {
+		t.Fatal("expected error for unwritable destination")
+	}
+}
+
+func TestCopyFile_Ugly(t *testing.T) {
+	dn := New()
+	dn.AddData("bar/baz.txt", []byte("baz"))
+	tmpfile := filepath.Join(t.TempDir(), "test.txt")
+
+	// Attempting to copy a directory
+	err := dn.CopyFile("bar", tmpfile, 0644)
+	if err == nil {
+		t.Fatal("expected error when trying to copy a directory")
+	}
+}
+
+func toSortedNames(entries []fs.DirEntry) []string {
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	sort.Strings(names)
+	return names
 }

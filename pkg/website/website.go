@@ -168,7 +168,11 @@ func (d *Downloader) getRelativePath(pageURL string) string {
 	if err != nil {
 		return ""
 	}
-	return strings.TrimPrefix(u.Path, "/")
+	path := strings.TrimPrefix(u.Path, "/")
+	if path == "" {
+		return "index.html"
+	}
+	return path
 }
 
 func (d *Downloader) resolveURL(base, ref string) (string, error) {
