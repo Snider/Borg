@@ -11,7 +11,8 @@ import (
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/Snider/Borg/pkg/github"
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
+	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/vcs"
 	"github.com/spf13/cobra"
@@ -30,6 +31,11 @@ func NewAllCmd() *cobra.Command {
 			outputFile, _ := cmd.Flags().GetString("output")
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
+			password, _ := cmd.Flags().GetString("password")
+
+			if format != "datanode" && format != "tim" && format != "trix" {
+				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
+			}
 
 			owner, err := parseGithubOwner(url)
 			if err != nil {
@@ -98,14 +104,19 @@ func NewAllCmd() *cobra.Command {
 			}
 
 			var data []byte
-			if format == "matrix" {
-				matrix, err := matrix.FromDataNode(allDataNodes)
+			if format == "tim" {
+				tim, err := tim.FromDataNode(allDataNodes)
 				if err != nil {
-					return fmt.Errorf("error creating matrix: %w", err)
+					return fmt.Errorf("error creating tim: %w", err)
 				}
-				data, err = matrix.ToTar()
+				data, err = tim.ToTar()
 				if err != nil {
-					return fmt.Errorf("error serializing matrix: %w", err)
+					return fmt.Errorf("error serializing tim: %w", err)
+				}
+			} else if format == "trix" {
+				data, err = trix.ToTrix(allDataNodes, password)
+				if err != nil {
+					return fmt.Errorf("error serializing trix: %w", err)
 				}
 			} else {
 				data, err = allDataNodes.ToTar()
@@ -130,8 +141,9 @@ func NewAllCmd() *cobra.Command {
 		},
 	}
 	allCmd.PersistentFlags().String("output", "all.dat", "Output file for the DataNode")
-	allCmd.PersistentFlags().String("format", "datanode", "Output format (datanode or matrix)")
+	allCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	allCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
+	allCmd.PersistentFlags().String("password", "", "Password for encryption")
 	return allCmd
 }
 

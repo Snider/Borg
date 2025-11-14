@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/Snider/Borg/pkg/matrix"
+	"github.com/Snider/Borg/pkg/tim"
 	"github.com/spf13/cobra"
 )
 
@@ -9,11 +9,11 @@ var runCmd = NewRunCmd()
 
 func NewRunCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "run [matrix file]",
+		Use:   "run [tim file]",
 		Short: "Run a Terminal Isolation Matrix.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return matrix.Run(args[0])
+			return tim.Run(args[0])
 		},
 	}
 }

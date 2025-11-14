@@ -3,6 +3,7 @@ package datanode
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -10,6 +11,11 @@ import (
 	"sort"
 	"strings"
 	"time"
+)
+
+var (
+	ErrInvalidPassword  = errors.New("invalid password")
+	ErrPasswordRequired = errors.New("password required")
 )
 
 // DataNode is an in-memory filesystem that is compatible with fs.FS.

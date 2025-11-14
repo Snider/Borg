@@ -1,4 +1,4 @@
-package matrix
+package tim
 
 import (
 	"archive/tar"
@@ -25,7 +25,7 @@ type TerminalIsolationMatrix struct {
 func New() (*TerminalIsolationMatrix, error) {
 	// Use the default runc spec as a starting point.
 	// This can be customized later.
-	spec, err := defaultConfigVar()
+	spec, err := defaultConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -140,3 +140,8 @@ func (m *TerminalIsolationMatrix) ToTar() ([]byte, error) {
 
 	return buf.Bytes(), nil
 }
+
+// ToTrix is not yet implemented.
+// func (m *TerminalIsolationMatrix) ToTrix(password string) ([]byte, error) {
+// 	return nil, errors.New("not implemented")
+// }
