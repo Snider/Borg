@@ -3,9 +3,11 @@ package tim
 import (
 	"archive/tar"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 var (
@@ -35,19 +37,30 @@ func Run(timPath string) error {
 		}
 
 		target := filepath.Join(tempDir, hdr.Name)
+		target = filepath.Clean(target)
+		if !strings.HasPrefix(target, filepath.Clean(tempDir)+string(os.PathSeparator)) && target != filepath.Clean(tempDir) {
+			return fmt.Errorf("invalid file path: %s", hdr.Name)
+		}
+
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0755); err != nil {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
 			outFile, err := os.Create(target)
 			if err != nil {
 				return fmt.Errorf("failed to create file: %w", err)
 			}
-			defer outFile.Close()
-			if _, err := outFile.ReadFrom(tr); err != nil {
+			if _, err := io.Copy(outFile, tr); err != nil {
+				outFile.Close()
 				return fmt.Errorf("failed to write file: %w", err)
+			}
+			if err := outFile.Close(); err != nil {
+				return fmt.Errorf("failed to close file: %w", err)
 			}
 		}
 	}

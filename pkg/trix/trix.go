@@ -1,6 +1,7 @@
 package trix
 
 import (
+	"fmt"
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/Snider/Enchantrix/pkg/crypt"
 	"github.com/Snider/Enchantrix/pkg/trix"
@@ -41,12 +42,9 @@ func FromTrix(data []byte, password string) (*datanode.DataNode, error) {
 	}
 
 	// Decrypt the payload if a password is provided.
-	// if password != "" {
-	// 	t.Payload, err = crypt.NewService().SymmetricallyDecryptPGP([]byte(password), t.Payload)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+	if password != "" {
+		return nil, fmt.Errorf("decryption disabled: cannot accept encrypted payloads")
+	}
 
 	// Convert the tarball back to a DataNode.
 	return datanode.FromTar(t.Payload)
