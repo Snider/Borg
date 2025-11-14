@@ -47,6 +47,44 @@ borg collect website [url] [flags]
 ./borg collect website https://google.com --output website.dat --depth 1
 ```
 
+#### `collect github repos`
+
+Collects all public repositories for a user or organization.
+
+**Usage:**
+```
+borg collect github repos [user-or-org] [flags]
+```
+
+**Example:**
+```
+./borg collect github repos Snider
+```
+
+#### `collect github release`
+
+Downloads the latest release of a file from GitHub releases.
+
+**Usage:**
+```
+borg collect github release [repository-url] [flags]
+```
+
+**Flags:**
+- `--output string`: Output directory for the downloaded file (default ".")
+- `--pack`: Pack all assets into a DataNode
+- `--file string`: The file to download from the release
+- `--version string`: The version to check against
+
+**Example:**
+```
+# Download the latest release of the 'borg' executable
+./borg collect github release https://github.com/Snider/Borg --file borg
+
+# Pack all assets from the latest release into a DataNode
+./borg collect github release https://github.com/Snider/Borg --pack --output borg-release.dat
+```
+
 #### `collect pwa`
 
 Collects a single PWA and stores it in a DataNode.
@@ -65,6 +103,24 @@ borg collect pwa [flags]
 **Example:**
 ```
 ./borg collect pwa --uri https://squoosh.app --output squoosh.dat
+```
+
+### `compile`
+
+Compiles a `Borgfile` into a Terminal Isolation Matrix.
+
+**Usage:**
+```
+borg compile [flags]
+```
+
+**Flags:**
+- `--file string`: Path to the Borgfile (default "Borgfile")
+- `--output string`: Path to the output matrix file (default "a.matrix")
+
+**Example:**
+```
+./borg compile -f my-borgfile -o my-app.matrix
 ```
 
 ### `serve`
@@ -116,33 +172,94 @@ To create a Matrix, use the `--format matrix` flag with any of the `collect` sub
 ./borg collect github repo https://github.com/Snider/Borg --output borg.matrix --format matrix
 ```
 
-You can then execute the Matrix with `runc`:
-```
-# Create a directory for the bundle
-mkdir borg-bundle
-
-# Unpack the matrix into the bundle directory
-tar -xf borg.matrix -C borg-bundle
-
-# Run the bundle
-cd borg-bundle
-runc run borg
-```
-
-## Inspecting a DataNode
-
-The `examples` directory contains a Go program that can be used to inspect the contents of a `.dat` file.
-
-**Usage:**
-```
-go run examples/inspect_datanode.go <path to .dat file>
-```
+The `borg run` command is used to execute a Terminal Isolation Matrix. This command handles the unpacking and execution of the matrix in a secure, isolated environment using `runc`. This ensures that the payload can be safely analyzed without affecting the host system.
 
 **Example:**
 ```
-# First, create a .dat file
-./borg collect github repo https://github.com/Snider/Borg --output borg.dat
+./borg run borg.matrix
+```
 
-# Then, inspect it
-go run examples/inspect_datanode.go borg.dat
+## Programmatic Usage
+
+The `examples` directory contains a number of Go programs that demonstrate how to use the `borg` package programmatically.
+
+### Inspecting a DataNode
+
+The `inspect_datanode` example demonstrates how to read, decompress, and walk a `.dat` file.
+
+**Usage:**
+```
+go run examples/inspect_datanode/main.go <path to .dat file>
+```
+
+### Creating a Matrix Programmatically
+
+The `create_matrix_programmatically` example demonstrates how to create a Terminal Isolation Matrix from scratch.
+
+**Usage:**
+```
+go run examples/create_matrix_programmatically/main.go
+```
+
+### Running a Matrix Programmatically
+
+The `run_matrix_programmatically` example demonstrates how to run a Terminal Isolation Matrix using the `borg` package.
+
+**Usage:**
+```
+go run examples/run_matrix_programmatically/main.go
+```
+
+### Collecting a Website
+
+The `collect_website` example demonstrates how to collect a website and package it into a `.dat` file.
+
+**Usage:**
+```
+go run examples/collect_website/main.go
+```
+
+### Collecting a GitHub Release
+
+The `collect_github_release` example demonstrates how to collect the latest release of a GitHub repository.
+
+**Usage:**
+```
+go run examples/collect_github_release/main.go
+```
+
+### Collecting All Repositories for a User
+
+The `all` example demonstrates how to collect all public repositories for a GitHub user.
+
+**Usage:**
+```
+go run examples/all/main.go
+```
+
+### Collecting a PWA
+
+The `collect_pwa` example demonstrates how to collect a Progressive Web App and package it into a `.dat` file.
+
+**Usage:**
+```
+go run examples/collect_pwa/main.go
+```
+
+### Collecting a GitHub Repository
+
+The `collect_github_repo` example demonstrates how to clone a GitHub repository and package it into a `.dat` file.
+
+**Usage:**
+```
+go run examples/collect_github_repo/main.go
+```
+
+### Serving a DataNode
+
+The `serve` example demonstrates how to serve the contents of a `.dat` file over HTTP.
+
+**Usage:**
+```
+go run examples/serve/main.go
 ```
