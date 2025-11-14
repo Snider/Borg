@@ -4,9 +4,15 @@ import (
 	"archive/tar"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/fs"
 
 	"github.com/Snider/Borg/pkg/datanode"
+)
+
+var (
+	ErrDataNodeRequired = errors.New("datanode is required")
+	ErrConfigIsNil      = errors.New("config is nil")
 )
 
 // TerminalIsolationMatrix represents a runc bundle.
@@ -37,6 +43,9 @@ func New() (*TerminalIsolationMatrix, error) {
 
 // FromDataNode creates a new TerminalIsolationMatrix from a DataNode.
 func FromDataNode(dn *datanode.DataNode) (*TerminalIsolationMatrix, error) {
+	if dn == nil {
+		return nil, ErrDataNodeRequired
+	}
 	m, err := New()
 	if err != nil {
 		return nil, err
@@ -47,6 +56,9 @@ func FromDataNode(dn *datanode.DataNode) (*TerminalIsolationMatrix, error) {
 
 // ToTar serializes the TerminalIsolationMatrix to a tarball.
 func (m *TerminalIsolationMatrix) ToTar() ([]byte, error) {
+	if m.Config == nil {
+		return nil, ErrConfigIsNil
+	}
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 
@@ -76,6 +88,10 @@ func (m *TerminalIsolationMatrix) ToTar() ([]byte, error) {
 	// Add the rootfs files.
 	err := m.RootFS.Walk(".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			// If the root directory doesn't exist (i.e. empty datanode), it's not an error.
+			if path == "." && errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 

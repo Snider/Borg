@@ -27,6 +27,59 @@ func TestHelperProcess(t *testing.T) {
 
 func TestRunCmd_Good(t *testing.T) {
 	// Create a dummy matrix file.
+	matrixPath := createDummyMatrix(t)
+
+	// Mock the exec.Command function.
+	origExecCommand := execCommand
+	execCommand = helperProcess
+	t.Cleanup(func() {
+		execCommand = origExecCommand
+	})
+
+	// Run the run command.
+	rootCmd := NewRootCmd()
+	rootCmd.AddCommand(GetRunCmd())
+	_, err := executeCommand(rootCmd, "run", matrixPath)
+	if err != nil {
+		t.Fatalf("run command failed: %v", err)
+	}
+}
+
+func TestRunCmd_Bad(t *testing.T) {
+	t.Run("Missing input file", func(t *testing.T) {
+		// Run the run command with a non-existent file.
+		rootCmd := NewRootCmd()
+		rootCmd.AddCommand(GetRunCmd())
+		_, err := executeCommand(rootCmd, "run", "/non/existent/file.matrix")
+		if err == nil {
+			t.Fatal("run command should have failed but did not")
+		}
+	})
+}
+
+func TestRunCmd_Ugly(t *testing.T) {
+	t.Run("Invalid matrix file", func(t *testing.T) {
+		// Create an invalid (non-tar) matrix file.
+		tempDir := t.TempDir()
+		matrixPath := filepath.Join(tempDir, "invalid.matrix")
+		err := os.WriteFile(matrixPath, []byte("this is not a tar file"), 0644)
+		if err != nil {
+			t.Fatalf("failed to create invalid matrix file: %v", err)
+		}
+
+		// Run the run command.
+		rootCmd := NewRootCmd()
+		rootCmd.AddCommand(GetRunCmd())
+		_, err = executeCommand(rootCmd, "run", matrixPath)
+		if err == nil {
+			t.Fatal("run command should have failed but did not")
+		}
+	})
+}
+
+// createDummyMatrix creates a valid, empty matrix file for testing.
+func createDummyMatrix(t *testing.T) string {
+	t.Helper()
 	tempDir := t.TempDir()
 	matrixPath := filepath.Join(tempDir, "test.matrix")
 	matrixFile, err := os.Create(matrixPath)
@@ -36,6 +89,7 @@ func TestRunCmd_Good(t *testing.T) {
 	defer matrixFile.Close()
 
 	tw := tar.NewWriter(matrixFile)
+
 	// Add a dummy config.json.
 	configContent := []byte(matrix.DefaultConfigJSON)
 	hdr := &tar.Header{
@@ -63,29 +117,5 @@ func TestRunCmd_Good(t *testing.T) {
 	if err := tw.Close(); err != nil {
 		t.Fatalf("failed to close tar writer: %v", err)
 	}
-
-	// Mock the exec.Command function.
-	origExecCommand := execCommand
-	execCommand = helperProcess
-	t.Cleanup(func() {
-		execCommand = origExecCommand
-	})
-
-	// Run the run command.
-	rootCmd := NewRootCmd()
-	rootCmd.AddCommand(runCmd)
-	_, err = executeCommand(rootCmd, "run", matrixPath)
-	if err != nil {
-		t.Fatalf("run command failed: %v", err)
-	}
-}
-
-func TestRunCmd_Bad_MissingInputFile(t *testing.T) {
-	// Run the run command with a non-existent file.
-	rootCmd := NewRootCmd()
-	rootCmd.AddCommand(runCmd)
-	_, err := executeCommand(rootCmd, "run", "/non/existent/file.matrix")
-	if err == nil {
-		t.Fatal("run command should have failed but did not")
-	}
+	return matrixPath
 }

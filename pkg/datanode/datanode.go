@@ -119,6 +119,11 @@ func (d *DataNode) ReadDir(name string) ([]fs.DirEntry, error) {
 		name = ""
 	}
 
+	// Disallow reading a file as a directory.
+	if info, err := d.Stat(name); err == nil && !info.IsDir() {
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
+	}
+
 	entries := []fs.DirEntry{}
 	seen := make(map[string]bool)
 

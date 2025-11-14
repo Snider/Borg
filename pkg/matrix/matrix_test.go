@@ -3,13 +3,15 @@ package matrix
 import (
 	"archive/tar"
 	"bytes"
+	"encoding/json"
+	"errors"
 	"io"
 	"testing"
 
 	"github.com/Snider/Borg/pkg/datanode"
 )
 
-func TestNew(t *testing.T) {
+func TestNew_Good(t *testing.T) {
 	m, err := New()
 	if err != nil {
 		t.Fatalf("New() returned an error: %v", err)
@@ -23,9 +25,14 @@ func TestNew(t *testing.T) {
 	if m.RootFS == nil {
 		t.Error("New() returned a matrix with a nil RootFS")
 	}
+
+	// Verify the config is valid JSON
+	if !json.Valid(m.Config) {
+		t.Error("New() returned a matrix with invalid JSON config")
+	}
 }
 
-func TestFromDataNode(t *testing.T) {
+func TestFromDataNode_Good(t *testing.T) {
 	dn := datanode.New()
 	dn.AddData("test.txt", []byte("hello world"))
 	m, err := FromDataNode(dn)
@@ -38,9 +45,22 @@ func TestFromDataNode(t *testing.T) {
 	if m.RootFS != dn {
 		t.Error("FromDataNode() did not set the RootFS correctly")
 	}
+	if m.Config == nil {
+		t.Error("FromDataNode() did not create a default config")
+	}
 }
 
-func TestToTar(t *testing.T) {
+func TestFromDataNode_Bad(t *testing.T) {
+	_, err := FromDataNode(nil)
+	if err == nil {
+		t.Fatal("expected error when passing a nil datanode, but got nil")
+	}
+	if !errors.Is(err, ErrDataNodeRequired) {
+		t.Errorf("expected ErrDataNodeRequired, got %v", err)
+	}
+}
+
+func TestToTar_Good(t *testing.T) {
 	m, err := New()
 	if err != nil {
 		t.Fatalf("New() returned an error: %v", err)
@@ -55,35 +75,65 @@ func TestToTar(t *testing.T) {
 	}
 
 	tr := tar.NewReader(bytes.NewReader(tarball))
-	foundConfig := false
-	foundRootFS := false
-	foundTestFile := false
+	found := make(map[string]bool)
 	for {
 		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
+			t.Fatalf("failed to read tar header: %v", err)
+		}
+		found[header.Name] = true
+	}
+
+	expectedFiles := []string{"config.json", "rootfs/", "rootfs/test.txt"}
+	for _, f := range expectedFiles {
+		if !found[f] {
+			t.Errorf("%s not found in matrix tarball", f)
+		}
+	}
+}
+
+func TestToTar_Ugly(t *testing.T) {
+	t.Run("Empty RootFS", func(t *testing.T) {
+		m, _ := New()
+		tarball, err := m.ToTar()
+		if err != nil {
+			t.Fatalf("ToTar() with empty rootfs returned an error: %v", err)
+		}
+		tr := tar.NewReader(bytes.NewReader(tarball))
+		found := make(map[string]bool)
+		for {
+			header, err := tr.Next()
 			if err == io.EOF {
 				break
 			}
-			t.Fatalf("failed to read tar header: %v", err)
+			if err != nil {
+				t.Fatalf("failed to read tar header: %v", err)
+			}
+			found[header.Name] = true
 		}
-
-		switch header.Name {
-		case "config.json":
-			foundConfig = true
-		case "rootfs/":
-			foundRootFS = true
-		case "rootfs/test.txt":
-			foundTestFile = true
+		if !found["config.json"] {
+			t.Error("config.json not found in matrix")
 		}
-	}
+		if !found["rootfs/"] {
+			t.Error("rootfs/ directory not found in matrix")
+		}
+		if len(found) != 2 {
+			t.Errorf("expected 2 files in tar, but found %d", len(found))
+		}
+	})
 
-	if !foundConfig {
-		t.Error("config.json not found in matrix")
-	}
-	if !foundRootFS {
-		t.Error("rootfs/ not found in matrix")
-	}
-	if !foundTestFile {
-		t.Error("rootfs/test.txt not found in matrix")
-	}
+	t.Run("Nil Config", func(t *testing.T) {
+		m, _ := New()
+		m.Config = nil // This should not happen in practice
+		_, err := m.ToTar()
+		if err == nil {
+			t.Fatal("expected error when Config is nil, but got nil")
+		}
+		if !errors.Is(err, ErrConfigIsNil) {
+			t.Errorf("expected ErrConfigIsNil, got %v", err)
+		}
+	})
 }

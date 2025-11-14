@@ -11,27 +11,8 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-func TestCollectWebsiteCmd_NoArgs(t *testing.T) {
-	rootCmd := NewRootCmd()
-	collectCmd := NewCollectCmd()
-	collectWebsiteCmd := NewCollectWebsiteCmd()
-	collectCmd.AddCommand(collectWebsiteCmd)
-	rootCmd.AddCommand(collectCmd)
-	_, err := executeCommand(rootCmd, "collect", "website")
-	if err == nil {
-		t.Fatalf("expected an error, but got none")
-	}
-	if !strings.Contains(err.Error(), "accepts 1 arg(s), received 0") {
-		t.Fatalf("unexpected error message: %v", err)
-	}
-}
-func Test_NewCollectWebsiteCmd(t *testing.T) {
-	if NewCollectWebsiteCmd() == nil {
-		t.Errorf("NewCollectWebsiteCmd is nil")
-	}
-}
-
 func TestCollectWebsiteCmd_Good(t *testing.T) {
+	// Mock the website downloader
 	oldDownloadAndPackageWebsite := website.DownloadAndPackageWebsite
 	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
 		return datanode.New(), nil
@@ -41,8 +22,9 @@ func TestCollectWebsiteCmd_Good(t *testing.T) {
 	}()
 
 	rootCmd := NewRootCmd()
-	rootCmd.AddCommand(collectCmd)
+	rootCmd.AddCommand(GetCollectCmd())
 
+	// Execute command
 	out := filepath.Join(t.TempDir(), "out")
 	_, err := executeCommand(rootCmd, "collect", "website", "https://example.com", "--output", out)
 	if err != nil {
@@ -51,6 +33,7 @@ func TestCollectWebsiteCmd_Good(t *testing.T) {
 }
 
 func TestCollectWebsiteCmd_Bad(t *testing.T) {
+	// Mock the website downloader to return an error
 	oldDownloadAndPackageWebsite := website.DownloadAndPackageWebsite
 	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
 		return nil, fmt.Errorf("website error")
@@ -60,11 +43,26 @@ func TestCollectWebsiteCmd_Bad(t *testing.T) {
 	}()
 
 	rootCmd := NewRootCmd()
-	rootCmd.AddCommand(collectCmd)
+	rootCmd.AddCommand(GetCollectCmd())
 
+	// Execute command
 	out := filepath.Join(t.TempDir(), "out")
 	_, err := executeCommand(rootCmd, "collect", "website", "https://example.com", "--output", out)
 	if err == nil {
-		t.Fatalf("expected an error, but got none")
+		t.Fatal("expected an error, but got none")
 	}
+}
+
+func TestCollectWebsiteCmd_Ugly(t *testing.T) {
+	t.Run("No arguments", func(t *testing.T) {
+		rootCmd := NewRootCmd()
+		rootCmd.AddCommand(GetCollectCmd())
+		_, err := executeCommand(rootCmd, "collect", "website")
+		if err == nil {
+			t.Fatal("expected an error for no arguments, but got none")
+		}
+		if !strings.Contains(err.Error(), "accepts 1 arg(s), received 0") {
+			t.Errorf("unexpected error message: %v", err)
+		}
+	})
 }

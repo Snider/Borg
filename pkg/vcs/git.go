@@ -39,6 +39,9 @@ func (g *gitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*dat
 
 	_, err = git.PlainClone(tempPath, false, cloneOptions)
 	if err != nil {
+		if err.Error() == "remote repository is empty" {
+			return datanode.New(), nil
+		}
 		return nil, err
 	}
 
@@ -46,6 +49,10 @@ func (g *gitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*dat
 	err = filepath.Walk(tempPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		// Skip the .git directory
+		if info.IsDir() && info.Name() == ".git" {
+			return filepath.SkipDir
 		}
 		if !info.IsDir() {
 			content, err := os.ReadFile(path)

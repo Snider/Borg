@@ -47,6 +47,7 @@ func (g *githubClient) getPublicReposWithAPIURL(ctx context.Context, apiURL, use
 	client := NewAuthenticatedClient(ctx)
 	var allCloneURLs []string
 	url := fmt.Sprintf("%s/users/%s/repos", apiURL, userOrOrg)
+	isFirstRequest := true
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -63,24 +64,19 @@ func (g *githubClient) getPublicReposWithAPIURL(ctx context.Context, apiURL, use
 		}
 
 		if resp.StatusCode != http.StatusOK {
+			// If it's the first request for a user and it's a 404, we can try the org endpoint.
+			if isFirstRequest && strings.Contains(url, "/users/") && resp.StatusCode == http.StatusNotFound {
+				resp.Body.Close()
+				url = fmt.Sprintf("%s/orgs/%s/repos", apiURL, userOrOrg)
+				isFirstRequest = false // We are now trying the org endpoint.
+				continue                 // Re-run the loop with the org URL.
+			}
+			status := resp.Status
 			resp.Body.Close()
-			// Try organization endpoint
-			url = fmt.Sprintf("%s/orgs/%s/repos", apiURL, userOrOrg)
-			req, err = http.NewRequestWithContext(ctx, "GET", url, nil)
-			if err != nil {
-				return nil, err
-			}
-			req.Header.Set("User-Agent", "Borg-Data-Collector")
-			resp, err = client.Do(req)
-			if err != nil {
-				return nil, err
-			}
+			return nil, fmt.Errorf("failed to fetch repos: %s", status)
 		}
 
-		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
-			return nil, fmt.Errorf("failed to fetch repos: %s", resp.Status)
-		}
+		isFirstRequest = false // Subsequent requests are for pagination.
 
 		var repos []Repo
 		if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
@@ -94,9 +90,6 @@ func (g *githubClient) getPublicReposWithAPIURL(ctx context.Context, apiURL, use
 		}
 
 		linkHeader := resp.Header.Get("Link")
-		if linkHeader == "" {
-			break
-		}
 		nextURL := g.findNextURL(linkHeader)
 		if nextURL == "" {
 			break
@@ -111,8 +104,15 @@ func (g *githubClient) findNextURL(linkHeader string) string {
 	links := strings.Split(linkHeader, ",")
 	for _, link := range links {
 		parts := strings.Split(link, ";")
-		if len(parts) == 2 && strings.TrimSpace(parts[1]) == `rel="next"` {
-			return strings.Trim(strings.TrimSpace(parts[0]), "<>")
+		if len(parts) < 2 {
+			continue
+		}
+
+		if strings.TrimSpace(parts[1]) == `rel="next"` {
+			urlPart := strings.TrimSpace(parts[0])
+			if strings.HasPrefix(urlPart, "<") && strings.HasSuffix(urlPart, ">") {
+				return urlPart[1 : len(urlPart)-1]
+			}
 		}
 	}
 	return ""
