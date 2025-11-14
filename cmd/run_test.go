@@ -10,30 +10,21 @@ import (
 	"github.com/Snider/Borg/pkg/matrix"
 )
 
-func helperProcess(command string, args ...string) *exec.Cmd {
-	cs := []string{"-test.run=TestHelperProcess", "--", command}
-	cs = append(cs, args...)
-	cmd := exec.Command(os.Args[0], cs...)
-	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
-	return cmd
-}
-
-func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-	os.Exit(0)
-}
-
 func TestRunCmd_Good(t *testing.T) {
 	// Create a dummy matrix file.
 	matrixPath := createDummyMatrix(t)
 
-	// Mock the exec.Command function.
-	origExecCommand := execCommand
-	execCommand = helperProcess
+	// Mock the exec.Command function in the matrix package.
+	origExecCommand := matrix.ExecCommand
+	matrix.ExecCommand = func(command string, args ...string) *exec.Cmd {
+		cs := []string{"-test.run=TestHelperProcess", "--", command}
+		cs = append(cs, args...)
+		cmd := exec.Command(os.Args[0], cs...)
+		cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
+		return cmd
+	}
 	t.Cleanup(func() {
-		execCommand = origExecCommand
+		matrix.ExecCommand = origExecCommand
 	})
 
 	// Run the run command.
@@ -90,8 +81,8 @@ func createDummyMatrix(t *testing.T) string {
 
 	tw := tar.NewWriter(matrixFile)
 
-	// Add a dummy config.json.
-	configContent := []byte(matrix.DefaultConfigJSON)
+	// Add a dummy config.json. This is not a valid config, but it's enough to test the run command.
+	configContent := []byte(`{}`)
 	hdr := &tar.Header{
 		Name: "config.json",
 		Mode: 0600,

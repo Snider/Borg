@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 )
 
+// ExecCommand is a wrapper around exec.Command that can be overridden for testing.
+var ExecCommand = exec.Command
+
 // Run executes a Terminal Isolation Matrix from a given path.
 func Run(matrixPath string) error {
 	// Create a temporary directory to unpack the matrix file.
@@ -53,7 +56,7 @@ func Run(matrixPath string) error {
 	}
 
 	// Run the matrix.
-	runc := exec.Command("runc", "run", "borg-container")
+	runc := ExecCommand("runc", "run", "borg-container")
 	runc.Dir = tempDir
 	runc.Stdout = os.Stdout
 	runc.Stderr = os.Stderr
