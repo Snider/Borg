@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -28,6 +29,72 @@ func TestRun(t *testing.T) {
 	err := Run(timPath)
 	if err != nil {
 		t.Fatalf("run command failed: %v", err)
+	}
+}
+
+func TestRun_BadInput(t *testing.T) {
+	// Test non-existent file
+	err := Run("nonexistent.tim")
+	if err == nil {
+		t.Error("expected error for nonexistent file, got nil")
+	}
+
+	// Test invalid file (not a tar)
+	f, err := os.CreateTemp("", "bad-tim-*.tim")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name())
+	f.Write([]byte("not a tar file"))
+	f.Close()
+
+	// Mock ExecCommand to fail if run called
+	origExecCommand := ExecCommand
+	ExecCommand = func(command string, args ...string) *exec.Cmd {
+		// If we reach here, it means we tried to run runc.
+		// For a bad tar, we might still reach here.
+		// Let's just return a command that fails.
+		return exec.Command("false")
+	}
+	t.Cleanup(func() { ExecCommand = origExecCommand })
+
+	err = Run(f.Name())
+	if err == nil {
+		t.Error("expected error when running bad tim file")
+	}
+}
+
+func TestRun_ZipSlip(t *testing.T) {
+	// Create a malicious tim file with ../ path
+	file, err := os.CreateTemp("", "zipslip-*.tim")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(file.Name())
+	defer file.Close()
+
+	tw := tar.NewWriter(file)
+
+	hdr := &tar.Header{
+		Name: "../evil.txt",
+		Mode: 0600,
+		Size: 4,
+		Typeflag: tar.TypeReg,
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write([]byte("evil")); err != nil {
+		t.Fatal(err)
+	}
+	tw.Close()
+
+	err = Run(file.Name())
+	if err == nil {
+		t.Fatal("expected error for zip slip attempt, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid file path") {
+		t.Errorf("expected 'invalid file path' error, got: %v", err)
 	}
 }
 

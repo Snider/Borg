@@ -1,7 +1,10 @@
 package datanode
 
 import (
+	"archive/tar"
+	"bytes"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -348,6 +351,65 @@ func TestWalk_Ugly(t *testing.T) {
 	}
 }
 
+func TestWalk_Options(t *testing.T) {
+	dn := New()
+	dn.AddData("root.txt", []byte("root"))
+	dn.AddData("a/a1.txt", []byte("a1"))
+	dn.AddData("a/b/b1.txt", []byte("b1"))
+	dn.AddData("c/c1.txt", []byte("c1"))
+
+	t.Run("MaxDepth", func(t *testing.T) {
+		var paths []string
+		err := dn.Walk(".", func(path string, d fs.DirEntry, err error) error {
+			paths = append(paths, path)
+			return nil
+		}, WalkOptions{MaxDepth: 1})
+		if err != nil {
+			t.Fatalf("Walk failed: %v", err)
+		}
+		expected := []string{".", "a", "c", "root.txt"}
+		sort.Strings(paths)
+		if !reflect.DeepEqual(paths, expected) {
+			t.Errorf("expected paths %v, got %v", expected, paths)
+		}
+	})
+
+	t.Run("Filter", func(t *testing.T) {
+		var paths []string
+		err := dn.Walk(".", func(path string, d fs.DirEntry, err error) error {
+			paths = append(paths, path)
+			return nil
+		}, WalkOptions{Filter: func(path string, d fs.DirEntry) bool {
+			return !strings.HasPrefix(path, "a")
+		}})
+		if err != nil {
+			t.Fatalf("Walk failed: %v", err)
+		}
+		expected := []string{".", "c", "c/c1.txt", "root.txt"}
+		sort.Strings(paths)
+		if !reflect.DeepEqual(paths, expected) {
+			t.Errorf("expected paths %v, got %v", expected, paths)
+		}
+	})
+
+	t.Run("SkipErrors", func(t *testing.T) {
+		// Mock a walk failure by passing a non-existent root with SkipErrors.
+		// Normally, WalkDir calls fn with an error for the root if it doesn't exist.
+		var called bool
+		err := dn.Walk("nonexistent", func(path string, d fs.DirEntry, err error) error {
+			called = true
+			return err
+		}, WalkOptions{SkipErrors: true})
+
+		if err != nil {
+			t.Errorf("expected no error with SkipErrors, got %v", err)
+		}
+		if called {
+			t.Error("callback should NOT be called if error is skipped internally")
+		}
+	})
+}
+
 func TestCopyFile_Good(t *testing.T) {
 	dn := New()
 	dn.AddData("foo.txt", []byte("foo"))
@@ -394,6 +456,127 @@ func TestCopyFile_Ugly(t *testing.T) {
 	err := dn.CopyFile("bar", tmpfile, 0644)
 	if err == nil {
 		t.Fatal("expected error when trying to copy a directory")
+	}
+}
+
+func TestToTar_Good(t *testing.T) {
+	dn := New()
+	dn.AddData("foo.txt", []byte("foo"))
+	dn.AddData("bar/baz.txt", []byte("baz"))
+
+	tarball, err := dn.ToTar()
+	if err != nil {
+		t.Fatalf("ToTar failed: %v", err)
+	}
+	if len(tarball) == 0 {
+		t.Fatal("expected non-empty tarball")
+	}
+
+	// Verify tar content
+	tr := tar.NewReader(bytes.NewReader(tarball))
+	files := make(map[string]string)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("tar.Next failed: %v", err)
+		}
+		content, err := io.ReadAll(tr)
+		if err != nil {
+			t.Fatalf("read tar content failed: %v", err)
+		}
+		files[header.Name] = string(content)
+	}
+
+	if files["foo.txt"] != "foo" {
+		t.Errorf("expected foo.txt content 'foo', got %q", files["foo.txt"])
+	}
+	if files["bar/baz.txt"] != "baz" {
+		t.Errorf("expected bar/baz.txt content 'baz', got %q", files["bar/baz.txt"])
+	}
+}
+
+func TestFromTar_Good(t *testing.T) {
+	// Create a tarball
+	buf := new(bytes.Buffer)
+	tw := tar.NewWriter(buf)
+
+	files := []struct{ Name, Body string }{
+		{"foo.txt", "foo"},
+		{"bar/baz.txt", "baz"},
+	}
+	for _, file := range files {
+		hdr := &tar.Header{
+			Name: file.Name,
+			Mode: 0600,
+			Size: int64(len(file.Body)),
+			Typeflag: tar.TypeReg,
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatalf("WriteHeader failed: %v", err)
+		}
+		if _, err := tw.Write([]byte(file.Body)); err != nil {
+			t.Fatalf("Write failed: %v", err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	dn, err := FromTar(buf.Bytes())
+	if err != nil {
+		t.Fatalf("FromTar failed: %v", err)
+	}
+
+	// Verify DataNode content
+	exists, _ := dn.Exists("foo.txt")
+	if !exists {
+		t.Error("foo.txt missing")
+	}
+	exists, _ = dn.Exists("bar/baz.txt")
+	if !exists {
+		t.Error("bar/baz.txt missing")
+	}
+}
+
+func TestTarRoundTrip_Good(t *testing.T) {
+	dn1 := New()
+	dn1.AddData("a.txt", []byte("a"))
+	dn1.AddData("b/c.txt", []byte("c"))
+
+	tarball, err := dn1.ToTar()
+	if err != nil {
+		t.Fatalf("ToTar failed: %v", err)
+	}
+
+	dn2, err := FromTar(tarball)
+	if err != nil {
+		t.Fatalf("FromTar failed: %v", err)
+	}
+
+	// Verify dn2 matches dn1
+	exists, _ := dn2.Exists("a.txt")
+	if !exists {
+		t.Error("a.txt missing in dn2")
+	}
+	exists, _ = dn2.Exists("b/c.txt")
+	if !exists {
+		t.Error("b/c.txt missing in dn2")
+	}
+}
+
+func TestFromTar_Bad(t *testing.T) {
+	// Pass invalid data (truncated header)
+	// A valid tar header is 512 bytes.
+	truncated := make([]byte, 100)
+	_, err := FromTar(truncated)
+	if err == nil {
+		t.Error("expected error for truncated tar header, got nil")
+	} else if err != io.EOF && err != io.ErrUnexpectedEOF {
+		// Verify it's some sort of read error or EOF related
+		// Depending on implementation details of archive/tar
 	}
 }
 

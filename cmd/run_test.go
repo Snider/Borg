@@ -110,3 +110,13 @@ func createDummyTim(t *testing.T) string {
 	}
 	return timPath
 }
+
+// TestHelperProcess isn't a real test. It's used as a helper for tests that need to mock exec.Command.
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	// The rest of the arguments are the command and its arguments.
+	// In our case, we don't need to do anything with them.
+	os.Exit(0)
+}
