@@ -6,17 +6,17 @@ Options to install:
 
 - From source (requires Go 1.25 or newer):
   - Clone the repository and build:
-    - go build -o borg ./
+    - `go build -o borg ./`
   - Or use the Taskfile:
-    - task build
+    - `task build`
 
 - From releases (recommended):
   - Download an archive for your OS/ARCH from GitHub Releases once you publish with GoReleaser.
   - Unpack and place `borg` on your PATH.
 
 - Homebrew (if you publish to a tap):
-  - brew tap Snider/homebrew-tap
-  - brew install borg
+  - `brew tap Snider/homebrew-tap`
+  - `brew install borg`
 
 Requirements:
 - Go 1.25+ to build from source.

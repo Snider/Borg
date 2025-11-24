@@ -11,26 +11,26 @@ This repo includes a `go.work` file configured for Go 1.25 to align with common 
 
 ## Build
 
-- go build ./...
-- task build
+- `go build ./...`
+- `task build`
 
 ## Test
 
-- go test ./...
-- task test
+- `go test ./...`
+- `task test`
 
-Note: Some tests may require network or git tooling depending on environment (e.g., pushing to a temporary repo). No functional changes were made in this task.
+Note: Some tests may require network or git tooling depending on environment (e.g., pushing to a temporary repo).
 
 ## Run
 
-- task run
-- ./borg --help
+- `task run`
+- `./borg --help`
 
 ## Docs
 
 Serve the documentation locally with MkDocs:
 
-- pip install mkdocs-material
-- mkdocs serve
+- `pip install mkdocs-material`
+- `mkdocs serve`
 
 The site configuration lives in `mkdocs.yml` and content in `docs/`.

@@ -11,17 +11,17 @@ This project is configured for GoReleaser.
 
 Generate local artifacts without publishing:
 
-- goreleaser release --snapshot --clean
+- `goreleaser release --snapshot --clean`
 
 Artifacts appear under `dist/`.
 
 ## Full release
 
 1. Tag a new version:
-   - git tag -a v0.1.0 -m "v0.1.0"
-   - git push origin v0.1.0
+   - `git tag -a v0.1.0 -m "v0.1.0"`
+   - `git push origin v0.1.0`
 2. Run GoReleaser:
-   - GITHUB_TOKEN=... goreleaser release --clean
+   - `GITHUB_TOKEN=... goreleaser release --clean`
 
 This will:
 - Build binaries for multiple OS/ARCH
@@ -31,4 +31,3 @@ This will:
 
 ## Notes
 - The Go toolchain version is 1.25 (see go.mod and go.work).
-- No functional changes were made as part of this task; configuration and documentation only.
