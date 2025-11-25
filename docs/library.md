@@ -2,29 +2,32 @@
 
 Borg can also be used as a Go library. The public API is exposed under the `pkg` directory. Import paths use the module `github.com/Snider/Borg`.
 
-Note: This documentation describes usage only; functionality remains unchanged.
-
 ## Collecting a GitHub repo into a DataNode
 
-```
+```go
 package main
 
 import (
     "log"
     "os"
 
-    "github.com/Snider/Borg/pkg/datanode"
-    borggithub "github.com/Snider/Borg/pkg/github"
+    "github.com/Snider/Borg/pkg/vcs"
 )
 
 func main() {
-    // Create a DataNode writer (uncompressed example)
-    dn, err := datanode.NewFileDataNodeWriter("repo.dat")
-    if err != nil { log.Fatal(err) }
-    defer dn.Close()
+    // Clone and package the repository
+    cloner := vcs.NewGitCloner()
+    dn, err := cloner.CloneGitRepository("https://github.com/Snider/Borg", nil)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-    client := borggithub.NewDefaultClient(nil) // uses http.DefaultClient
-    if err := borggithub.CollectRepo(client, "https://github.com/Snider/Borg", dn); err != nil {
+    // Save to disk
+    tarBytes, err := dn.ToTar()
+    if err != nil {
+        log.Fatal(err)
+    }
+    if err := os.WriteFile("repo.dat", tarBytes, 0644); err != nil {
         log.Fatal(err)
     }
 }
@@ -32,21 +35,30 @@ func main() {
 
 ## Collecting a Website
 
-```
+```go
 package main
 
 import (
     "log"
-    "github.com/Snider/Borg/pkg/datanode"
+    "os"
+
     "github.com/Snider/Borg/pkg/website"
 )
 
 func main() {
-    dn, err := datanode.NewFileDataNodeWriter("website.dat")
-    if err != nil { log.Fatal(err) }
-    defer dn.Close()
+    // Download and package the website
+    // 1 is the depth (0 = just the page, 1 = page + links on page)
+    dn, err := website.DownloadAndPackageWebsite("https://example.com", 1, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-    if err := website.Collect("https://example.com", 1, dn); err != nil {
+    // Save to disk
+    tarBytes, err := dn.ToTar()
+    if err != nil {
+        log.Fatal(err)
+    }
+    if err := os.WriteFile("website.dat", tarBytes, 0644); err != nil {
         log.Fatal(err)
     }
 }
@@ -54,21 +66,38 @@ func main() {
 
 ## PWA Collection
 
-```
+```go
 package main
 
 import (
     "log"
-    "github.com/Snider/Borg/pkg/datanode"
+    "os"
+
     "github.com/Snider/Borg/pkg/pwa"
 )
 
 func main() {
-    dn, err := datanode.NewFileDataNodeWriter("pwa.dat")
-    if err != nil { log.Fatal(err) }
-    defer dn.Close()
+    client := pwa.NewPWAClient()
+    pwaURL := "https://squoosh.app"
 
-    if err := pwa.Collect("https://squoosh.app", dn); err != nil {
+    // Find the manifest
+    manifestURL, err := client.FindManifest(pwaURL)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Download and package the PWA
+    dn, err := client.DownloadAndPackagePWA(pwaURL, manifestURL, nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Save to disk
+    tarBytes, err := dn.ToTar()
+    if err != nil {
+        log.Fatal(err)
+    }
+    if err := os.WriteFile("pwa.dat", tarBytes, 0644); err != nil {
         log.Fatal(err)
     }
 }
