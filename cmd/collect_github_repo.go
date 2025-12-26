@@ -37,8 +37,8 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
 
-			if format != "datanode" && format != "tim" && format != "trix" {
-				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
+			if format != "datanode" && format != "tim" && format != "trix" && format != "stim" {
+				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', 'trix', or 'stim')", format)
 			}
 			if compression != "none" && compression != "gz" && compression != "xz" {
 				return fmt.Errorf("invalid compression: %s (must be 'none', 'gz', or 'xz')", compression)
@@ -61,13 +61,25 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 
 			var data []byte
 			if format == "tim" {
-				tim, err := tim.FromDataNode(dn)
+				t, err := tim.FromDataNode(dn)
 				if err != nil {
 					return fmt.Errorf("error creating tim: %w", err)
 				}
-				data, err = tim.ToTar()
+				data, err = t.ToTar()
 				if err != nil {
 					return fmt.Errorf("error serializing tim: %w", err)
+				}
+			} else if format == "stim" {
+				if password == "" {
+					return fmt.Errorf("password required for stim format")
+				}
+				t, err := tim.FromDataNode(dn)
+				if err != nil {
+					return fmt.Errorf("error creating tim: %w", err)
+				}
+				data, err = t.ToSigil(password)
+				if err != nil {
+					return fmt.Errorf("error encrypting stim: %w", err)
 				}
 			} else if format == "trix" {
 				data, err = trix.ToTrix(dn, password)
@@ -103,9 +115,9 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("output", "", "Output file for the DataNode")
-	cmd.Flags().String("format", "datanode", "Output format (datanode, tim, or trix)")
+	cmd.Flags().String("format", "datanode", "Output format (datanode, tim, trix, or stim)")
 	cmd.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
-	cmd.Flags().String("password", "", "Password for encryption")
+	cmd.Flags().String("password", "", "Password for encryption (required for trix/stim)")
 	return cmd
 }
 

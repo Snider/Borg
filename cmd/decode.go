@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	trixsdk "github.com/Snider/Enchantrix/pkg/trix"
 	"github.com/spf13/cobra"
@@ -14,7 +16,7 @@ var decodeCmd = NewDecodeCmd()
 func NewDecodeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "decode [file]",
-		Short: "Decode a .trix or .tim file",
+		Short: "Decode a .trix, .tim, or .stim file",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			inputFile := args[0]
@@ -27,6 +29,27 @@ func NewDecodeCmd() *cobra.Command {
 				return err
 			}
 
+			// Check if it's a .stim file (encrypted TIM)
+			if strings.HasSuffix(inputFile, ".stim") || (len(data) >= 4 && string(data[:4]) == "STIM") {
+				if password == "" {
+					return fmt.Errorf("password required for .stim files")
+				}
+				if !inIsolation {
+					return fmt.Errorf("this is an encrypted Terminal Isolation Matrix, use the --i-am-in-isolation flag to decode it")
+				}
+				m, err := tim.FromSigil(data, password)
+				if err != nil {
+					return err
+				}
+				tarball, err := m.ToTar()
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Decoded encrypted TIM to %s\n", outputFile)
+				return os.WriteFile(outputFile, tarball, 0644)
+			}
+
+			// Try TRIX format
 			t, err := trixsdk.Decode(data, "TRIX", nil)
 			if err != nil {
 				return err
@@ -46,6 +69,7 @@ func NewDecodeCmd() *cobra.Command {
 				return err
 			}
 
+			fmt.Fprintf(cmd.OutOrStdout(), "Decoded to %s\n", outputFile)
 			return os.WriteFile(outputFile, tarball, 0644)
 		},
 	}

@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,6 +67,66 @@ func Run(timPath string) error {
 	}
 
 	// Run the tim.
+	cmd := ExecCommand("runc", "run", "-b", tempDir, "borg-container")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// RunEncrypted runs an encrypted .stim file.
+// It decrypts the file, extracts the contents to a temporary directory,
+// and runs the container using runc.
+func RunEncrypted(stimPath, password string) error {
+	// Read the encrypted file
+	data, err := os.ReadFile(stimPath)
+	if err != nil {
+		return fmt.Errorf("failed to read stim file: %w", err)
+	}
+
+	// Decrypt and parse
+	m, err := FromSigil(data, password)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt stim: %w", err)
+	}
+
+	// Create temp directory
+	tempDir, err := os.MkdirTemp("", "borg-run-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Write config.json
+	configPath := filepath.Join(tempDir, "config.json")
+	if err := os.WriteFile(configPath, m.Config, 0600); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	// Extract rootfs
+	rootfsPath := filepath.Join(tempDir, "rootfs")
+	if err := os.MkdirAll(rootfsPath, 0755); err != nil {
+		return fmt.Errorf("failed to create rootfs dir: %w", err)
+	}
+
+	// Walk DataNode and extract files
+	err = m.RootFS.Walk(".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		target := filepath.Join(rootfsPath, path)
+		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			return err
+		}
+		return m.RootFS.CopyFile(path, target, 0600)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to extract rootfs: %w", err)
+	}
+
+	// Run with runc
 	cmd := ExecCommand("runc", "run", "-b", tempDir, "borg-container")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

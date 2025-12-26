@@ -11,6 +11,7 @@ import (
 
 var borgfile string
 var output string
+var encryptPassword string
 
 var compileCmd = NewCompileCmd()
 
@@ -52,16 +53,33 @@ func NewCompileCmd() *cobra.Command {
 				}
 			}
 
+			// If encryption is requested, output as .stim
+			if encryptPassword != "" {
+				stimData, err := m.ToSigil(encryptPassword)
+				if err != nil {
+					return err
+				}
+				outputPath := output
+				if !strings.HasSuffix(outputPath, ".stim") {
+					outputPath = strings.TrimSuffix(outputPath, ".tim") + ".stim"
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Compiled encrypted TIM to %s\n", outputPath)
+				return os.WriteFile(outputPath, stimData, 0644)
+			}
+
+			// Original unencrypted output
 			tarball, err := m.ToTar()
 			if err != nil {
 				return err
 			}
 
+			fmt.Fprintf(cmd.OutOrStdout(), "Compiled TIM to %s\n", output)
 			return os.WriteFile(output, tarball, 0644)
 		},
 	}
 	compileCmd.Flags().StringVarP(&borgfile, "file", "f", "Borgfile", "Path to the Borgfile.")
 	compileCmd.Flags().StringVarP(&output, "output", "o", "a.tim", "Path to the output tim file.")
+	compileCmd.Flags().StringVarP(&encryptPassword, "encrypt", "e", "", "Encrypt with ChaCha20-Poly1305 using this password (outputs .stim)")
 	return compileCmd
 }
 
