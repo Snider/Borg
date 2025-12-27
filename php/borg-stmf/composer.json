@@ -1,0 +1,34 @@
+{
+    "name": "borg/stmf",
+    "description": "Sovereign Form Encryption - Decrypt STMF payloads using X25519 + ChaCha20-Poly1305",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Snider",
+            "email": "snider@example.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "ext-sodium": "*",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Borg\\STMF\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Borg\\STMF\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "minimum-stability": "stable"
+}

@@ -28,3 +28,23 @@ tasks:
       - task: build
       - chmod +x borg
       - ./borg --help
+  wasm:
+    desc: Build STMF WASM module for browser
+    cmds:
+      - mkdir -p dist
+      - GOOS=js GOARCH=wasm go build -o dist/stmf.wasm ./pkg/wasm/stmf/
+      - cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/
+    sources:
+      - ./pkg/stmf/**/*.go
+      - ./pkg/wasm/stmf/*.go
+    generates:
+      - dist/stmf.wasm
+      - dist/wasm_exec.js
+  wasm-js:
+    desc: Build STMF WASM and JS wrapper
+    cmds:
+      - task: wasm
+      - cp dist/stmf.wasm js/borg-stmf/dist/
+      - cp dist/wasm_exec.js js/borg-stmf/dist/
+    deps:
+      - wasm

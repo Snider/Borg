@@ -1,0 +1,81 @@
+[
+  {
+    "name": "simple_form",
+    "private_key": "cHSFC/ZN/whRWfQSHMHvQcEQgNm8VLPqr3FGW9pIUWw=",
+    "public_key": "9N840/Td0GTeGrmCip+4o/iftrh11l5IsxeUr4M3vzU=",
+    "encrypted_b64": "U1RNRgIAAAB1eyJhbGdvcml0aG0iOiJ4MjU1MTktY2hhY2hhMjBwb2x5MTMwNSIsImVwaGVtZXJhbF9wayI6IjdYeTlGdWZSUkdJYW1WdTBEbE5VM2dGQWEveFdFZVVjWU9TVWRVN1NLSHc9IiwidmVyc2lvbiI6IjEuMCJ9WfRt459u9b3sGFhx5JaxQ3Nr1sVVy7Mebr4NnqfzX6GhQzs8iLZuF7EbeyY0auSBrgHIH3WBrvPj2H0rr7gnmIMesIRRs6HWR76vkvAb1FfbC6MOArduGfBK6edKaejtdC7rD9NtgpHaEEruNTE1e7SRQFF41ufu97+OqwfuyIMVyICmlvgW7ln+T6/PwMnhHf8dZ+rksc7SFnhwt5akBBxXOUbVgEvz",
+    "expected_fields": {
+      "email": "test@example.com",
+      "password": "secret123"
+    },
+    "expected_meta": null
+  },
+  {
+    "name": "form_with_metadata",
+    "private_key": "NVYNU8Ruc0aG0Yh8YHZfLASlH0xeCZXRJ3rP4WiQ5t4=",
+    "public_key": "0nJS0TpZPk/oaEAwpbPKbRboTIBa7qkeYRIGmE1A61Q=",
+    "encrypted_b64": "U1RNRgIAAAB1eyJhbGdvcml0aG0iOiJ4MjU1MTktY2hhY2hhMjBwb2x5MTMwNSIsImVwaGVtZXJhbF9wayI6ImM3WCtDVDBOeDRDWFVjOWJHVEhwWFNZQ0dWckswbWZMRmhLWFhWT1pSbTg9IiwidmVyc2lvbiI6IjEuMCJ9y+1OD5VnQmBqck8tM3vs1fBznR6ZhK/nGFXVoxlC5jZjpBgAbExrb4AKgBmkvM8t+oVWIH2lyRfKArEJFalqm8H+Gv/OoebUSR0qwoHlYUaIGU6JAbNb5gEmrsJBTz7E2/FCdILokVaWNicu6p9eCye2OH4lEWNCGI4WTZJZMO9N45Kqj3UUqNm9dAar3hpYKcezvbSWpM1OjUBO9F5ye0tnIiqinJvlFmkzfKpBz0mseWE1QL8BcnbUcaSgaTSGxs1jDq4JrUDMtPODeoxgTCFju0GTJfmo9g==",
+    "expected_fields": {
+      "action": "login",
+      "username": "johndoe"
+    },
+    "expected_meta": {
+      "origin": "https://example.com",
+      "timestamp": "1735265000"
+    }
+  },
+  {
+    "name": "unicode_content",
+    "private_key": "p9JUNyRQYhQef7tNse3rUAIxyntRjnv3DPCqiKobg0Y=",
+    "public_key": "V2V27btYoVYui/6O3U/v24xu6g0Rsz3x8NHyOre2sFc=",
+    "encrypted_b64": "U1RNRgIAAAB1eyJhbGdvcml0aG0iOiJ4MjU1MTktY2hhY2hhMjBwb2x5MTMwNSIsImVwaGVtZXJhbF9wayI6IlhxZnZSQlBpbGt4dWc3S0k3ZWFGWGNMQkJQaHZOb2dZa0JOM2xra1E2REk9IiwidmVyc2lvbiI6IjEuMCJ97lEfIzlKEs3MxXPb+taqw1QFPoEp8U/+WjOY8PFNYUXBFstbfybSFzXakthOARFcRU1RzoiHG+mWlGdwcBdcVWhodZDZj0C6NSMqLVx3bZLIoGlzN7v5N+b+xs+ApVQpl3x4LqbML6Jj5zhisTlaoEmMld+FeH8zRmp7a+FbNfMBM9V+IIRY6p3nPeo8czmyrwyrGscDnUkFaThdv7D2v1kFOFc5EOlfzaFPsDLq+ewa5OkGpEYnEu8UM+B122fzhHEr7sOUjHOk0RSkC33hNOWzmcs5SYsc2GEp86f/aeYp6SyiKUNHFg==",
+    "expected_fields": {
+      "emoji": "🔐🛡️✅",
+      "mixed": "Hello 世界 مرحبا",
+      "name": "日本語テスト"
+    },
+    "expected_meta": null
+  },
+  {
+    "name": "large_form",
+    "private_key": "6ZEQmKTUiojvQumqRdJsFcm91tz21QYgfvetxXO/VGs=",
+    "public_key": "iMk1wvMZc3fr8WqAqiPPZj/9x0pZuGh8kTECGqAJKQI=",
+    "encrypted_b64": "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",
+    "expected_fields": {
+      "field_0": "value_0_with_some_content",
+      "field_1": "value_1_with_some_content",
+      "field_10": "value_10_with_some_content",
+      "field_11": "value_11_with_some_content",
+      "field_12": "value_12_with_some_content",
+      "field_13": "value_13_with_some_content",
+      "field_14": "value_14_with_some_content",
+      "field_15": "value_15_with_some_content",
+      "field_16": "value_16_with_some_content",
+      "field_17": "value_17_with_some_content",
+      "field_18": "value_18_with_some_content",
+      "field_19": "value_19_with_some_content",
+      "field_2": "value_2_with_some_content",
+      "field_3": "value_3_with_some_content",
+      "field_4": "value_4_with_some_content",
+      "field_5": "value_5_with_some_content",
+      "field_6": "value_6_with_some_content",
+      "field_7": "value_7_with_some_content",
+      "field_8": "value_8_with_some_content",
+      "field_9": "value_9_with_some_content"
+    },
+    "expected_meta": null
+  },
+  {
+    "name": "special_characters",
+    "private_key": "bET5cDIamjtYKBGJSSAekIrH2mw54YamHCtyrWOSMlw=",
+    "public_key": "umOQqu/3cBBs3PeWs4vQiG3DxNARWlOJfrtG65RQdkk=",
+    "encrypted_b64": "U1RNRgIAAAB1eyJhbGdvcml0aG0iOiJ4MjU1MTktY2hhY2hhMjBwb2x5MTMwNSIsImVwaGVtZXJhbF9wayI6Ik9nVnF4ZERJcnhsd2t2REdlQ3BtYVNUS0RhNkJQZFBMTm9Bek4yV2RJMDQ9IiwidmVyc2lvbiI6IjEuMCJ9fMvVueLCedw67bt7iLXJvZE66NOaPfwu2TsmN3sseXGu5M2csgYN+ngT6/XcMzAl7MHc3sHsvUE7H2MHTlhLih46WiyTzpXvfmzZHv3/t6oBxDwcm8O++ksCuuOnhHAfh65340/EuEMl8Da71zF00cFyuIvAmJFaBtn3Tlj6wd+9jfORuxv1TeRKLtMIojbLl9hZv25UHJSgjrlGL3kYdpg6WLqVKwz81P5RP10LbCQzHmH+4/lIAaFZAzf9mHcIHGj3ytKuDXDe1GhEhkUCK6Pe7PGuojIglhXMj9mijvlh2TCyxGQDw0VhCBCjVyWkWSPnTTb0bQOs3WLpGHN+XLgewVdSRTLbGy1t0PEkhjNftca8mLd4qEcSHzlFphGpN0u4R+Am0VSV44cqYDjeDKZnYyuBGu+ti6h+33AHfJU8EWzSMJXJEhP9Uqb0OuFyzfc7tVgGVAeEOBxGo/nyzPzi",
+    "expected_fields": {
+      "html": "\u003cscript\u003ealert('xss')\u003c/script\u003e",
+      "json": "{\"key\": \"value\", \"nested\": {\"a\": 1}}",
+      "newlines": "line1\nline2\nline3",
+      "sql": "'; DROP TABLE users; --"
+    },
+    "expected_meta": null
+  }
+]

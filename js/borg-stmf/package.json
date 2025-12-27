@@ -1,0 +1,36 @@
+{
+  "name": "@borg/stmf",
+  "version": "1.0.0",
+  "description": "Sovereign Form Encryption - Client-side form encryption using X25519 + ChaCha20-Poly1305",
+  "main": "dist/borg-stmf.js",
+  "module": "dist/borg-stmf.esm.js",
+  "types": "dist/borg-stmf.d.ts",
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "encryption",
+    "form",
+    "security",
+    "chacha20",
+    "x25519",
+    "wasm",
+    "privacy"
+  ],
+  "author": "Snider",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Snider/Borg"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.0",
+    "rollup": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

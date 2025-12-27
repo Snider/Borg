@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STMF Demo - Sovereign Form Encryption</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
+        input, button { padding: 0.5rem; margin: 0.25rem 0; }
+        input { width: 100%; box-sizing: border-box; }
+        button { background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #45a049; }
+        pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; border-radius: 4px; font-size: 12px; }
+        .status { padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; }
+        .status.loading { background: #fff3cd; }
+        .status.ready { background: #d4edda; }
+        .status.error { background: #f8d7da; }
+        label { display: block; margin-top: 1rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>STMF Demo</h1>
+    <p>Sovereign Form Encryption using X25519 + ChaCha20-Poly1305</p>
+
+    <div id="status" class="status loading">Loading WASM module...</div>
+
+    <div class="card">
+        <h2>1. Generate Server Keypair</h2>
+        <p>In production, this is done server-side and the private key is kept secret.</p>
+        <button onclick="generateKeys()">Generate Keypair</button>
+        <label>Public Key (share with clients):</label>
+        <input type="text" id="publicKey" readonly placeholder="Click generate...">
+        <label>Private Key (keep secret!):</label>
+        <input type="text" id="privateKey" readonly placeholder="Click generate...">
+    </div>
+
+    <div class="card">
+        <h2>2. Encrypt Form Data</h2>
+        <form id="demoForm">
+            <label>Email:</label>
+            <input type="email" name="email" value="user@example.com" required>
+
+            <label>Password:</label>
+            <input type="password" name="password" value="supersecret123" required>
+
+            <label>Message:</label>
+            <input type="text" name="message" value="Hello, encrypted world!">
+
+            <button type="submit" style="margin-top: 1rem; width: 100%;">Encrypt Form</button>
+        </form>
+
+        <label>Encrypted Payload (base64):</label>
+        <pre id="encrypted" style="word-break: break-all;">Submit the form to see encrypted output...</pre>
+    </div>
+
+    <div class="card">
+        <h2>3. Payload Info</h2>
+        <p>This information can be read without decrypting (metadata is in the header):</p>
+        <pre id="info">Submit the form to see payload info...</pre>
+    </div>
+
+    <script src="dist/wasm_exec.js"></script>
+    <script>
+        let wasmReady = false;
+
+        // Load WASM
+        async function loadWasm() {
+            const go = new Go();
+            const result = await WebAssembly.instantiateStreaming(
+                fetch('dist/stmf.wasm'),
+                go.importObject
+            );
+            go.run(result.instance);
+
+            // Wait for BorgSTMF to be ready
+            while (!window.BorgSTMF?.ready) {
+                await new Promise(r => setTimeout(r, 50));
+            }
+
+            wasmReady = true;
+            document.getElementById('status').className = 'status ready';
+            document.getElementById('status').textContent =
+                `WASM loaded! Version: ${window.BorgSTMF.version}`;
+        }
+
+        loadWasm().catch(err => {
+            document.getElementById('status').className = 'status error';
+            document.getElementById('status').textContent = `Error: ${err.message}`;
+        });
+
+        // Generate keypair
+        async function generateKeys() {
+            if (!wasmReady) {
+                alert('WASM not loaded yet');
+                return;
+            }
+
+            try {
+                const keypair = await BorgSTMF.generateKeyPair();
+                document.getElementById('publicKey').value = keypair.publicKey;
+                document.getElementById('privateKey').value = keypair.privateKey;
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('demoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!wasmReady) {
+                alert('WASM not loaded yet');
+                return;
+            }
+
+            const publicKey = document.getElementById('publicKey').value;
+            if (!publicKey) {
+                alert('Generate a keypair first!');
+                return;
+            }
+
+            try {
+                // Get form data
+                const formData = new FormData(e.target);
+                const fields = {};
+                formData.forEach((value, key) => {
+                    fields[key] = value;
+                });
+
+                // Encrypt
+                const encrypted = await BorgSTMF.encryptFields(
+                    fields,
+                    publicKey,
+                    { origin: window.location.origin, timestamp: Date.now().toString() }
+                );
+
+                document.getElementById('encrypted').textContent = encrypted;
+
+                // Show info
+                document.getElementById('info').textContent = JSON.stringify({
+                    payloadLength: encrypted.length,
+                    payloadSizeKB: (encrypted.length * 0.75 / 1024).toFixed(2) + ' KB',
+                    fieldsEncrypted: Object.keys(fields),
+                    note: 'Each encryption produces different output (ephemeral keys)'
+                }, null, 2);
+
+            } catch (err) {
+                alert('Encryption error: ' + err.message);
+                console.error(err);
+            }
+        });
+    </script>
+</body>
+</html>
