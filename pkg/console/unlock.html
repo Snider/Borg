@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Borg Console - Unlock</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: #e0e0e0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 2.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .logo-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #00d9ff, #00ff94);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #aaa;
+            font-size: 0.85rem;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #00d9ff;
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+
+        input[type="password"]::placeholder {
+            color: #666;
+        }
+
+        button {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1rem;
+            background: linear-gradient(135deg, #00d9ff 0%, #00ff94 100%);
+            color: #000;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 217, 255, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .error-banner {
+            background: rgba(255, 82, 82, 0.1);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: #ff5252;
+            display: none;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .error-banner.visible {
+            display: block;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .footer p {
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .footer code {
+            background: rgba(0,0,0,0.3);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .loading.visible {
+            display: flex;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0, 217, 255, 0.3);
+            border-top-color: #00d9ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .btn-text {
+            display: block;
+        }
+
+        .btn-text.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <div class="logo-icon">🔐</div>
+                <h1>Borg Console</h1>
+                <p class="subtitle">Enter password to unlock encrypted content</p>
+            </div>
+
+            <div id="error-banner" class="error-banner"></div>
+
+            <form id="unlock-form" method="POST" action="/unlock">
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="Enter your password"
+                        autocomplete="current-password"
+                        required
+                        autofocus
+                    >
+                </div>
+
+                <button type="submit" id="submit-btn">
+                    <span class="btn-text" id="btn-text">Unlock Console</span>
+                    <span class="loading" id="loading">
+                        <span class="spinner"></span>
+                        <span>Decrypting...</span>
+                    </span>
+                </button>
+            </form>
+
+            <div class="footer">
+                <p>Encrypted with <code>ChaCha20-Poly1305</code></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('unlock-form');
+        const errorBanner = document.getElementById('error-banner');
+        const btnText = document.getElementById('btn-text');
+        const loading = document.getElementById('loading');
+        const submitBtn = document.getElementById('submit-btn');
+
+        // Check for error in URL params
+        const params = new URLSearchParams(window.location.search);
+        const error = params.get('error');
+        if (error) {
+            errorBanner.textContent = error;
+            errorBanner.classList.add('visible');
+            // Clean URL
+            history.replaceState(null, '', window.location.pathname);
+        }
+
+        form.addEventListener('submit', function(e) {
+            // Show loading state
+            btnText.classList.add('hidden');
+            loading.classList.add('visible');
+            submitBtn.disabled = true;
+            errorBanner.classList.remove('visible');
+        });
+    </script>
+</body>
+</html>

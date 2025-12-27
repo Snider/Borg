@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+
+          # Linux amd64
+          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o dist/borg-linux-amd64 main.go
+
+          # Linux arm64
+          GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o dist/borg-linux-arm64 main.go
+
+          # macOS amd64
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o dist/borg-darwin-amd64 main.go
+
+          # macOS arm64
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o dist/borg-darwin-arm64 main.go
+
+          # Windows amd64
+          GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/borg-windows-amd64.exe main.go
+
+      - name: Build WASM module
+        run: |
+          GOOS=js GOARCH=wasm go build -o dist/stmf.wasm ./pkg/wasm/stmf/
+          cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" dist/ 2>/dev/null || \
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/
+
+      - name: Build Console STIM
+        run: |
+          # Build borg for current platform first
+          go build -o borg main.go
+
+          # Build the encrypted console demo
+          ./borg console build -p "borg-demo" -o dist/console.stim -s js/borg-stmf
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Borg ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Borg ${{ steps.version.outputs.VERSION }}
+
+            ### Downloads
+
+            | Platform | Binary |
+            |----------|--------|
+            | Linux x64 | `borg-linux-amd64` |
+            | Linux ARM64 | `borg-linux-arm64` |
+            | macOS x64 | `borg-darwin-amd64` |
+            | macOS ARM64 | `borg-darwin-arm64` |
+            | Windows x64 | `borg-windows-amd64.exe` |
+
+            ### Console Demo
+
+            The `console.stim` is an encrypted PWA demo. Run it with:
+            ```bash
+            borg console serve console.stim --open
+            ```
+            Password: `borg-demo`
+
+            ### WASM Module
+
+            - `stmf.wasm` - Browser encryption module
+            - `wasm_exec.js` - Go WASM runtime
+
+          files: |
+            dist/borg-linux-amd64
+            dist/borg-linux-arm64
+            dist/borg-darwin-amd64
+            dist/borg-darwin-arm64
+            dist/borg-windows-amd64.exe
+            dist/stmf.wasm
+            dist/wasm_exec.js
+            dist/console.stim
+            dist/checksums.txt
+          draft: false
+          prerelease: false
