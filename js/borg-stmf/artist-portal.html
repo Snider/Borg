@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dapp.fm - Artist Portal</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a0a2e 50%, #0f1a2e 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #e0e0e0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -2px;
+        }
+
+        .logo .tagline {
+            color: #888;
+            font-size: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .artist-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #ff006e, #8338ec);
+            color: #fff;
+            padding: 0.3rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(20px);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #fff;
+        }
+
+        .card h2 .icon {
+            font-size: 1.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #888;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        textarea, input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            background: rgba(0,0,0,0.4);
+            color: #fff;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: #8338ec;
+            box-shadow: 0 0 0 4px rgba(131, 56, 236, 0.2);
+        }
+
+        button {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #ff006e 0%, #8338ec 100%);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(255, 0, 110, 0.3);
+        }
+
+        button.primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 0, 110, 0.4);
+        }
+
+        button.primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        button.secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        button.secondary:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            padding: 0.75rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .status-indicator .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.loading .dot {
+            background: #ffc107;
+            animation: pulse 1s infinite;
+        }
+
+        .status-indicator.ready .dot {
+            background: #00ff94;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .nav-links a {
+            color: #8338ec;
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            background: rgba(131, 56, 236, 0.1);
+            transition: all 0.2s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(131, 56, 236, 0.2);
+        }
+
+        /* License generation styles */
+        .license-generator {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .license-list {
+            margin-top: 1.5rem;
+        }
+
+        .license-item {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(131, 56, 236, 0.2);
+        }
+
+        .license-item.new {
+            animation: slideIn 0.3s ease-out;
+            border-color: rgba(0, 255, 148, 0.5);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .license-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .license-number {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .license-timestamp {
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .license-token-display {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(0, 255, 148, 0.1);
+            border: 1px solid rgba(0, 255, 148, 0.3);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .license-token-value {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 1rem;
+            color: #00ff94;
+            flex: 1;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+            background: rgba(0, 255, 148, 0.2);
+            border: 1px solid rgba(0, 255, 148, 0.4);
+            color: #00ff94;
+        }
+
+        .copy-btn:hover {
+            background: rgba(0, 255, 148, 0.3);
+        }
+
+        .license-meta {
+            font-size: 0.8rem;
+            color: #888;
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .license-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .license-actions button {
+            padding: 0.6rem 1rem;
+            font-size: 0.8rem;
+        }
+
+        .customer-input {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .customer-input input {
+            flex: 1;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff006e, #8338ec);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.25rem;
+        }
+
+        /* Content preview */
+        .content-preview {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .content-icon {
+            font-size: 3rem;
+        }
+
+        .content-info h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .content-info p {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 1.5rem;
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 12px;
+            background: rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-input-label:hover {
+            border-color: #8338ec;
+            background: rgba(131, 56, 236, 0.1);
+        }
+
+        .info-box {
+            background: rgba(131, 56, 236, 0.1);
+            border: 1px solid rgba(131, 56, 236, 0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-top: 1.5rem;
+        }
+
+        .info-box h4 {
+            color: #8338ec;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-box p {
+            font-size: 0.85rem;
+            color: #aaa;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>dapp.fm</h1>
+            <p class="tagline">Artist Portal</p>
+            <span class="artist-badge">Artist Dashboard</span>
+        </div>
+
+        <nav class="nav-links">
+            <a href="index.html">Form Encryption</a>
+            <a href="support-reply.html">Decrypt Messages</a>
+            <a href="media-player.html">Media Player</a>
+            <a href="artist-portal.html" style="background: rgba(131, 56, 236, 0.3);">Artist Portal</a>
+        </nav>
+
+        <div id="wasm-status" class="status-indicator loading">
+            <span class="dot"></span>
+            <span>Initializing encryption engine...</span>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-licenses">0</div>
+                <div class="stat-label">Licenses Issued</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-revenue">$0</div>
+                <div class="stat-label">Potential Revenue</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">100%</div>
+                <div class="stat-label">Your Cut</div>
+            </div>
+        </div>
+
+        <!-- Content Selection -->
+        <div class="card">
+            <h2><span class="icon">🎵</span> Your Content</h2>
+
+            <div id="content-display" class="content-preview">
+                <div class="content-icon">🎬</div>
+                <div class="content-info">
+                    <h3 id="content-title">Demo Track</h3>
+                    <p id="content-meta">video/mp4 - Ready for licensing</p>
+                </div>
+            </div>
+
+            <div class="file-input-wrapper" style="margin-top: 1rem;">
+                <input type="file" id="content-file" accept="audio/*,video/*">
+                <label class="file-input-label">
+                    <span>📁</span>
+                    <span>Upload your own content (optional)</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- License Generator -->
+        <div class="card">
+            <h2><span class="icon">🎫</span> Issue New License</h2>
+
+            <div class="customer-input">
+                <input type="email" id="customer-email" placeholder="Customer email (optional - for your records)">
+                <input type="text" id="license-price" placeholder="Price (e.g., $9.99)" style="max-width: 150px;">
+            </div>
+
+            <div class="license-generator">
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label for="custom-token">License Token (auto-generated or custom):</label>
+                    <input type="text" id="custom-token" placeholder="Leave blank to auto-generate...">
+                </div>
+                <button id="generate-btn" class="primary" disabled>Generate License</button>
+            </div>
+
+            <div class="info-box">
+                <h4>How It Works</h4>
+                <p>Each license token encrypts your content uniquely. The customer receives the encrypted file + their personal token. Only their token unlocks their copy. You can issue unlimited unique licenses - each one is cryptographically distinct.</p>
+            </div>
+        </div>
+
+        <!-- Issued Licenses -->
+        <div class="card">
+            <h2><span class="icon">📋</span> Issued Licenses</h2>
+            <div id="license-list" class="license-list">
+                <p style="color: #666; text-align: center; padding: 2rem;">No licenses issued yet. Generate your first one above!</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        let wasmReady = false;
+        let contentData = null;
+        let contentName = 'Demo Track';
+        let contentMime = 'video/mp4';
+        let licenses = [];
+        let licenseCounter = 0;
+
+        // Initialize WASM
+        async function initWasm() {
+            const statusEl = document.getElementById('wasm-status');
+
+            try {
+                const go = new Go();
+                const result = await WebAssembly.instantiateStreaming(
+                    fetch('stmf.wasm'),
+                    go.importObject
+                );
+                go.run(result.instance);
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('WASM init timeout')), 5000);
+
+                    if (typeof BorgSMSG !== 'undefined' && BorgSMSG.ready) {
+                        clearTimeout(timeout);
+                        resolve();
+                        return;
+                    }
+
+                    document.addEventListener('borgstmf:ready', () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    });
+                });
+
+                wasmReady = true;
+                updateStatus(statusEl, 'ready', 'Encryption engine ready');
+                document.getElementById('generate-btn').disabled = false;
+
+                // Load demo content for easy testing
+                await loadDemoContent();
+
+            } catch (err) {
+                updateStatus(statusEl, 'error', 'Failed to load: ' + err.message);
+                console.error('WASM init error:', err);
+            }
+        }
+
+        function updateStatus(el, status, message) {
+            el.className = 'status-indicator ' + status;
+            while (el.firstChild) el.removeChild(el.firstChild);
+            const dot = document.createElement('span');
+            dot.className = 'dot';
+            const text = document.createElement('span');
+            text.textContent = message;
+            el.appendChild(dot);
+            el.appendChild(text);
+        }
+
+        // Load demo content
+        async function loadDemoContent() {
+            try {
+                // For demo, we'll create a simple placeholder
+                // In production, this would be the artist's actual content
+                contentData = 'DEMO_CONTENT_PLACEHOLDER';
+                contentName = 'Demo Track';
+                contentMime = 'video/mp4';
+            } catch (err) {
+                console.log('Demo content not available, using placeholder');
+            }
+        }
+
+        // Handle file upload
+        document.getElementById('content-file').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const buffer = await file.arrayBuffer();
+                contentData = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+                contentName = file.name;
+                contentMime = file.type || 'application/octet-stream';
+
+                document.getElementById('content-title').textContent = file.name;
+                document.getElementById('content-meta').textContent =
+                    contentMime + ' - ' + formatSize(file.size) + ' - Ready for licensing';
+
+                // Update icon based on type
+                const icon = contentMime.startsWith('video/') ? '🎬' :
+                             contentMime.startsWith('audio/') ? '🎵' : '📄';
+                document.querySelector('.content-icon').textContent = icon;
+
+            } catch (err) {
+                alert('Failed to load file: ' + err.message);
+            }
+        });
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // Generate unique license token
+        function generateToken() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const segments = [];
+            for (let s = 0; s < 4; s++) {
+                let segment = '';
+                for (let i = 0; i < 4; i++) {
+                    segment += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                segments.push(segment);
+            }
+            return segments.join('-');
+        }
+
+        // Generate license
+        async function generateLicense() {
+            if (!wasmReady) {
+                alert('Encryption engine not ready');
+                return;
+            }
+
+            const customToken = document.getElementById('custom-token').value.trim();
+            const customerEmail = document.getElementById('customer-email').value.trim();
+            const price = document.getElementById('license-price').value.trim() || '$0.00';
+
+            // Generate or use custom token
+            const token = customToken || generateToken();
+
+            // Create the encrypted content
+            const btn = document.getElementById('generate-btn');
+            btn.textContent = 'Encrypting...';
+            btn.disabled = true;
+
+            try {
+                // Create message with content
+                const encrypted = await BorgSMSG.encrypt({
+                    body: 'Licensed content from dapp.fm',
+                    subject: contentName,
+                    from: 'Artist',
+                    attachments: [{
+                        name: contentName.includes('.') ? contentName : contentName + '.mp4',
+                        content: contentData || btoa('Demo content - upload your own file for real encryption'),
+                        mime: contentMime
+                    }]
+                }, token);
+
+                // Add to licenses list
+                licenseCounter++;
+                const license = {
+                    id: licenseCounter,
+                    token: token,
+                    customer: customerEmail,
+                    price: price,
+                    timestamp: new Date(),
+                    encrypted: encrypted,
+                    contentName: contentName
+                };
+                licenses.unshift(license);
+
+                // Update UI
+                updateLicenseList();
+                updateStats();
+
+                // Clear inputs
+                document.getElementById('custom-token').value = '';
+                document.getElementById('customer-email').value = '';
+
+            } catch (err) {
+                alert('Encryption failed: ' + err.message);
+            } finally {
+                btn.textContent = 'Generate License';
+                btn.disabled = false;
+            }
+        }
+
+        // Update license list display
+        function updateLicenseList() {
+            const container = document.getElementById('license-list');
+
+            // Clear container
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+
+            if (licenses.length === 0) {
+                const empty = document.createElement('p');
+                empty.style.cssText = 'color: #666; text-align: center; padding: 2rem;';
+                empty.textContent = 'No licenses issued yet. Generate your first one above!';
+                container.appendChild(empty);
+                return;
+            }
+
+            licenses.forEach((license, index) => {
+                const item = document.createElement('div');
+                item.className = 'license-item' + (index === 0 ? ' new' : '');
+
+                // Header
+                const header = document.createElement('div');
+                header.className = 'license-header';
+
+                const number = document.createElement('span');
+                number.className = 'license-number';
+                number.textContent = 'License #' + license.id;
+
+                const timestamp = document.createElement('span');
+                timestamp.className = 'license-timestamp';
+                timestamp.textContent = license.timestamp.toLocaleString();
+
+                header.appendChild(number);
+                header.appendChild(timestamp);
+
+                // Token display
+                const tokenDisplay = document.createElement('div');
+                tokenDisplay.className = 'license-token-display';
+
+                const tokenValue = document.createElement('span');
+                tokenValue.className = 'license-token-value';
+                tokenValue.textContent = license.token;
+
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.textContent = 'Copy';
+                copyBtn.addEventListener('click', () => copyToClipboard(license.token, copyBtn));
+
+                tokenDisplay.appendChild(tokenValue);
+                tokenDisplay.appendChild(copyBtn);
+
+                // Meta info
+                const meta = document.createElement('div');
+                meta.className = 'license-meta';
+
+                const customerSpan = document.createElement('span');
+                customerSpan.textContent = license.customer ? 'Customer: ' + license.customer : 'No customer email';
+
+                const priceSpan = document.createElement('span');
+                priceSpan.textContent = 'Price: ' + license.price;
+
+                const contentSpan = document.createElement('span');
+                contentSpan.textContent = 'Content: ' + license.contentName;
+
+                meta.appendChild(customerSpan);
+                meta.appendChild(priceSpan);
+                meta.appendChild(contentSpan);
+
+                // Actions
+                const actions = document.createElement('div');
+                actions.className = 'license-actions';
+
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'secondary';
+                downloadBtn.textContent = 'Download Encrypted File';
+                downloadBtn.addEventListener('click', () => downloadEncrypted(license));
+
+                const testBtn = document.createElement('button');
+                testBtn.className = 'secondary';
+                testBtn.textContent = 'Test in Player';
+                testBtn.addEventListener('click', () => testInPlayer(license));
+
+                actions.appendChild(downloadBtn);
+                actions.appendChild(testBtn);
+
+                // Assemble
+                item.appendChild(header);
+                item.appendChild(tokenDisplay);
+                item.appendChild(meta);
+                item.appendChild(actions);
+
+                container.appendChild(item);
+            });
+        }
+
+        // Update stats
+        function updateStats() {
+            document.getElementById('stat-licenses').textContent = licenses.length;
+
+            // Calculate revenue (parse prices)
+            let total = 0;
+            licenses.forEach(l => {
+                const match = l.price.match(/[\d.]+/);
+                if (match) total += parseFloat(match[0]);
+            });
+            document.getElementById('stat-revenue').textContent = '$' + total.toFixed(2);
+        }
+
+        // Copy to clipboard
+        async function copyToClipboard(text, btn) {
+            try {
+                await navigator.clipboard.writeText(text);
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = original, 1500);
+            } catch (err) {
+                alert('Failed to copy');
+            }
+        }
+
+        // Download encrypted file
+        function downloadEncrypted(license) {
+            const blob = new Blob([license.encrypted], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = license.contentName.replace(/\.[^.]+$/, '') + '-' + license.id + '.smsg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Test in player
+        function testInPlayer(license) {
+            // Store in sessionStorage and redirect
+            sessionStorage.setItem('dappfm-test-content', license.encrypted);
+            sessionStorage.setItem('dappfm-test-token', license.token);
+            window.location.href = 'media-player.html?test=1';
+        }
+
+        // Event listeners
+        document.getElementById('generate-btn').addEventListener('click', generateLicense);
+
+        // Initialize
+        initWasm();
+    </script>
+</body>
+</html>
