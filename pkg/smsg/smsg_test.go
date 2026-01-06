@@ -268,3 +268,197 @@ func TestEmptyMessageError(t *testing.T) {
 		t.Errorf("Expected ErrEmptyMessage, got %v", err)
 	}
 }
+
+func TestEncryptWithManifest(t *testing.T) {
+	msg := NewMessage("Licensed content")
+	password := "license-token-123"
+
+	// Create manifest with tracks
+	manifest := NewManifest("Summer EP 2024").
+		AddTrackFull("Intro", 0, 30, "intro").
+		AddTrackFull("Main Track", 30, 180, "full").
+		AddTrack("Outro", 180)
+	manifest.Artist = "Test Artist"
+	manifest.ReleaseType = "ep"
+	manifest.Format = "dapp.fm/v1"
+
+	encrypted, err := EncryptWithManifest(msg, password, manifest)
+	if err != nil {
+		t.Fatalf("EncryptWithManifest failed: %v", err)
+	}
+
+	// Get info without decryption - should have manifest
+	header, err := GetInfo(encrypted)
+	if err != nil {
+		t.Fatalf("GetInfo failed: %v", err)
+	}
+
+	if header.Manifest == nil {
+		t.Fatal("Expected manifest in header")
+	}
+
+	if header.Manifest.Title != "Summer EP 2024" {
+		t.Errorf("Title = %q, want %q", header.Manifest.Title, "Summer EP 2024")
+	}
+
+	if header.Manifest.Artist != "Test Artist" {
+		t.Errorf("Artist = %q, want %q", header.Manifest.Artist, "Test Artist")
+	}
+
+	if header.Manifest.ReleaseType != "ep" {
+		t.Errorf("ReleaseType = %q, want %q", header.Manifest.ReleaseType, "ep")
+	}
+
+	if len(header.Manifest.Tracks) != 3 {
+		t.Errorf("Tracks count = %d, want 3", len(header.Manifest.Tracks))
+	}
+
+	// Verify tracks
+	if header.Manifest.Tracks[0].Title != "Intro" {
+		t.Errorf("Track 0 Title = %q, want %q", header.Manifest.Tracks[0].Title, "Intro")
+	}
+	if header.Manifest.Tracks[0].Start != 0 {
+		t.Errorf("Track 0 Start = %v, want 0", header.Manifest.Tracks[0].Start)
+	}
+	if header.Manifest.Tracks[0].Type != "intro" {
+		t.Errorf("Track 0 Type = %q, want %q", header.Manifest.Tracks[0].Type, "intro")
+	}
+
+	// Can still decrypt normally
+	decrypted, err := Decrypt(encrypted, password)
+	if err != nil {
+		t.Fatalf("Decrypt failed: %v", err)
+	}
+
+	if decrypted.Body != "Licensed content" {
+		t.Errorf("Body = %q, want %q", decrypted.Body, "Licensed content")
+	}
+}
+
+func TestManifestBuilder(t *testing.T) {
+	manifest := NewManifest("Test Album")
+	manifest.Artist = "Artist Name"
+	manifest.Album = "Album Name"
+	manifest.Year = 2024
+	manifest.Genre = "Electronic"
+	manifest.ReleaseType = "album"
+	manifest.Tags = []string{"electronic", "ambient"}
+	manifest.Extra["custom_field"] = "custom_value"
+
+	// Add tracks
+	manifest.AddTrack("Track 1", 0)
+	manifest.AddTrack("Track 2", 120)
+	manifest.AddTrackFull("Track 3", 240, 360, "outro")
+
+	if manifest.Title != "Test Album" {
+		t.Errorf("Title = %q, want %q", manifest.Title, "Test Album")
+	}
+
+	if len(manifest.Tracks) != 3 {
+		t.Fatalf("Track count = %d, want 3", len(manifest.Tracks))
+	}
+
+	// First track should have TrackNum 1
+	if manifest.Tracks[0].TrackNum != 1 {
+		t.Errorf("Track 1 TrackNum = %d, want 1", manifest.Tracks[0].TrackNum)
+	}
+
+	// Third track should have end time
+	if manifest.Tracks[2].End != 360 {
+		t.Errorf("Track 3 End = %v, want 360", manifest.Tracks[2].End)
+	}
+}
+
+func TestManifestExpiration(t *testing.T) {
+	// Test perpetual license (no expiration)
+	perpetual := NewManifest("Perpetual Album")
+	if perpetual.IsExpired() {
+		t.Error("Perpetual license should not be expired")
+	}
+	if perpetual.TimeRemaining() != 0 {
+		t.Error("Perpetual license should have 0 time remaining (infinite)")
+	}
+	if perpetual.LicenseType != "perpetual" {
+		t.Errorf("LicenseType = %q, want perpetual", perpetual.LicenseType)
+	}
+
+	// Test streaming access (24 hours)
+	stream := NewManifest("Stream Album").WithStreamingAccess(24)
+	if stream.IsExpired() {
+		t.Error("Streaming license should not be expired immediately")
+	}
+	if stream.LicenseType != "stream" {
+		t.Errorf("LicenseType = %q, want stream", stream.LicenseType)
+	}
+	remaining := stream.TimeRemaining()
+	if remaining < 86000 || remaining > 86400 {
+		t.Errorf("TimeRemaining = %d, expected ~86400", remaining)
+	}
+
+	// Test rental with duration
+	rental := NewManifest("Rental Album").WithRentalDuration(3600) // 1 hour
+	if rental.IsExpired() {
+		t.Error("Rental license should not be expired immediately")
+	}
+	if rental.LicenseType != "rental" {
+		t.Errorf("LicenseType = %q, want rental", rental.LicenseType)
+	}
+
+	// Test preview (30 seconds)
+	preview := NewManifest("Preview Track").WithPreviewAccess(30)
+	if preview.IsExpired() {
+		t.Error("Preview license should not be expired immediately")
+	}
+	if preview.LicenseType != "preview" {
+		t.Errorf("LicenseType = %q, want preview", preview.LicenseType)
+	}
+
+	// Test already expired license
+	expired := NewManifest("Expired Album")
+	expired.ExpiresAt = 1000 // Very old timestamp
+	if !expired.IsExpired() {
+		t.Error("License with old expiration should be expired")
+	}
+	if expired.TimeRemaining() >= 0 {
+		t.Error("Expired license should have negative time remaining")
+	}
+}
+
+func TestExpirationInHeader(t *testing.T) {
+	msg := NewMessage("Licensed content")
+	password := "stream-token-123"
+
+	// Create streaming license (24 hours)
+	manifest := NewManifest("Streaming EP").WithStreamingAccess(24)
+
+	encrypted, err := EncryptWithManifest(msg, password, manifest)
+	if err != nil {
+		t.Fatalf("EncryptWithManifest failed: %v", err)
+	}
+
+	// Get info should show expiration
+	header, err := GetInfo(encrypted)
+	if err != nil {
+		t.Fatalf("GetInfo failed: %v", err)
+	}
+
+	if header.Manifest == nil {
+		t.Fatal("Expected manifest in header")
+	}
+
+	if header.Manifest.LicenseType != "stream" {
+		t.Errorf("LicenseType = %q, want stream", header.Manifest.LicenseType)
+	}
+
+	if header.Manifest.ExpiresAt == 0 {
+		t.Error("ExpiresAt should not be 0 for streaming license")
+	}
+
+	if header.Manifest.IssuedAt == 0 {
+		t.Error("IssuedAt should not be 0")
+	}
+
+	if header.Manifest.IsExpired() {
+		t.Error("New streaming license should not be expired")
+	}
+}

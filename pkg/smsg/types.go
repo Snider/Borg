@@ -6,6 +6,7 @@ package smsg
 
 import (
 	"errors"
+	"time"
 )
 
 // Magic bytes for SMSG format
@@ -16,17 +17,17 @@ const Version = "1.0"
 
 // Errors
 var (
-	ErrInvalidMagic      = errors.New("invalid SMSG magic")
-	ErrInvalidPayload    = errors.New("invalid SMSG payload")
-	ErrDecryptionFailed  = errors.New("decryption failed (wrong password?)")
-	ErrPasswordRequired  = errors.New("password is required")
-	ErrEmptyMessage      = errors.New("message cannot be empty")
+	ErrInvalidMagic     = errors.New("invalid SMSG magic")
+	ErrInvalidPayload   = errors.New("invalid SMSG payload")
+	ErrDecryptionFailed = errors.New("decryption failed (wrong password?)")
+	ErrPasswordRequired = errors.New("password is required")
+	ErrEmptyMessage     = errors.New("message cannot be empty")
 )
 
 // Attachment represents a file attached to the message
 type Attachment struct {
 	Name     string `json:"name"`
-	Content  string `json:"content"`  // base64-encoded
+	Content  string `json:"content"` // base64-encoded
 	MimeType string `json:"mime,omitempty"`
 	Size     int    `json:"size,omitempty"`
 }
@@ -128,9 +129,129 @@ func (m *Message) GetAttachment(name string) *Attachment {
 	return nil
 }
 
+// Track represents a track marker in a release (like CD chapters)
+type Track struct {
+	Title    string  `json:"title"`
+	Start    float64 `json:"start"`               // start time in seconds
+	End      float64 `json:"end,omitempty"`       // end time in seconds (0 = until next track)
+	Type     string  `json:"type,omitempty"`      // intro, verse, chorus, drop, outro, etc.
+	TrackNum int     `json:"track_num,omitempty"` // track number for multi-track releases
+}
+
+// Manifest contains public metadata visible without decryption
+// This enables content discovery, indexing, and preview
+type Manifest struct {
+	// Content identification
+	Title  string `json:"title,omitempty"`
+	Artist string `json:"artist,omitempty"`
+	Album  string `json:"album,omitempty"`
+	Genre  string `json:"genre,omitempty"`
+	Year   int    `json:"year,omitempty"`
+
+	// Release info
+	ReleaseType string `json:"release_type,omitempty"` // single, album, ep, mix
+	Duration    int    `json:"duration,omitempty"`     // total duration in seconds
+	Format      string `json:"format,omitempty"`       // dapp.fm/v1, etc.
+
+	// License expiration (for streaming/rental models)
+	ExpiresAt   int64  `json:"expires_at,omitempty"`   // Unix timestamp when license expires (0 = never)
+	IssuedAt    int64  `json:"issued_at,omitempty"`    // Unix timestamp when license was issued
+	LicenseType string `json:"license_type,omitempty"` // perpetual, rental, stream, preview
+
+	// Track list (like CD master)
+	Tracks []Track `json:"tracks,omitempty"`
+
+	// Custom metadata
+	Tags  []string          `json:"tags,omitempty"`
+	Extra map[string]string `json:"extra,omitempty"`
+}
+
+// NewManifest creates a new manifest with title
+func NewManifest(title string) *Manifest {
+	return &Manifest{
+		Title:       title,
+		Extra:       make(map[string]string),
+		LicenseType: "perpetual",
+	}
+}
+
+// WithExpiration sets the license expiration time
+func (m *Manifest) WithExpiration(expiresAt int64) *Manifest {
+	m.ExpiresAt = expiresAt
+	if m.LicenseType == "perpetual" {
+		m.LicenseType = "rental"
+	}
+	return m
+}
+
+// WithRentalDuration sets expiration relative to issue time
+func (m *Manifest) WithRentalDuration(durationSeconds int64) *Manifest {
+	if m.IssuedAt == 0 {
+		m.IssuedAt = time.Now().Unix()
+	}
+	m.ExpiresAt = m.IssuedAt + durationSeconds
+	m.LicenseType = "rental"
+	return m
+}
+
+// WithStreamingAccess sets up for streaming (short expiration, e.g., 24 hours)
+func (m *Manifest) WithStreamingAccess(hours int) *Manifest {
+	m.IssuedAt = time.Now().Unix()
+	m.ExpiresAt = m.IssuedAt + int64(hours*3600)
+	m.LicenseType = "stream"
+	return m
+}
+
+// WithPreviewAccess sets up for preview (very short, e.g., 30 seconds)
+func (m *Manifest) WithPreviewAccess(seconds int) *Manifest {
+	m.IssuedAt = time.Now().Unix()
+	m.ExpiresAt = m.IssuedAt + int64(seconds)
+	m.LicenseType = "preview"
+	return m
+}
+
+// IsExpired checks if the license has expired
+func (m *Manifest) IsExpired() bool {
+	if m.ExpiresAt == 0 {
+		return false // No expiration = perpetual
+	}
+	return time.Now().Unix() > m.ExpiresAt
+}
+
+// TimeRemaining returns seconds until expiration (0 if perpetual, negative if expired)
+func (m *Manifest) TimeRemaining() int64 {
+	if m.ExpiresAt == 0 {
+		return 0 // Perpetual
+	}
+	return m.ExpiresAt - time.Now().Unix()
+}
+
+// AddTrack adds a track marker to the manifest
+func (m *Manifest) AddTrack(title string, start float64) *Manifest {
+	m.Tracks = append(m.Tracks, Track{
+		Title:    title,
+		Start:    start,
+		TrackNum: len(m.Tracks) + 1,
+	})
+	return m
+}
+
+// AddTrackFull adds a track with all details
+func (m *Manifest) AddTrackFull(title string, start, end float64, trackType string) *Manifest {
+	m.Tracks = append(m.Tracks, Track{
+		Title:    title,
+		Start:    start,
+		End:      end,
+		Type:     trackType,
+		TrackNum: len(m.Tracks) + 1,
+	})
+	return m
+}
+
 // Header represents the SMSG container header
 type Header struct {
-	Version   string `json:"version"`
-	Algorithm string `json:"algorithm"`
-	Hint      string `json:"hint,omitempty"` // optional password hint
+	Version   string    `json:"version"`
+	Algorithm string    `json:"algorithm"`
+	Hint      string    `json:"hint,omitempty"`     // optional password hint
+	Manifest  *Manifest `json:"manifest,omitempty"` // public metadata for discovery
 }

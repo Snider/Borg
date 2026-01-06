@@ -120,6 +120,62 @@ func EncryptWithHint(msg *Message, password, hint string) ([]byte, error) {
 	return trix.Encode(t, Magic, nil)
 }
 
+// EncryptWithManifest encrypts with public manifest metadata in the clear text header
+// The manifest is visible without decryption, enabling content discovery and indexing
+func EncryptWithManifest(msg *Message, password string, manifest *Manifest) ([]byte, error) {
+	if password == "" {
+		return nil, ErrPasswordRequired
+	}
+	if msg.Body == "" && len(msg.Attachments) == 0 {
+		return nil, ErrEmptyMessage
+	}
+
+	if msg.Timestamp == 0 {
+		msg.Timestamp = time.Now().Unix()
+	}
+
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	key := DeriveKey(password)
+	sigil, err := enchantrix.NewChaChaPolySigil(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sigil: %w", err)
+	}
+
+	encrypted, err := sigil.In(payload)
+	if err != nil {
+		return nil, fmt.Errorf("encryption failed: %w", err)
+	}
+
+	// Build header with manifest
+	headerMap := map[string]interface{}{
+		"version":   Version,
+		"algorithm": "chacha20poly1305",
+	}
+	if manifest != nil {
+		headerMap["manifest"] = manifest
+	}
+
+	t := &trix.Trix{
+		Header:  headerMap,
+		Payload: encrypted,
+	}
+
+	return trix.Encode(t, Magic, nil)
+}
+
+// EncryptWithManifestBase64 encrypts with manifest and returns base64
+func EncryptWithManifestBase64(msg *Message, password string, manifest *Manifest) (string, error) {
+	encrypted, err := EncryptWithManifest(msg, password, manifest)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(encrypted), nil
+}
+
 // Decrypt decrypts an SMSG container with a password
 func Decrypt(data []byte, password string) (*Message, error) {
 	if password == "" {
@@ -179,6 +235,18 @@ func GetInfo(data []byte) (*Header, error) {
 	}
 	if v, ok := t.Header["hint"].(string); ok {
 		header.Hint = v
+	}
+
+	// Extract manifest if present
+	if manifestData, ok := t.Header["manifest"]; ok && manifestData != nil {
+		// Re-marshal and unmarshal to properly convert the map to Manifest struct
+		manifestBytes, err := json.Marshal(manifestData)
+		if err == nil {
+			var manifest Manifest
+			if err := json.Unmarshal(manifestBytes, &manifest); err == nil {
+				header.Manifest = &manifest
+			}
+		}
 	}
 
 	return header, nil

@@ -30,12 +30,13 @@ func main() {
 
 	// Export BorgSMSG for secure message handling
 	js.Global().Set("BorgSMSG", js.ValueOf(map[string]interface{}{
-		"decrypt":     js.FuncOf(smsgDecrypt),
-		"encrypt":     js.FuncOf(smsgEncrypt),
-		"getInfo":     js.FuncOf(smsgGetInfo),
-		"quickDecrypt": js.FuncOf(smsgQuickDecrypt),
-		"version":     Version,
-		"ready":       true,
+		"decrypt":             js.FuncOf(smsgDecrypt),
+		"encrypt":             js.FuncOf(smsgEncrypt),
+		"encryptWithManifest": js.FuncOf(smsgEncryptWithManifest),
+		"getInfo":             js.FuncOf(smsgGetInfo),
+		"quickDecrypt":        js.FuncOf(smsgQuickDecrypt),
+		"version":             Version,
+		"ready":               true,
 	}))
 
 	// Dispatch a ready event
@@ -381,8 +382,9 @@ func smsgEncrypt(this js.Value, args []js.Value) interface{} {
 // JavaScript usage:
 //
 //	const info = await BorgSMSG.getInfo(encryptedBase64);
-//	console.log(info.hint);  // password hint if set
+//	console.log(info.hint);      // password hint if set
 //	console.log(info.version);
+//	console.log(info.manifest);  // public metadata (title, artist, tracks, etc.)
 func smsgGetInfo(this js.Value, args []js.Value) interface{} {
 	handler := js.FuncOf(func(this js.Value, promiseArgs []js.Value) interface{} {
 		resolve := promiseArgs[0]
@@ -410,7 +412,94 @@ func smsgGetInfo(this js.Value, args []js.Value) interface{} {
 				result["hint"] = header.Hint
 			}
 
+			// Include manifest if present
+			if header.Manifest != nil {
+				result["manifest"] = manifestToJS(header.Manifest)
+			}
+
 			resolve.Invoke(js.ValueOf(result))
+		}()
+
+		return nil
+	})
+
+	promiseConstructor := js.Global().Get("Promise")
+	return promiseConstructor.New(handler)
+}
+
+// smsgEncryptWithManifest encrypts a message with public manifest metadata.
+// JavaScript usage:
+//
+//	const encrypted = await BorgSMSG.encryptWithManifest({
+//	  body: 'Licensed content',
+//	  attachments: [{name: 'track.mp3', content: '...', mime: 'audio/mpeg'}]
+//	}, password, {
+//	  title: 'My Song',
+//	  artist: 'Artist Name',
+//	  tracks: [{title: 'Intro', start: 0}, {title: 'Drop', start: 60}]
+//	});
+func smsgEncryptWithManifest(this js.Value, args []js.Value) interface{} {
+	handler := js.FuncOf(func(this js.Value, promiseArgs []js.Value) interface{} {
+		resolve := promiseArgs[0]
+		reject := promiseArgs[1]
+
+		go func() {
+			if len(args) < 3 {
+				reject.Invoke(newError("encryptWithManifest requires 3 arguments: messageObject, password, manifestObject"))
+				return
+			}
+
+			msgObj := args[0]
+			password := args[1].String()
+			manifestObj := args[2]
+
+			// Build message from JS object
+			msg := smsg.NewMessage(msgObj.Get("body").String())
+
+			if !msgObj.Get("subject").IsUndefined() {
+				msg.WithSubject(msgObj.Get("subject").String())
+			}
+			if !msgObj.Get("from").IsUndefined() {
+				msg.WithFrom(msgObj.Get("from").String())
+			}
+
+			// Handle attachments
+			attachments := msgObj.Get("attachments")
+			if !attachments.IsUndefined() && attachments.Length() > 0 {
+				for i := 0; i < attachments.Length(); i++ {
+					att := attachments.Index(i)
+					name := att.Get("name").String()
+					content := att.Get("content").String()
+					mimeType := ""
+					if !att.Get("mime").IsUndefined() {
+						mimeType = att.Get("mime").String()
+					}
+					msg.AddAttachment(name, content, mimeType)
+				}
+			}
+
+			// Handle metadata (encrypted, inside payload)
+			meta := msgObj.Get("meta")
+			if !meta.IsUndefined() && meta.Type() == js.TypeObject {
+				keys := js.Global().Get("Object").Call("keys", meta)
+				for i := 0; i < keys.Length(); i++ {
+					key := keys.Index(i).String()
+					value := meta.Get(key).String()
+					msg.SetMeta(key, value)
+				}
+			}
+
+			// Build manifest from JS object (public, in header)
+			manifest := jsToManifest(manifestObj)
+
+			encrypted, err := smsg.EncryptWithManifest(msg, password, manifest)
+			if err != nil {
+				reject.Invoke(newError("encryption failed: " + err.Error()))
+				return
+			}
+
+			encryptedB64 := base64.StdEncoding.EncodeToString(encrypted)
+			resolve.Invoke(encryptedB64)
 		}()
 
 		return nil
@@ -502,4 +591,180 @@ func messageToJS(msg *smsg.Message) js.Value {
 	}
 
 	return js.ValueOf(result)
+}
+
+// manifestToJS converts an smsg.Manifest to a JavaScript object
+func manifestToJS(m *smsg.Manifest) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	if m.Title != "" {
+		result["title"] = m.Title
+	}
+	if m.Artist != "" {
+		result["artist"] = m.Artist
+	}
+	if m.Album != "" {
+		result["album"] = m.Album
+	}
+	if m.Genre != "" {
+		result["genre"] = m.Genre
+	}
+	if m.Year > 0 {
+		result["year"] = m.Year
+	}
+	if m.ReleaseType != "" {
+		result["releaseType"] = m.ReleaseType
+	}
+	if m.Duration > 0 {
+		result["duration"] = m.Duration
+	}
+	if m.Format != "" {
+		result["format"] = m.Format
+	}
+
+	// License expiration fields
+	if m.ExpiresAt > 0 {
+		result["expiresAt"] = m.ExpiresAt
+	}
+	if m.IssuedAt > 0 {
+		result["issuedAt"] = m.IssuedAt
+	}
+	if m.LicenseType != "" {
+		result["licenseType"] = m.LicenseType
+	}
+	// Computed fields for convenience
+	result["isExpired"] = m.IsExpired()
+	result["timeRemaining"] = m.TimeRemaining()
+
+	// Convert tracks
+	if len(m.Tracks) > 0 {
+		tracks := make([]interface{}, len(m.Tracks))
+		for i, t := range m.Tracks {
+			track := map[string]interface{}{
+				"title": t.Title,
+				"start": t.Start,
+			}
+			if t.End > 0 {
+				track["end"] = t.End
+			}
+			if t.Type != "" {
+				track["type"] = t.Type
+			}
+			if t.TrackNum > 0 {
+				track["trackNum"] = t.TrackNum
+			}
+			tracks[i] = track
+		}
+		result["tracks"] = tracks
+	}
+
+	// Convert tags
+	if len(m.Tags) > 0 {
+		tags := make([]interface{}, len(m.Tags))
+		for i, tag := range m.Tags {
+			tags[i] = tag
+		}
+		result["tags"] = tags
+	}
+
+	// Convert extra
+	if len(m.Extra) > 0 {
+		extra := make(map[string]interface{})
+		for k, v := range m.Extra {
+			extra[k] = v
+		}
+		result["extra"] = extra
+	}
+
+	return result
+}
+
+// jsToManifest converts a JavaScript object to an smsg.Manifest
+func jsToManifest(obj js.Value) *smsg.Manifest {
+	if obj.IsUndefined() || obj.IsNull() {
+		return nil
+	}
+
+	manifest := &smsg.Manifest{
+		Extra: make(map[string]string),
+	}
+
+	if !obj.Get("title").IsUndefined() {
+		manifest.Title = obj.Get("title").String()
+	}
+	if !obj.Get("artist").IsUndefined() {
+		manifest.Artist = obj.Get("artist").String()
+	}
+	if !obj.Get("album").IsUndefined() {
+		manifest.Album = obj.Get("album").String()
+	}
+	if !obj.Get("genre").IsUndefined() {
+		manifest.Genre = obj.Get("genre").String()
+	}
+	if !obj.Get("year").IsUndefined() {
+		manifest.Year = obj.Get("year").Int()
+	}
+	if !obj.Get("releaseType").IsUndefined() {
+		manifest.ReleaseType = obj.Get("releaseType").String()
+	}
+	if !obj.Get("duration").IsUndefined() {
+		manifest.Duration = obj.Get("duration").Int()
+	}
+	if !obj.Get("format").IsUndefined() {
+		manifest.Format = obj.Get("format").String()
+	}
+
+	// License expiration fields
+	if !obj.Get("expiresAt").IsUndefined() {
+		manifest.ExpiresAt = int64(obj.Get("expiresAt").Float())
+	}
+	if !obj.Get("issuedAt").IsUndefined() {
+		manifest.IssuedAt = int64(obj.Get("issuedAt").Float())
+	}
+	if !obj.Get("licenseType").IsUndefined() {
+		manifest.LicenseType = obj.Get("licenseType").String()
+	}
+
+	// Parse tracks array
+	tracks := obj.Get("tracks")
+	if !tracks.IsUndefined() && tracks.Length() > 0 {
+		for i := 0; i < tracks.Length(); i++ {
+			t := tracks.Index(i)
+			track := smsg.Track{
+				Title:    t.Get("title").String(),
+				Start:    t.Get("start").Float(),
+				TrackNum: i + 1,
+			}
+			if !t.Get("end").IsUndefined() {
+				track.End = t.Get("end").Float()
+			}
+			if !t.Get("type").IsUndefined() {
+				track.Type = t.Get("type").String()
+			}
+			if !t.Get("trackNum").IsUndefined() {
+				track.TrackNum = t.Get("trackNum").Int()
+			}
+			manifest.Tracks = append(manifest.Tracks, track)
+		}
+	}
+
+	// Parse tags array
+	tags := obj.Get("tags")
+	if !tags.IsUndefined() && tags.Length() > 0 {
+		for i := 0; i < tags.Length(); i++ {
+			manifest.Tags = append(manifest.Tags, tags.Index(i).String())
+		}
+	}
+
+	// Parse extra object
+	extra := obj.Get("extra")
+	if !extra.IsUndefined() && extra.Type() == js.TypeObject {
+		keys := js.Global().Get("Object").Call("keys", extra)
+		for i := 0; i < keys.Length(); i++ {
+			key := keys.Index(i).String()
+			manifest.Extra[key] = extra.Get(key).String()
+		}
+	}
+
+	return manifest
 }

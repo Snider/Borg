@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "dapp-fm",
+  "outputfilename": "dapp-fm",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "dapp.fm",
+    "email": "hello@dapp.fm"
+  },
+  "info": {
+    "companyName": "dapp.fm",
+    "productName": "dapp.fm Player",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright (c) 2024 dapp.fm - EUPL-1.2",
+    "comments": "Decentralized Music Distribution - Zero-Trust DRM"
+  }
+}

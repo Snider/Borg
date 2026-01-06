@@ -481,6 +481,81 @@
                 <input type="text" id="license-price" placeholder="Price (e.g., $9.99)" style="max-width: 150px;">
             </div>
 
+            <!-- Track List / Master Record -->
+            <div style="background: rgba(0,0,0,0.2); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 1rem; color: #ff006e; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>💿</span> Master Track List
+                </h3>
+                <p style="font-size: 0.8rem; color: #888; margin-bottom: 1rem;">
+                    Define tracks like a CD master - timestamps become chapter markers in the player.
+                </p>
+
+                <div id="track-list-container">
+                    <!-- Tracks will be added here -->
+                </div>
+
+                <button type="button" id="add-track-btn" class="secondary" style="width: 100%; margin-top: 0.75rem; padding: 0.75rem;">
+                    + Add Track
+                </button>
+
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="release-name">Release / Album Name</label>
+                            <input type="text" id="release-name" placeholder="e.g., Summer EP 2024">
+                        </div>
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="release-type">Release Type</label>
+                            <select id="release-type" style="width: 100%; padding: 0.8rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.1); color: #fff;">
+                                <option value="single">Single</option>
+                                <option value="ep">EP</option>
+                                <option value="album">Album</option>
+                                <option value="mixtape">Mixtape</option>
+                                <option value="djset">DJ Set / Mix</option>
+                                <option value="live">Live Recording</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- License Type & Expiration -->
+            <div style="background: rgba(0,0,0,0.2); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 1rem; color: #00ff94; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>🎫</span> License Configuration
+                </h3>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="input-group" style="margin-bottom: 0;">
+                        <label for="license-type">License Type</label>
+                        <select id="license-type" style="width: 100%; padding: 0.8rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.1); color: #fff;">
+                            <option value="perpetual">Perpetual (Own Forever)</option>
+                            <option value="rental">Rental (Time-Limited)</option>
+                            <option value="stream">Streaming (24h Access)</option>
+                            <option value="preview">Preview (30 seconds)</option>
+                        </select>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 0;" id="expiration-group">
+                        <label for="expiration-duration">Duration</label>
+                        <select id="expiration-duration" style="width: 100%; padding: 0.8rem; border-radius: 8px; background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.1); color: #fff;" disabled>
+                            <option value="0">No Expiration</option>
+                            <option value="1800">30 minutes</option>
+                            <option value="3600">1 hour</option>
+                            <option value="86400">24 hours</option>
+                            <option value="259200">3 days</option>
+                            <option value="604800">7 days</option>
+                            <option value="2592000">30 days</option>
+                            <option value="7776000">90 days</option>
+                            <option value="31536000">1 year</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="license-type-info" style="font-size: 0.8rem; color: #888; padding: 0.75rem; background: rgba(0,255,148,0.1); border-radius: 8px;">
+                    <strong style="color: #00ff94;">Perpetual:</strong> Customer owns the content forever. No expiration.
+                </div>
+            </div>
+
             <div class="license-generator">
                 <div class="input-group" style="margin-bottom: 0;">
                     <label for="custom-token">License Token (auto-generated or custom):</label>
@@ -491,7 +566,7 @@
 
             <div class="info-box">
                 <h4>How It Works</h4>
-                <p>Each license token encrypts your content uniquely. The customer receives the encrypted file + their personal token. Only their token unlocks their copy. You can issue unlimited unique licenses - each one is cryptographically distinct.</p>
+                <p>Each license token encrypts your content uniquely with its own playback config. Create "Intro Mix" licenses that start at the build-up, "DJ Extended" with loop points, or "Radio Edit" cuts. Same master file, unlimited unique licensed versions!</p>
             </div>
         </div>
 
@@ -512,6 +587,133 @@
         let contentMime = 'video/mp4';
         let licenses = [];
         let licenseCounter = 0;
+        let tracks = [];
+        let trackCounter = 0;
+
+        // Track management
+        function addTrack(title = '', start = '', end = '', mixType = 'full') {
+            trackCounter++;
+            const track = {
+                id: trackCounter,
+                title: title,
+                start: start,
+                end: end,
+                mixType: mixType
+            };
+            tracks.push(track);
+            renderTrackList();
+            return track;
+        }
+
+        function removeTrack(id) {
+            tracks = tracks.filter(t => t.id !== id);
+            renderTrackList();
+        }
+
+        function renderTrackList() {
+            const container = document.getElementById('track-list-container');
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+
+            if (tracks.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'color: #666; text-align: center; padding: 1rem; font-size: 0.85rem;';
+                empty.textContent = 'No tracks defined. Click "Add Track" to create chapter markers.';
+                container.appendChild(empty);
+                return;
+            }
+
+            tracks.forEach((track, index) => {
+                const trackEl = document.createElement('div');
+                trackEl.style.cssText = 'background: rgba(131, 56, 236, 0.1); border: 1px solid rgba(131, 56, 236, 0.2); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.5rem;';
+
+                const row = document.createElement('div');
+                row.style.cssText = 'display: grid; grid-template-columns: auto 1fr 80px 80px 120px auto; gap: 0.5rem; align-items: center;';
+
+                // Track number
+                const numSpan = document.createElement('span');
+                numSpan.style.cssText = 'color: #8338ec; font-weight: 700; font-size: 0.9rem; min-width: 30px;';
+                numSpan.textContent = (index + 1) + '.';
+
+                // Title input
+                const titleInput = document.createElement('input');
+                titleInput.type = 'text';
+                titleInput.placeholder = 'Track title';
+                titleInput.value = track.title;
+                titleInput.style.cssText = 'padding: 0.5rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 0.85rem;';
+                titleInput.addEventListener('change', (e) => { track.title = e.target.value; });
+
+                // Start time
+                const startInput = document.createElement('input');
+                startInput.type = 'text';
+                startInput.placeholder = '0:00';
+                startInput.value = track.start;
+                startInput.style.cssText = 'padding: 0.5rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #00ff94; font-size: 0.85rem; text-align: center;';
+                startInput.addEventListener('change', (e) => { track.start = e.target.value; });
+
+                // End time
+                const endInput = document.createElement('input');
+                endInput.type = 'text';
+                endInput.placeholder = 'end';
+                endInput.value = track.end;
+                endInput.style.cssText = 'padding: 0.5rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #ff006e; font-size: 0.85rem; text-align: center;';
+                endInput.addEventListener('change', (e) => { track.end = e.target.value; });
+
+                // Mix type select
+                const mixSelect = document.createElement('select');
+                mixSelect.style.cssText = 'padding: 0.5rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 0.75rem;';
+                const mixTypes = ['full', 'intro', 'verse', 'chorus', 'bridge', 'drop', 'outro', 'buildup'];
+                mixTypes.forEach(mt => {
+                    const opt = document.createElement('option');
+                    opt.value = mt;
+                    opt.textContent = mt.charAt(0).toUpperCase() + mt.slice(1);
+                    if (mt === track.mixType) opt.selected = true;
+                    mixSelect.appendChild(opt);
+                });
+                mixSelect.addEventListener('change', (e) => { track.mixType = e.target.value; });
+
+                // Remove button
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = '✕';
+                removeBtn.style.cssText = 'padding: 0.4rem 0.6rem; background: rgba(255,82,82,0.2); border: 1px solid rgba(255,82,82,0.4); color: #ff5252; border-radius: 6px; cursor: pointer; font-size: 0.8rem;';
+                removeBtn.addEventListener('click', () => removeTrack(track.id));
+
+                row.appendChild(numSpan);
+                row.appendChild(titleInput);
+                row.appendChild(startInput);
+                row.appendChild(endInput);
+                row.appendChild(mixSelect);
+                row.appendChild(removeBtn);
+
+                trackEl.appendChild(row);
+                container.appendChild(trackEl);
+            });
+        }
+
+        function parseTimeToSeconds(timeStr) {
+            if (!timeStr) return 0;
+            timeStr = timeStr.trim();
+            if (timeStr.includes(':')) {
+                const parts = timeStr.split(':');
+                if (parts.length === 2) {
+                    return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+                } else if (parts.length === 3) {
+                    return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
+                }
+            }
+            return parseFloat(timeStr) || 0;
+        }
+
+        function getTrackListMetadata() {
+            return tracks.map((t, i) => ({
+                number: i + 1,
+                title: t.title || 'Track ' + (i + 1),
+                start: parseTimeToSeconds(t.start),
+                end: t.end ? parseTimeToSeconds(t.end) : null,
+                type: t.mixType
+            }));
+        }
 
         // Initialize WASM
         async function initWasm() {
@@ -642,17 +844,52 @@
             btn.disabled = true;
 
             try {
-                // Create message with content
-                const encrypted = await BorgSMSG.encrypt({
+                // Gather release metadata
+                const releaseName = document.getElementById('release-name').value.trim() || contentName;
+                const releaseType = document.getElementById('release-type').value;
+                const trackList = getTrackListMetadata();
+
+                // Get license configuration
+                const licenseType = document.getElementById('license-type').value;
+                const expirationDuration = parseInt(document.getElementById('expiration-duration').value) || 0;
+
+                // Calculate expiration time
+                const now = Math.floor(Date.now() / 1000);
+                let expiresAt = 0;
+                if (licenseType === 'preview') {
+                    expiresAt = now + 30;  // 30 seconds for preview
+                } else if (licenseType !== 'perpetual' && expirationDuration > 0) {
+                    expiresAt = now + expirationDuration;
+                }
+
+                // Build public manifest (visible WITHOUT decryption - for discovery/indexing)
+                const manifest = {
+                    title: releaseName,
+                    artist: 'Artist',  // Could be from user input
+                    releaseType: releaseType,
+                    format: 'dapp.fm/v1',
+                    licenseType: licenseType,
+                    issuedAt: now,
+                    expiresAt: expiresAt,
+                    tracks: trackList.map(t => ({
+                        title: t.title,
+                        start: t.start,
+                        end: t.end || 0,
+                        type: t.type
+                    }))
+                };
+
+                // Create message with content (attachments encrypted, manifest public)
+                const encrypted = await BorgSMSG.encryptWithManifest({
                     body: 'Licensed content from dapp.fm',
-                    subject: contentName,
+                    subject: releaseName,
                     from: 'Artist',
                     attachments: [{
                         name: contentName.includes('.') ? contentName : contentName + '.mp4',
                         content: contentData || btoa('Demo content - upload your own file for real encryption'),
                         mime: contentMime
                     }]
-                }, token);
+                }, token, manifest);
 
                 // Add to licenses list
                 licenseCounter++;
@@ -663,7 +900,11 @@
                     price: price,
                     timestamp: new Date(),
                     encrypted: encrypted,
-                    contentName: contentName
+                    contentName: releaseName,
+                    trackCount: trackList.length,
+                    releaseType: releaseType,
+                    licenseType: licenseType,
+                    expiresAt: expiresAt
                 };
                 licenses.unshift(license);
 
@@ -752,6 +993,36 @@
                 meta.appendChild(priceSpan);
                 meta.appendChild(contentSpan);
 
+                // License type badge
+                if (license.licenseType && license.licenseType !== 'perpetual') {
+                    const typeBadge = document.createElement('span');
+                    typeBadge.style.cssText = 'padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;';
+
+                    if (license.licenseType === 'stream') {
+                        typeBadge.style.background = 'rgba(58, 134, 255, 0.2)';
+                        typeBadge.style.color = '#3a86ff';
+                        typeBadge.textContent = 'STREAM';
+                    } else if (license.licenseType === 'rental') {
+                        typeBadge.style.background = 'rgba(255, 193, 7, 0.2)';
+                        typeBadge.style.color = '#ffc107';
+                        typeBadge.textContent = 'RENTAL';
+                    } else if (license.licenseType === 'preview') {
+                        typeBadge.style.background = 'rgba(255, 0, 110, 0.2)';
+                        typeBadge.style.color = '#ff006e';
+                        typeBadge.textContent = 'PREVIEW';
+                    }
+                    meta.appendChild(typeBadge);
+
+                    // Show expiration
+                    if (license.expiresAt > 0) {
+                        const expiresSpan = document.createElement('span');
+                        const expiresDate = new Date(license.expiresAt * 1000);
+                        expiresSpan.textContent = 'Expires: ' + expiresDate.toLocaleString();
+                        expiresSpan.style.color = '#888';
+                        meta.appendChild(expiresSpan);
+                    }
+                }
+
                 // Actions
                 const actions = document.createElement('div');
                 actions.className = 'license-actions';
@@ -825,11 +1096,66 @@
             window.location.href = 'media-player.html?test=1';
         }
 
+        // License type handler
+        document.getElementById('license-type').addEventListener('change', (e) => {
+            const licenseType = e.target.value;
+            const durationSelect = document.getElementById('expiration-duration');
+            const infoBox = document.getElementById('license-type-info');
+
+            const licenseInfo = {
+                perpetual: {
+                    label: 'Perpetual:',
+                    labelColor: '#00ff94',
+                    text: 'Customer owns the content forever. No expiration.',
+                    duration: false,
+                    defaultDuration: '0'
+                },
+                rental: {
+                    label: 'Rental:',
+                    labelColor: '#ffc107',
+                    text: 'Time-limited access. Great for album releases, limited editions, or seasonal content.',
+                    duration: true,
+                    defaultDuration: '604800'
+                },
+                stream: {
+                    label: 'Streaming:',
+                    labelColor: '#3a86ff',
+                    text: 'Short-term access (default 24h). Ideal for on-demand streaming platforms.',
+                    duration: true,
+                    defaultDuration: '86400'
+                },
+                preview: {
+                    label: 'Preview:',
+                    labelColor: '#ff006e',
+                    text: 'Ultra-short access (30 seconds). Let fans sample before buying.',
+                    duration: false,
+                    defaultDuration: '30'
+                }
+            };
+
+            const config = licenseInfo[licenseType] || licenseInfo.perpetual;
+
+            // Update info box safely using DOM methods
+            while (infoBox.firstChild) infoBox.removeChild(infoBox.firstChild);
+            const labelEl = document.createElement('strong');
+            labelEl.style.color = config.labelColor;
+            labelEl.textContent = config.label + ' ';
+            const textEl = document.createTextNode(config.text);
+            infoBox.appendChild(labelEl);
+            infoBox.appendChild(textEl);
+
+            // Enable/disable duration selector
+            durationSelect.disabled = !config.duration;
+            durationSelect.value = config.defaultDuration;
+        });
+
         // Event listeners
         document.getElementById('generate-btn').addEventListener('click', generateLicense);
+        document.getElementById('add-track-btn').addEventListener('click', () => addTrack());
 
         // Initialize
         initWasm();
+        renderTrackList(); // Show empty state
     </script>
 </body>
 </html>

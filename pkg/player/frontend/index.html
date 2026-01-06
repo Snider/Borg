@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dapp.fm - Decentralized Music Player</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a0a2e 50%, #0f1a2e 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #e0e0e0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -2px;
+        }
+
+        .logo .tagline {
+            color: #888;
+            font-size: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .hero-text {
+            text-align: center;
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .hero-text p {
+            color: #aaa;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .hero-text strong {
+            color: #ff006e;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(20px);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #fff;
+        }
+
+        .card h2 .icon {
+            font-size: 1.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #888;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        textarea, input[type="password"], input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            background: rgba(0,0,0,0.4);
+            color: #fff;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: #8338ec;
+            box-shadow: 0 0 0 4px rgba(131, 56, 236, 0.2);
+        }
+
+        textarea.encrypted {
+            min-height: 100px;
+            font-size: 0.75rem;
+            word-break: break-all;
+            resize: vertical;
+        }
+
+        .unlock-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .unlock-row .input-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        button {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #ff006e 0%, #8338ec 100%);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(255, 0, 110, 0.3);
+        }
+
+        button.primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 0, 110, 0.4);
+        }
+
+        button.primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        button.secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        button.secondary:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            padding: 0.75rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .status-indicator .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.loading .dot {
+            background: #ffc107;
+            animation: pulse 1s infinite;
+        }
+
+        .status-indicator.ready .dot {
+            background: #00ff94;
+        }
+
+        .status-indicator.error .dot {
+            background: #ff5252;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .error-banner {
+            background: rgba(255, 82, 82, 0.15);
+            border: 1px solid rgba(255, 82, 82, 0.4);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            display: none;
+            color: #ff6b6b;
+        }
+
+        .error-banner.visible {
+            display: block;
+        }
+
+        /* Media Player Styles */
+        .player-container {
+            display: none;
+        }
+
+        .player-container.visible {
+            display: block;
+        }
+
+        .track-info {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .track-artwork {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 1.5rem;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #2d1b4e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 5rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        .track-artwork img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .track-artwork video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .track-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .track-artist {
+            color: #888;
+            font-size: 1rem;
+        }
+
+        .media-player-wrapper {
+            margin-top: 1.5rem;
+        }
+
+        /* Custom Audio Player */
+        .audio-player {
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        audio, video {
+            width: 100%;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        audio::-webkit-media-controls-panel {
+            background: linear-gradient(135deg, #1a1a2e 0%, #2d1b4e 100%);
+        }
+
+        video {
+            max-height: 500px;
+            background: #000;
+        }
+
+        .video-player-wrapper {
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        /* License Info */
+        .license-info {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(131, 56, 236, 0.1);
+            border: 1px solid rgba(131, 56, 236, 0.3);
+            border-radius: 12px;
+        }
+
+        .license-info h4 {
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+            color: #8338ec;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .license-info p {
+            font-size: 0.85rem;
+            color: #aaa;
+            line-height: 1.6;
+        }
+
+        .license-info .license-token {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.75rem;
+            background: rgba(0,0,0,0.3);
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-top: 0.75rem;
+            word-break: break-all;
+            color: #00ff94;
+        }
+
+        /* Download section */
+        .download-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .download-section button {
+            padding: 0.75rem 1.5rem;
+        }
+
+        /* Track List */
+        .track-list-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .track-list-section h3 {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .track-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .track-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .track-item:hover {
+            background: rgba(131, 56, 236, 0.2);
+        }
+
+        .track-item.active {
+            background: rgba(255, 0, 110, 0.2);
+            border: 1px solid rgba(255, 0, 110, 0.4);
+        }
+
+        .track-number {
+            font-weight: 700;
+            color: #8338ec;
+            min-width: 24px;
+        }
+
+        .track-info {
+            flex: 1;
+        }
+
+        .track-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .track-type {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .track-time {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8rem;
+            color: #00ff94;
+            font-size: 0.85rem;
+        }
+
+        /* How it works */
+        .how-it-works {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .how-step {
+            text-align: center;
+            padding: 1.5rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+        }
+
+        .how-step .step-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .how-step h4 {
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .how-step p {
+            font-size: 0.8rem;
+            color: #888;
+            line-height: 1.5;
+        }
+
+        /* File input styling */
+        .file-input-wrapper {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 2rem;
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 12px;
+            background: rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-input-label:hover {
+            border-color: #8338ec;
+            background: rgba(131, 56, 236, 0.1);
+        }
+
+        .file-input-label .icon {
+            font-size: 2rem;
+        }
+
+        .or-divider {
+            text-align: center;
+            color: #666;
+            margin: 1rem 0;
+            font-size: 0.85rem;
+        }
+
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .nav-links a {
+            color: #8338ec;
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            background: rgba(131, 56, 236, 0.1);
+            transition: all 0.2s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(131, 56, 236, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>dapp.fm</h1>
+            <p class="tagline">Decentralized Music Distribution</p>
+        </div>
+
+        <nav class="nav-links">
+            <a href="index.html">Form Encryption</a>
+            <a href="support-reply.html">Decrypt Messages</a>
+            <a href="media-player.html" style="background: rgba(131, 56, 236, 0.3);">Media Player</a>
+            <a href="artist-portal.html">Artist Portal</a>
+        </nav>
+
+        <div class="hero-text">
+            <p>
+                <strong>No middlemen. No platforms. No 70% cuts.</strong><br>
+                Artists encrypt their music with ChaCha20-Poly1305. Fans unlock with a license token.
+                Content lives on any CDN, IPFS, or artist's own server. The password IS the license.
+            </p>
+        </div>
+
+        <div id="wasm-status" class="status-indicator loading">
+            <span class="dot"></span>
+            <span>Initializing decryption engine...</span>
+        </div>
+
+        <div class="card">
+            <h2><span class="icon">🔐</span> Unlock Licensed Content</h2>
+
+            <div class="file-input-wrapper">
+                <input type="file" id="file-input" accept=".smsg,.enc,.borg">
+                <label class="file-input-label">
+                    <span class="icon">📁</span>
+                    <span>Drop encrypted file here or click to browse</span>
+                </label>
+            </div>
+
+            <div class="or-divider">- or paste encrypted content -</div>
+
+            <div class="input-group">
+                <label for="encrypted-content">Encrypted Content (base64):</label>
+                <textarea id="encrypted-content" class="encrypted" placeholder="Paste the encrypted content from the artist..."></textarea>
+            </div>
+
+            <div class="demo-banner" style="background: rgba(255, 0, 110, 0.1); border: 1px solid rgba(255, 0, 110, 0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <strong style="color: #ff006e;">Try the Demo!</strong>
+                        <span style="color: #888; font-size: 0.85rem; margin-left: 0.5rem;">Load a sample encrypted video</span>
+                    </div>
+                    <button id="load-demo-btn" class="secondary" style="padding: 0.6rem 1.2rem; font-size: 0.85rem;">Load Demo Track</button>
+                </div>
+                <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">
+                    Password: <code style="background: rgba(0,0,0,0.3); padding: 0.2rem 0.5rem; border-radius: 4px; color: #00ff94;">dapp-fm-2024</code>
+                </div>
+            </div>
+
+            <div id="error-banner" class="error-banner"></div>
+
+            <!-- Manifest preview (shown without decryption) -->
+            <div id="manifest-preview" style="display: none; background: rgba(131, 56, 236, 0.1); border: 1px solid rgba(131, 56, 236, 0.3); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;"></div>
+
+            <div class="unlock-row">
+                <div class="input-group">
+                    <label for="license-token">License Token (Password):</label>
+                    <input type="password" id="license-token" placeholder="Enter your license token from the artist">
+                </div>
+                <button id="unlock-btn" class="primary" disabled>Unlock</button>
+            </div>
+        </div>
+
+        <!-- Player appears after unlock -->
+        <div id="player-container" class="card player-container">
+            <h2><span class="icon">🎵</span> Now Playing</h2>
+
+            <div class="track-info">
+                <div class="track-artwork" id="track-artwork">🎶</div>
+                <div class="track-title" id="track-title">Track Title</div>
+                <div class="track-artist" id="track-artist">Artist Name</div>
+            </div>
+
+            <div class="media-player-wrapper" id="media-player-wrapper">
+                <!-- Audio/Video player inserted here -->
+            </div>
+
+            <div id="track-list-section" class="track-list-section" style="display: none;">
+                <h3><span>💿</span> Track List</h3>
+                <div id="track-list" class="track-list">
+                    <!-- Tracks populated by JS -->
+                </div>
+            </div>
+
+            <div class="license-info">
+                <h4>🔓 Licensed Content</h4>
+                <p>This content was unlocked with your personal license token.
+                   The decryption happens entirely in your browser - no servers involved.</p>
+                <div class="license-token" id="license-display"></div>
+            </div>
+
+            <div class="download-section">
+                <button class="secondary" id="download-btn">Download Original</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2><span class="icon">💡</span> How It Works</h2>
+            <div class="how-it-works">
+                <div class="how-step">
+                    <div class="step-icon">🎤</div>
+                    <h4>Artist Creates</h4>
+                    <p>Artist encrypts their music/video with a password using ChaCha20-Poly1305</p>
+                </div>
+                <div class="how-step">
+                    <div class="step-icon">☁️</div>
+                    <h4>Host Anywhere</h4>
+                    <p>Encrypted file goes on any CDN, IPFS, S3, or artist's own website</p>
+                </div>
+                <div class="how-step">
+                    <div class="step-icon">🎫</div>
+                    <h4>Sell License</h4>
+                    <p>Artist sells the password (license token) directly to fans</p>
+                </div>
+                <div class="how-step">
+                    <div class="step-icon">🎧</div>
+                    <h4>Fan Plays</h4>
+                    <p>Fan unlocks and plays in browser. No middleman, no platform fees</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        let wasmReady = false;
+        let currentMediaBlob = null;
+        let currentMediaName = null;
+        let currentMediaMime = null;
+        let currentManifest = null;  // Public metadata from header
+
+        // Initialize WASM
+        async function initWasm() {
+            const statusEl = document.getElementById('wasm-status');
+
+            try {
+                const go = new Go();
+                const result = await WebAssembly.instantiateStreaming(
+                    fetch('stmf.wasm'),
+                    go.importObject
+                );
+                go.run(result.instance);
+
+                // Wait for BorgSMSG to be ready
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('WASM init timeout')), 5000);
+
+                    if (typeof BorgSMSG !== 'undefined' && BorgSMSG.ready) {
+                        clearTimeout(timeout);
+                        resolve();
+                        return;
+                    }
+
+                    document.addEventListener('borgstmf:ready', () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    });
+                });
+
+                wasmReady = true;
+                updateStatus(statusEl, 'ready', 'Decryption engine ready (v' + BorgSMSG.version + ')');
+                document.getElementById('unlock-btn').disabled = false;
+
+            } catch (err) {
+                updateStatus(statusEl, 'error', 'Failed to load: ' + err.message);
+                console.error('WASM init error:', err);
+            }
+        }
+
+        function updateStatus(el, status, message) {
+            el.className = 'status-indicator ' + status;
+            while (el.firstChild) el.removeChild(el.firstChild);
+            const dot = document.createElement('span');
+            dot.className = 'dot';
+            const text = document.createElement('span');
+            text.textContent = message;
+            el.appendChild(dot);
+            el.appendChild(text);
+        }
+
+        function showError(msg) {
+            const errorBanner = document.getElementById('error-banner');
+            errorBanner.textContent = msg;
+            errorBanner.classList.add('visible');
+        }
+
+        function hideError() {
+            document.getElementById('error-banner').classList.remove('visible');
+        }
+
+        // Handle file input
+        document.getElementById('file-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const content = await file.arrayBuffer();
+                const base64 = btoa(String.fromCharCode(...new Uint8Array(content)));
+                document.getElementById('encrypted-content').value = base64;
+                // Show preview from manifest
+                await showManifestPreview(base64);
+            } catch (err) {
+                showError('Failed to read file: ' + err.message);
+            }
+        });
+
+        // Listen for content paste/input to show preview
+        let previewDebounce = null;
+        document.getElementById('encrypted-content').addEventListener('input', async (e) => {
+            const content = e.target.value.trim();
+            // Debounce to avoid calling on every keystroke
+            clearTimeout(previewDebounce);
+            previewDebounce = setTimeout(async () => {
+                if (content && content.length > 100) {  // Only if substantial content
+                    await showManifestPreview(content);
+                }
+            }, 500);
+        });
+
+        // Show manifest preview WITHOUT decryption
+        async function showManifestPreview(encryptedB64) {
+            if (!wasmReady) return;
+
+            try {
+                const info = await BorgSMSG.getInfo(encryptedB64);
+                currentManifest = info.manifest;
+
+                const previewSection = document.getElementById('manifest-preview');
+                if (!previewSection) return;
+
+                // Clear previous content
+                while (previewSection.firstChild) {
+                    previewSection.removeChild(previewSection.firstChild);
+                }
+
+                if (info.manifest) {
+                    previewSection.style.display = 'block';
+                    previewSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    // Title and artist
+                    const headerDiv = document.createElement('div');
+                    headerDiv.style.cssText = 'display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;';
+
+                    const icon = document.createElement('span');
+                    icon.style.cssText = 'font-size: 2.5rem;';
+                    icon.textContent = info.manifest.releaseType === 'djset' ? '🎧' :
+                                       info.manifest.releaseType === 'live' ? '🎤' : '💿';
+
+                    const titleDiv = document.createElement('div');
+
+                    const titleEl = document.createElement('div');
+                    titleEl.style.cssText = 'font-size: 1.2rem; font-weight: 700; color: #fff;';
+                    titleEl.textContent = info.manifest.title || 'Untitled';
+
+                    const artistEl = document.createElement('div');
+                    artistEl.style.cssText = 'font-size: 0.9rem; color: #888;';
+                    artistEl.textContent = info.manifest.artist || 'Unknown Artist';
+
+                    titleDiv.appendChild(titleEl);
+                    titleDiv.appendChild(artistEl);
+                    headerDiv.appendChild(icon);
+                    headerDiv.appendChild(titleDiv);
+                    previewSection.appendChild(headerDiv);
+
+                    // Release info
+                    if (info.manifest.releaseType || info.manifest.format) {
+                        const metaDiv = document.createElement('div');
+                        metaDiv.style.cssText = 'font-size: 0.8rem; color: #666; margin-bottom: 1rem;';
+                        const parts = [];
+                        if (info.manifest.releaseType) parts.push(info.manifest.releaseType.toUpperCase());
+                        if (info.manifest.format) parts.push(info.manifest.format);
+                        metaDiv.textContent = parts.join(' • ');
+                        previewSection.appendChild(metaDiv);
+                    }
+
+                    // Track list preview
+                    if (info.manifest.tracks && info.manifest.tracks.length > 0) {
+                        const trackHeader = document.createElement('div');
+                        trackHeader.style.cssText = 'font-size: 0.85rem; color: #8338ec; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;';
+                        trackHeader.textContent = '💿 ' + info.manifest.tracks.length + ' track' + (info.manifest.tracks.length > 1 ? 's' : '');
+                        previewSection.appendChild(trackHeader);
+
+                        const trackList = document.createElement('div');
+                        trackList.style.cssText = 'max-height: 150px; overflow-y: auto;';
+
+                        info.manifest.tracks.forEach((track, i) => {
+                            const trackEl = document.createElement('div');
+                            trackEl.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 6px; margin-bottom: 0.25rem; font-size: 0.85rem;';
+
+                            const numEl = document.createElement('span');
+                            numEl.style.cssText = 'color: #8338ec; font-weight: 600; min-width: 20px;';
+                            numEl.textContent = (track.trackNum || (i + 1)) + '.';
+
+                            const nameEl = document.createElement('span');
+                            nameEl.style.cssText = 'flex: 1; color: #ccc;';
+                            nameEl.textContent = track.title || 'Track ' + (i + 1);
+
+                            const timeEl = document.createElement('span');
+                            timeEl.style.cssText = 'color: #00ff94; font-family: monospace; font-size: 0.8rem;';
+                            timeEl.textContent = formatTime(track.start || 0);
+
+                            trackEl.appendChild(numEl);
+                            trackEl.appendChild(nameEl);
+                            trackEl.appendChild(timeEl);
+                            trackList.appendChild(trackEl);
+                        });
+
+                        previewSection.appendChild(trackList);
+                    }
+
+                    // Show license type and expiration
+                    if (info.manifest.licenseType || info.manifest.expiresAt) {
+                        const licenseDiv = document.createElement('div');
+                        licenseDiv.style.cssText = 'margin-top: 1rem; padding: 0.75rem; border-radius: 8px;';
+
+                        if (info.manifest.isExpired) {
+                            // Expired license
+                            licenseDiv.style.background = 'rgba(255, 82, 82, 0.2)';
+                            licenseDiv.style.border = '1px solid rgba(255, 82, 82, 0.4)';
+
+                            const expiredLabel = document.createElement('div');
+                            expiredLabel.style.cssText = 'color: #ff5252; font-weight: 600; font-size: 0.9rem;';
+                            expiredLabel.textContent = 'LICENSE EXPIRED';
+
+                            const expiredInfo = document.createElement('div');
+                            expiredInfo.style.cssText = 'color: #888; font-size: 0.8rem; margin-top: 0.25rem;';
+                            const expDate = new Date(info.manifest.expiresAt * 1000);
+                            expiredInfo.textContent = 'Expired on ' + expDate.toLocaleString();
+
+                            licenseDiv.appendChild(expiredLabel);
+                            licenseDiv.appendChild(expiredInfo);
+                        } else if (info.manifest.expiresAt > 0) {
+                            // Active but expiring license
+                            const remaining = info.manifest.timeRemaining;
+                            const hours = Math.floor(remaining / 3600);
+                            const mins = Math.floor((remaining % 3600) / 60);
+
+                            let bgColor, borderColor, textColor;
+                            if (remaining < 3600) {
+                                bgColor = 'rgba(255, 193, 7, 0.2)';
+                                borderColor = 'rgba(255, 193, 7, 0.4)';
+                                textColor = '#ffc107';
+                            } else {
+                                bgColor = 'rgba(0, 255, 148, 0.1)';
+                                borderColor = 'rgba(0, 255, 148, 0.3)';
+                                textColor = '#00ff94';
+                            }
+
+                            licenseDiv.style.background = bgColor;
+                            licenseDiv.style.border = '1px solid ' + borderColor;
+
+                            const typeLabel = document.createElement('span');
+                            typeLabel.style.cssText = 'color: ' + textColor + '; font-weight: 600; font-size: 0.8rem; text-transform: uppercase;';
+                            typeLabel.textContent = (info.manifest.licenseType || 'rental').toUpperCase() + ' LICENSE';
+
+                            const timeLabel = document.createElement('span');
+                            timeLabel.style.cssText = 'color: #888; font-size: 0.8rem; margin-left: 0.5rem;';
+                            if (hours > 24) {
+                                timeLabel.textContent = Math.floor(hours / 24) + ' days remaining';
+                            } else if (hours > 0) {
+                                timeLabel.textContent = hours + 'h ' + mins + 'm remaining';
+                            } else {
+                                timeLabel.textContent = mins + ' minutes remaining';
+                            }
+
+                            licenseDiv.appendChild(typeLabel);
+                            licenseDiv.appendChild(timeLabel);
+                        } else {
+                            // Perpetual license
+                            licenseDiv.style.background = 'rgba(0, 255, 148, 0.1)';
+                            licenseDiv.style.border = '1px solid rgba(0, 255, 148, 0.3)';
+
+                            const perpetualLabel = document.createElement('span');
+                            perpetualLabel.style.cssText = 'color: #00ff94; font-weight: 600; font-size: 0.8rem;';
+                            perpetualLabel.textContent = 'PERPETUAL LICENSE';
+
+                            licenseDiv.appendChild(perpetualLabel);
+                        }
+
+                        previewSection.appendChild(licenseDiv);
+                    }
+
+                    const unlockHint = document.createElement('div');
+                    unlockHint.style.cssText = 'margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: #888; text-align: center;';
+
+                    if (info.manifest.isExpired) {
+                        unlockHint.style.color = '#ff5252';
+                        unlockHint.textContent = 'This license has expired. Contact the artist for a new license.';
+                    } else {
+                        unlockHint.textContent = 'Enter your license token to unlock and play';
+                    }
+                    previewSection.appendChild(unlockHint);
+
+                } else {
+                    previewSection.style.display = 'none';
+                }
+            } catch (err) {
+                console.log('Could not read manifest:', err);
+                // Not a fatal error - content might not have manifest
+            }
+        }
+
+        // Unlock content
+        async function unlockContent() {
+            hideError();
+
+            const encryptedB64 = document.getElementById('encrypted-content').value.trim();
+            const password = document.getElementById('license-token').value;
+
+            if (!encryptedB64) {
+                showError('Please provide encrypted content');
+                return;
+            }
+
+            if (!password) {
+                showError('Please enter your license token');
+                return;
+            }
+
+            try {
+                // Load manifest if not already loaded (for track info and expiration check)
+                if (!currentManifest) {
+                    try {
+                        const info = await BorgSMSG.getInfo(encryptedB64);
+                        currentManifest = info.manifest;
+                    } catch (e) {
+                        // Non-fatal - might not have manifest
+                    }
+                }
+
+                // Check expiration BEFORE decrypting
+                if (currentManifest && currentManifest.isExpired) {
+                    const expDate = new Date(currentManifest.expiresAt * 1000);
+                    showError('License expired on ' + expDate.toLocaleString() + '. Contact the artist for a new license.');
+                    return;
+                }
+
+                const message = await BorgSMSG.decrypt(encryptedB64, password);
+                displayMedia(message, password);
+            } catch (err) {
+                showError('Unlock failed: Invalid license token or corrupted content');
+                console.error(err);
+            }
+        }
+
+        // Display media player
+        function displayMedia(msg, password) {
+            const playerContainer = document.getElementById('player-container');
+            const mediaWrapper = document.getElementById('media-player-wrapper');
+            const artworkEl = document.getElementById('track-artwork');
+
+            // Set track info (prefer manifest, fallback to message fields)
+            const title = (currentManifest && currentManifest.title) || msg.subject || 'Untitled Track';
+            const artist = (currentManifest && currentManifest.artist) || msg.from || 'Unknown Artist';
+            document.getElementById('track-title').textContent = title;
+            document.getElementById('track-artist').textContent = artist;
+
+            // Show partial license token (safely using textContent)
+            const maskedToken = password.substring(0, 4) + String.fromCharCode(0x2022).repeat(8) + password.substring(password.length - 4);
+            document.getElementById('license-display').textContent = maskedToken;
+
+            // Clear previous media safely
+            while (mediaWrapper.firstChild) {
+                mediaWrapper.removeChild(mediaWrapper.firstChild);
+            }
+
+            // Reset artwork to default
+            while (artworkEl.firstChild) {
+                artworkEl.removeChild(artworkEl.firstChild);
+            }
+            artworkEl.textContent = '';
+
+            // Find media attachments
+            if (msg.attachments && msg.attachments.length > 0) {
+                msg.attachments.forEach((att, index) => {
+                    const mime = att.mime || 'application/octet-stream';
+
+                    // Convert base64 to blob
+                    const binary = atob(att.content);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) {
+                        bytes[i] = binary.charCodeAt(i);
+                    }
+                    const blob = new Blob([bytes], { type: mime });
+                    const url = URL.createObjectURL(blob);
+
+                    // Store for download
+                    currentMediaBlob = blob;
+                    currentMediaName = att.name;
+                    currentMediaMime = mime;
+
+                    if (mime.startsWith('video/')) {
+                        // Video player
+                        const videoWrapper = document.createElement('div');
+                        videoWrapper.className = 'video-player-wrapper';
+
+                        const video = document.createElement('video');
+                        video.controls = true;
+                        video.autoplay = false;
+                        video.src = url;
+                        video.style.width = '100%';
+
+                        videoWrapper.appendChild(video);
+                        mediaWrapper.appendChild(videoWrapper);
+
+                        // Update artwork to show video icon
+                        artworkEl.textContent = '🎬';
+
+                    } else if (mime.startsWith('audio/')) {
+                        // Audio player
+                        const audioWrapper = document.createElement('div');
+                        audioWrapper.className = 'audio-player';
+
+                        const audio = document.createElement('audio');
+                        audio.controls = true;
+                        audio.autoplay = false;
+                        audio.src = url;
+                        audio.style.width = '100%';
+
+                        audioWrapper.appendChild(audio);
+                        mediaWrapper.appendChild(audioWrapper);
+
+                        artworkEl.textContent = '🎵';
+
+                    } else if (mime.startsWith('image/')) {
+                        // Image - use as artwork (safe - just setting src)
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.alt = 'Album artwork';
+                        artworkEl.textContent = '';
+                        artworkEl.appendChild(img);
+                    }
+                });
+            }
+
+            // Parse and display track list from manifest (public header)
+            const trackListSection = document.getElementById('track-list-section');
+            const trackListEl = document.getElementById('track-list');
+
+            // Clear previous tracks
+            while (trackListEl.firstChild) {
+                trackListEl.removeChild(trackListEl.firstChild);
+            }
+
+            // Use manifest from header (public, no decryption needed)
+            const tracks = currentManifest && currentManifest.tracks;
+            if (tracks && tracks.length > 0) {
+                trackListSection.style.display = 'block';
+
+                tracks.forEach((track, index) => {
+                    const trackItem = document.createElement('div');
+                    trackItem.className = 'track-item';
+                    trackItem.dataset.start = track.start || 0;
+
+                    // Click to seek
+                    trackItem.addEventListener('click', () => {
+                        const mediaEl = document.querySelector('audio, video');
+                        if (mediaEl) {
+                            mediaEl.currentTime = parseFloat(track.start) || 0;
+                            mediaEl.play();
+                            // Update active state
+                            document.querySelectorAll('.track-item').forEach(t => t.classList.remove('active'));
+                            trackItem.classList.add('active');
+                        }
+                    });
+
+                    // Track number
+                    const numSpan = document.createElement('span');
+                    numSpan.className = 'track-number';
+                    numSpan.textContent = track.trackNum || (index + 1);
+
+                    // Track info
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'track-info';
+
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'track-name';
+                    nameDiv.textContent = track.title || 'Track ' + (index + 1);
+
+                    const typeDiv = document.createElement('div');
+                    typeDiv.className = 'track-type';
+                    typeDiv.textContent = track.type || 'full';
+
+                    infoDiv.appendChild(nameDiv);
+                    infoDiv.appendChild(typeDiv);
+
+                    // Time display
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'track-time';
+                    timeSpan.textContent = formatTime(track.start || 0);
+
+                    trackItem.appendChild(numSpan);
+                    trackItem.appendChild(infoDiv);
+                    trackItem.appendChild(timeSpan);
+
+                    trackListEl.appendChild(trackItem);
+                });
+            } else {
+                trackListSection.style.display = 'none';
+            }
+
+            // Hide manifest preview since we're now showing player
+            const previewSection = document.getElementById('manifest-preview');
+            if (previewSection) previewSection.style.display = 'none';
+
+            // Update license info display with expiration
+            const licenseInfoEl = document.querySelector('.license-info p');
+            if (licenseInfoEl && currentManifest) {
+                if (currentManifest.expiresAt > 0) {
+                    const remaining = currentManifest.timeRemaining;
+                    const hours = Math.floor(remaining / 3600);
+                    const mins = Math.floor((remaining % 3600) / 60);
+
+                    let timeText;
+                    if (hours > 24) {
+                        timeText = Math.floor(hours / 24) + ' days';
+                    } else if (hours > 0) {
+                        timeText = hours + 'h ' + mins + 'm';
+                    } else {
+                        timeText = mins + ' minutes';
+                    }
+
+                    licenseInfoEl.textContent = 'This is a ' + (currentManifest.licenseType || 'rental').toUpperCase() +
+                        ' license with ' + timeText + ' remaining. Decryption happens entirely in your browser.';
+
+                    // Start countdown timer for expiring licenses
+                    if (remaining < 3600) {
+                        startExpirationTimer();
+                    }
+                }
+            }
+
+            // Show player
+            playerContainer.classList.add('visible');
+            playerContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Timer for expiring licenses
+        let expirationTimer = null;
+        function startExpirationTimer() {
+            if (expirationTimer) clearInterval(expirationTimer);
+
+            expirationTimer = setInterval(() => {
+                if (!currentManifest || !currentManifest.expiresAt) return;
+
+                const now = Math.floor(Date.now() / 1000);
+                const remaining = currentManifest.expiresAt - now;
+
+                if (remaining <= 0) {
+                    // License expired during playback
+                    clearInterval(expirationTimer);
+                    const mediaEl = document.querySelector('audio, video');
+                    if (mediaEl) {
+                        mediaEl.pause();
+                        mediaEl.src = '';
+                    }
+                    showError('License has expired. Playback stopped.');
+                    document.getElementById('player-container').classList.remove('visible');
+                }
+            }, 1000);
+        }
+
+        // Format seconds to mm:ss
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return mins + ':' + secs.toString().padStart(2, '0');
+        }
+
+        // Download handler
+        document.getElementById('download-btn').addEventListener('click', () => {
+            if (!currentMediaBlob) {
+                alert('No media to download');
+                return;
+            }
+
+            const url = URL.createObjectURL(currentMediaBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentMediaName || 'media';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // Load demo content
+        async function loadDemo() {
+            const btn = document.getElementById('load-demo-btn');
+            const originalText = btn.textContent;
+            btn.textContent = 'Loading...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('demo-track.smsg');
+                if (!response.ok) {
+                    throw new Error('Demo file not found');
+                }
+                const content = await response.text();
+                document.getElementById('encrypted-content').value = content;
+                document.getElementById('license-token').value = 'dapp-fm-2024';
+
+                // Show preview
+                await showManifestPreview(content);
+
+                // Auto-unlock and play
+                await unlockContent();
+
+                btn.textContent = 'Demo Loaded!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            } catch (err) {
+                showError('Failed to load demo: ' + err.message);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('unlock-btn').addEventListener('click', unlockContent);
+        document.getElementById('license-token').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') unlockContent();
+        });
+        document.getElementById('load-demo-btn').addEventListener('click', loadDemo);
+
+        // Check for test mode from Artist Portal
+        function checkTestMode() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('test') === '1') {
+                const content = sessionStorage.getItem('dappfm-test-content');
+                const token = sessionStorage.getItem('dappfm-test-token');
+                if (content && token) {
+                    document.getElementById('encrypted-content').value = content;
+                    document.getElementById('license-token').value = token;
+                    sessionStorage.removeItem('dappfm-test-content');
+                    sessionStorage.removeItem('dappfm-test-token');
+                    // Auto-unlock after WASM is ready
+                    const checkReady = setInterval(() => {
+                        if (wasmReady) {
+                            clearInterval(checkReady);
+                            unlockContent();
+                        }
+                    }, 100);
+                }
+            }
+        }
+
+        // Initialize
+        initWasm();
+        checkTestMode();
+    </script>
+</body>
+</html>

@@ -355,6 +355,75 @@
 
         .download-section button {
             padding: 0.75rem 1.5rem;
+        }
+
+        /* Track List */
+        .track-list-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .track-list-section h3 {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .track-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .track-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .track-item:hover {
+            background: rgba(131, 56, 236, 0.2);
+        }
+
+        .track-item.active {
+            background: rgba(255, 0, 110, 0.2);
+            border: 1px solid rgba(255, 0, 110, 0.4);
+        }
+
+        .track-number {
+            font-weight: 700;
+            color: #8338ec;
+            min-width: 24px;
+        }
+
+        .track-info {
+            flex: 1;
+        }
+
+        .track-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .track-type {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .track-time {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8rem;
+            color: #00ff94;
             font-size: 0.85rem;
         }
 
@@ -515,6 +584,9 @@
 
             <div id="error-banner" class="error-banner"></div>
 
+            <!-- Manifest preview (shown without decryption) -->
+            <div id="manifest-preview" style="display: none; background: rgba(131, 56, 236, 0.1); border: 1px solid rgba(131, 56, 236, 0.3); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;"></div>
+
             <div class="unlock-row">
                 <div class="input-group">
                     <label for="license-token">License Token (Password):</label>
@@ -536,6 +608,13 @@
 
             <div class="media-player-wrapper" id="media-player-wrapper">
                 <!-- Audio/Video player inserted here -->
+            </div>
+
+            <div id="track-list-section" class="track-list-section" style="display: none;">
+                <h3><span>💿</span> Track List</h3>
+                <div id="track-list" class="track-list">
+                    <!-- Tracks populated by JS -->
+                </div>
             </div>
 
             <div class="license-info">
@@ -583,6 +662,7 @@
         let currentMediaBlob = null;
         let currentMediaName = null;
         let currentMediaMime = null;
+        let currentManifest = null;  // Public metadata from header
 
         // Initialize WASM
         async function initWasm() {
@@ -652,10 +732,208 @@
                 const content = await file.arrayBuffer();
                 const base64 = btoa(String.fromCharCode(...new Uint8Array(content)));
                 document.getElementById('encrypted-content').value = base64;
+                // Show preview from manifest
+                await showManifestPreview(base64);
             } catch (err) {
                 showError('Failed to read file: ' + err.message);
             }
         });
+
+        // Listen for content paste/input to show preview
+        let previewDebounce = null;
+        document.getElementById('encrypted-content').addEventListener('input', async (e) => {
+            const content = e.target.value.trim();
+            // Debounce to avoid calling on every keystroke
+            clearTimeout(previewDebounce);
+            previewDebounce = setTimeout(async () => {
+                if (content && content.length > 100) {  // Only if substantial content
+                    await showManifestPreview(content);
+                }
+            }, 500);
+        });
+
+        // Show manifest preview WITHOUT decryption
+        async function showManifestPreview(encryptedB64) {
+            if (!wasmReady) return;
+
+            try {
+                const info = await BorgSMSG.getInfo(encryptedB64);
+                currentManifest = info.manifest;
+
+                const previewSection = document.getElementById('manifest-preview');
+                if (!previewSection) return;
+
+                // Clear previous content
+                while (previewSection.firstChild) {
+                    previewSection.removeChild(previewSection.firstChild);
+                }
+
+                if (info.manifest) {
+                    previewSection.style.display = 'block';
+                    previewSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    // Title and artist
+                    const headerDiv = document.createElement('div');
+                    headerDiv.style.cssText = 'display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;';
+
+                    const icon = document.createElement('span');
+                    icon.style.cssText = 'font-size: 2.5rem;';
+                    icon.textContent = info.manifest.releaseType === 'djset' ? '🎧' :
+                                       info.manifest.releaseType === 'live' ? '🎤' : '💿';
+
+                    const titleDiv = document.createElement('div');
+
+                    const titleEl = document.createElement('div');
+                    titleEl.style.cssText = 'font-size: 1.2rem; font-weight: 700; color: #fff;';
+                    titleEl.textContent = info.manifest.title || 'Untitled';
+
+                    const artistEl = document.createElement('div');
+                    artistEl.style.cssText = 'font-size: 0.9rem; color: #888;';
+                    artistEl.textContent = info.manifest.artist || 'Unknown Artist';
+
+                    titleDiv.appendChild(titleEl);
+                    titleDiv.appendChild(artistEl);
+                    headerDiv.appendChild(icon);
+                    headerDiv.appendChild(titleDiv);
+                    previewSection.appendChild(headerDiv);
+
+                    // Release info
+                    if (info.manifest.releaseType || info.manifest.format) {
+                        const metaDiv = document.createElement('div');
+                        metaDiv.style.cssText = 'font-size: 0.8rem; color: #666; margin-bottom: 1rem;';
+                        const parts = [];
+                        if (info.manifest.releaseType) parts.push(info.manifest.releaseType.toUpperCase());
+                        if (info.manifest.format) parts.push(info.manifest.format);
+                        metaDiv.textContent = parts.join(' • ');
+                        previewSection.appendChild(metaDiv);
+                    }
+
+                    // Track list preview
+                    if (info.manifest.tracks && info.manifest.tracks.length > 0) {
+                        const trackHeader = document.createElement('div');
+                        trackHeader.style.cssText = 'font-size: 0.85rem; color: #8338ec; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;';
+                        trackHeader.textContent = '💿 ' + info.manifest.tracks.length + ' track' + (info.manifest.tracks.length > 1 ? 's' : '');
+                        previewSection.appendChild(trackHeader);
+
+                        const trackList = document.createElement('div');
+                        trackList.style.cssText = 'max-height: 150px; overflow-y: auto;';
+
+                        info.manifest.tracks.forEach((track, i) => {
+                            const trackEl = document.createElement('div');
+                            trackEl.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 6px; margin-bottom: 0.25rem; font-size: 0.85rem;';
+
+                            const numEl = document.createElement('span');
+                            numEl.style.cssText = 'color: #8338ec; font-weight: 600; min-width: 20px;';
+                            numEl.textContent = (track.trackNum || (i + 1)) + '.';
+
+                            const nameEl = document.createElement('span');
+                            nameEl.style.cssText = 'flex: 1; color: #ccc;';
+                            nameEl.textContent = track.title || 'Track ' + (i + 1);
+
+                            const timeEl = document.createElement('span');
+                            timeEl.style.cssText = 'color: #00ff94; font-family: monospace; font-size: 0.8rem;';
+                            timeEl.textContent = formatTime(track.start || 0);
+
+                            trackEl.appendChild(numEl);
+                            trackEl.appendChild(nameEl);
+                            trackEl.appendChild(timeEl);
+                            trackList.appendChild(trackEl);
+                        });
+
+                        previewSection.appendChild(trackList);
+                    }
+
+                    // Show license type and expiration
+                    if (info.manifest.licenseType || info.manifest.expiresAt) {
+                        const licenseDiv = document.createElement('div');
+                        licenseDiv.style.cssText = 'margin-top: 1rem; padding: 0.75rem; border-radius: 8px;';
+
+                        if (info.manifest.isExpired) {
+                            // Expired license
+                            licenseDiv.style.background = 'rgba(255, 82, 82, 0.2)';
+                            licenseDiv.style.border = '1px solid rgba(255, 82, 82, 0.4)';
+
+                            const expiredLabel = document.createElement('div');
+                            expiredLabel.style.cssText = 'color: #ff5252; font-weight: 600; font-size: 0.9rem;';
+                            expiredLabel.textContent = 'LICENSE EXPIRED';
+
+                            const expiredInfo = document.createElement('div');
+                            expiredInfo.style.cssText = 'color: #888; font-size: 0.8rem; margin-top: 0.25rem;';
+                            const expDate = new Date(info.manifest.expiresAt * 1000);
+                            expiredInfo.textContent = 'Expired on ' + expDate.toLocaleString();
+
+                            licenseDiv.appendChild(expiredLabel);
+                            licenseDiv.appendChild(expiredInfo);
+                        } else if (info.manifest.expiresAt > 0) {
+                            // Active but expiring license
+                            const remaining = info.manifest.timeRemaining;
+                            const hours = Math.floor(remaining / 3600);
+                            const mins = Math.floor((remaining % 3600) / 60);
+
+                            let bgColor, borderColor, textColor;
+                            if (remaining < 3600) {
+                                bgColor = 'rgba(255, 193, 7, 0.2)';
+                                borderColor = 'rgba(255, 193, 7, 0.4)';
+                                textColor = '#ffc107';
+                            } else {
+                                bgColor = 'rgba(0, 255, 148, 0.1)';
+                                borderColor = 'rgba(0, 255, 148, 0.3)';
+                                textColor = '#00ff94';
+                            }
+
+                            licenseDiv.style.background = bgColor;
+                            licenseDiv.style.border = '1px solid ' + borderColor;
+
+                            const typeLabel = document.createElement('span');
+                            typeLabel.style.cssText = 'color: ' + textColor + '; font-weight: 600; font-size: 0.8rem; text-transform: uppercase;';
+                            typeLabel.textContent = (info.manifest.licenseType || 'rental').toUpperCase() + ' LICENSE';
+
+                            const timeLabel = document.createElement('span');
+                            timeLabel.style.cssText = 'color: #888; font-size: 0.8rem; margin-left: 0.5rem;';
+                            if (hours > 24) {
+                                timeLabel.textContent = Math.floor(hours / 24) + ' days remaining';
+                            } else if (hours > 0) {
+                                timeLabel.textContent = hours + 'h ' + mins + 'm remaining';
+                            } else {
+                                timeLabel.textContent = mins + ' minutes remaining';
+                            }
+
+                            licenseDiv.appendChild(typeLabel);
+                            licenseDiv.appendChild(timeLabel);
+                        } else {
+                            // Perpetual license
+                            licenseDiv.style.background = 'rgba(0, 255, 148, 0.1)';
+                            licenseDiv.style.border = '1px solid rgba(0, 255, 148, 0.3)';
+
+                            const perpetualLabel = document.createElement('span');
+                            perpetualLabel.style.cssText = 'color: #00ff94; font-weight: 600; font-size: 0.8rem;';
+                            perpetualLabel.textContent = 'PERPETUAL LICENSE';
+
+                            licenseDiv.appendChild(perpetualLabel);
+                        }
+
+                        previewSection.appendChild(licenseDiv);
+                    }
+
+                    const unlockHint = document.createElement('div');
+                    unlockHint.style.cssText = 'margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: #888; text-align: center;';
+
+                    if (info.manifest.isExpired) {
+                        unlockHint.style.color = '#ff5252';
+                        unlockHint.textContent = 'This license has expired. Contact the artist for a new license.';
+                    } else {
+                        unlockHint.textContent = 'Enter your license token to unlock and play';
+                    }
+                    previewSection.appendChild(unlockHint);
+
+                } else {
+                    previewSection.style.display = 'none';
+                }
+            } catch (err) {
+                console.log('Could not read manifest:', err);
+                // Not a fatal error - content might not have manifest
+            }
+        }
 
         // Unlock content
         async function unlockContent() {
@@ -675,6 +953,23 @@
             }
 
             try {
+                // Load manifest if not already loaded (for track info and expiration check)
+                if (!currentManifest) {
+                    try {
+                        const info = await BorgSMSG.getInfo(encryptedB64);
+                        currentManifest = info.manifest;
+                    } catch (e) {
+                        // Non-fatal - might not have manifest
+                    }
+                }
+
+                // Check expiration BEFORE decrypting
+                if (currentManifest && currentManifest.isExpired) {
+                    const expDate = new Date(currentManifest.expiresAt * 1000);
+                    showError('License expired on ' + expDate.toLocaleString() + '. Contact the artist for a new license.');
+                    return;
+                }
+
                 const message = await BorgSMSG.decrypt(encryptedB64, password);
                 displayMedia(message, password);
             } catch (err) {
@@ -689,9 +984,11 @@
             const mediaWrapper = document.getElementById('media-player-wrapper');
             const artworkEl = document.getElementById('track-artwork');
 
-            // Set track info
-            document.getElementById('track-title').textContent = msg.subject || 'Untitled Track';
-            document.getElementById('track-artist').textContent = msg.from || 'Unknown Artist';
+            // Set track info (prefer manifest, fallback to message fields)
+            const title = (currentManifest && currentManifest.title) || msg.subject || 'Untitled Track';
+            const artist = (currentManifest && currentManifest.artist) || msg.from || 'Unknown Artist';
+            document.getElementById('track-title').textContent = title;
+            document.getElementById('track-artist').textContent = artist;
 
             // Show partial license token (safely using textContent)
             const maskedToken = password.substring(0, 4) + String.fromCharCode(0x2022).repeat(8) + password.substring(password.length - 4);
@@ -771,9 +1068,138 @@
                 });
             }
 
+            // Parse and display track list from manifest (public header)
+            const trackListSection = document.getElementById('track-list-section');
+            const trackListEl = document.getElementById('track-list');
+
+            // Clear previous tracks
+            while (trackListEl.firstChild) {
+                trackListEl.removeChild(trackListEl.firstChild);
+            }
+
+            // Use manifest from header (public, no decryption needed)
+            const tracks = currentManifest && currentManifest.tracks;
+            if (tracks && tracks.length > 0) {
+                trackListSection.style.display = 'block';
+
+                tracks.forEach((track, index) => {
+                    const trackItem = document.createElement('div');
+                    trackItem.className = 'track-item';
+                    trackItem.dataset.start = track.start || 0;
+
+                    // Click to seek
+                    trackItem.addEventListener('click', () => {
+                        const mediaEl = document.querySelector('audio, video');
+                        if (mediaEl) {
+                            mediaEl.currentTime = parseFloat(track.start) || 0;
+                            mediaEl.play();
+                            // Update active state
+                            document.querySelectorAll('.track-item').forEach(t => t.classList.remove('active'));
+                            trackItem.classList.add('active');
+                        }
+                    });
+
+                    // Track number
+                    const numSpan = document.createElement('span');
+                    numSpan.className = 'track-number';
+                    numSpan.textContent = track.trackNum || (index + 1);
+
+                    // Track info
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'track-info';
+
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'track-name';
+                    nameDiv.textContent = track.title || 'Track ' + (index + 1);
+
+                    const typeDiv = document.createElement('div');
+                    typeDiv.className = 'track-type';
+                    typeDiv.textContent = track.type || 'full';
+
+                    infoDiv.appendChild(nameDiv);
+                    infoDiv.appendChild(typeDiv);
+
+                    // Time display
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'track-time';
+                    timeSpan.textContent = formatTime(track.start || 0);
+
+                    trackItem.appendChild(numSpan);
+                    trackItem.appendChild(infoDiv);
+                    trackItem.appendChild(timeSpan);
+
+                    trackListEl.appendChild(trackItem);
+                });
+            } else {
+                trackListSection.style.display = 'none';
+            }
+
+            // Hide manifest preview since we're now showing player
+            const previewSection = document.getElementById('manifest-preview');
+            if (previewSection) previewSection.style.display = 'none';
+
+            // Update license info display with expiration
+            const licenseInfoEl = document.querySelector('.license-info p');
+            if (licenseInfoEl && currentManifest) {
+                if (currentManifest.expiresAt > 0) {
+                    const remaining = currentManifest.timeRemaining;
+                    const hours = Math.floor(remaining / 3600);
+                    const mins = Math.floor((remaining % 3600) / 60);
+
+                    let timeText;
+                    if (hours > 24) {
+                        timeText = Math.floor(hours / 24) + ' days';
+                    } else if (hours > 0) {
+                        timeText = hours + 'h ' + mins + 'm';
+                    } else {
+                        timeText = mins + ' minutes';
+                    }
+
+                    licenseInfoEl.textContent = 'This is a ' + (currentManifest.licenseType || 'rental').toUpperCase() +
+                        ' license with ' + timeText + ' remaining. Decryption happens entirely in your browser.';
+
+                    // Start countdown timer for expiring licenses
+                    if (remaining < 3600) {
+                        startExpirationTimer();
+                    }
+                }
+            }
+
             // Show player
             playerContainer.classList.add('visible');
             playerContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Timer for expiring licenses
+        let expirationTimer = null;
+        function startExpirationTimer() {
+            if (expirationTimer) clearInterval(expirationTimer);
+
+            expirationTimer = setInterval(() => {
+                if (!currentManifest || !currentManifest.expiresAt) return;
+
+                const now = Math.floor(Date.now() / 1000);
+                const remaining = currentManifest.expiresAt - now;
+
+                if (remaining <= 0) {
+                    // License expired during playback
+                    clearInterval(expirationTimer);
+                    const mediaEl = document.querySelector('audio, video');
+                    if (mediaEl) {
+                        mediaEl.pause();
+                        mediaEl.src = '';
+                    }
+                    showError('License has expired. Playback stopped.');
+                    document.getElementById('player-container').classList.remove('visible');
+                }
+            }, 1000);
+        }
+
+        // Format seconds to mm:ss
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return mins + ':' + secs.toString().padStart(2, '0');
         }
 
         // Download handler
@@ -808,6 +1234,13 @@
                 const content = await response.text();
                 document.getElementById('encrypted-content').value = content;
                 document.getElementById('license-token').value = 'dapp-fm-2024';
+
+                // Show preview
+                await showManifestPreview(content);
+
+                // Auto-unlock and play
+                await unlockContent();
+
                 btn.textContent = 'Demo Loaded!';
                 setTimeout(() => {
                     btn.textContent = originalText;
