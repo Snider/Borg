@@ -16,7 +16,7 @@ import (
 )
 
 // Version of the WASM module
-const Version = "1.1.0"
+const Version = "1.2.0"
 
 func main() {
 	// Export the BorgSTMF object to JavaScript global scope
@@ -31,6 +31,7 @@ func main() {
 	// Export BorgSMSG for secure message handling
 	js.Global().Set("BorgSMSG", js.ValueOf(map[string]interface{}{
 		"decrypt":             js.FuncOf(smsgDecrypt),
+		"decryptStream":       js.FuncOf(smsgDecryptStream),
 		"encrypt":             js.FuncOf(smsgEncrypt),
 		"encryptWithManifest": js.FuncOf(smsgEncryptWithManifest),
 		"getInfo":             js.FuncOf(smsgGetInfo),
@@ -284,6 +285,82 @@ func smsgDecrypt(this js.Value, args []js.Value) interface{} {
 	return promiseConstructor.New(handler)
 }
 
+// smsgDecryptStream decrypts and returns attachment data as Uint8Array for streaming.
+// This is more efficient than the regular decrypt which returns base64 strings.
+// JavaScript usage:
+//
+//	const result = await BorgSMSG.decryptStream(encryptedBase64, password);
+//	// result.attachments[0].data is a Uint8Array ready for MediaSource/Blob
+//	const blob = new Blob([result.attachments[0].data], {type: result.attachments[0].mime});
+//	audio.src = URL.createObjectURL(blob);
+func smsgDecryptStream(this js.Value, args []js.Value) interface{} {
+	handler := js.FuncOf(func(this js.Value, promiseArgs []js.Value) interface{} {
+		resolve := promiseArgs[0]
+		reject := promiseArgs[1]
+
+		go func() {
+			if len(args) < 2 {
+				reject.Invoke(newError("decryptStream requires 2 arguments: encryptedBase64, password"))
+				return
+			}
+
+			encryptedB64 := args[0].String()
+			password := args[1].String()
+
+			msg, err := smsg.DecryptBase64(encryptedB64, password)
+			if err != nil {
+				reject.Invoke(newError("decryption failed: " + err.Error()))
+				return
+			}
+
+			// Build result with binary attachment data
+			result := map[string]interface{}{
+				"body":      msg.Body,
+				"timestamp": msg.Timestamp,
+			}
+
+			if msg.Subject != "" {
+				result["subject"] = msg.Subject
+			}
+			if msg.From != "" {
+				result["from"] = msg.From
+			}
+
+			// Convert attachments with binary data (not base64 string)
+			if len(msg.Attachments) > 0 {
+				attachments := make([]interface{}, len(msg.Attachments))
+				for i, att := range msg.Attachments {
+					// Decode base64 to binary
+					data, err := base64.StdEncoding.DecodeString(att.Content)
+					if err != nil {
+						reject.Invoke(newError("failed to decode attachment: " + err.Error()))
+						return
+					}
+
+					// Create Uint8Array in JS
+					uint8Array := js.Global().Get("Uint8Array").New(len(data))
+					js.CopyBytesToJS(uint8Array, data)
+
+					attachments[i] = map[string]interface{}{
+						"name": att.Name,
+						"mime": att.MimeType,
+						"size": len(data),
+						"data": uint8Array, // Direct binary data!
+					}
+				}
+				result["attachments"] = attachments
+			}
+
+			resolve.Invoke(js.ValueOf(result))
+		}()
+
+		return nil
+	})
+
+	promiseConstructor := js.Global().Get("Promise")
+	return promiseConstructor.New(handler)
+}
+
 // smsgEncrypt encrypts a message with a password.
 // JavaScript usage:
 //
@@ -407,6 +484,12 @@ func smsgGetInfo(this js.Value, args []js.Value) interface{} {
 			result := map[string]interface{}{
 				"version":   header.Version,
 				"algorithm": header.Algorithm,
+			}
+			if header.Format != "" {
+				result["format"] = header.Format
+			}
+			if header.Compression != "" {
+				result["compression"] = header.Compression
 			}
 			if header.Hint != "" {
 				result["hint"] = header.Hint
@@ -667,6 +750,15 @@ func manifestToJS(m *smsg.Manifest) map[string]interface{} {
 		result["tags"] = tags
 	}
 
+	// Convert links
+	if len(m.Links) > 0 {
+		links := make(map[string]interface{})
+		for k, v := range m.Links {
+			links[k] = v
+		}
+		result["links"] = links
+	}
+
 	// Convert extra
 	if len(m.Extra) > 0 {
 		extra := make(map[string]interface{})
@@ -686,6 +778,7 @@ func jsToManifest(obj js.Value) *smsg.Manifest {
 	}
 
 	manifest := &smsg.Manifest{
+		Links: make(map[string]string),
 		Extra: make(map[string]string),
 	}
 

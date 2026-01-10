@@ -1,0 +1,2543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dapp.fm - Zero-Trust DRM Demo</title>
+    <meta name="description" content="Decentralized music distribution with ChaCha20-Poly1305 encryption. No middlemen, no platforms, no 70% cuts.">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a0a2e 50%, #0f1a2e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            flex: 1;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        .logo {
+            font-size: 4rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -3px;
+            margin-bottom: 0.5rem;
+        }
+
+        .tagline {
+            color: #888;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .value-prop {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        html, body {
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        html::-webkit-scrollbar, body::-webkit-scrollbar {
+            display: none;
+        }
+
+        .value-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        .value-item .title-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .value-item .icon { font-size: 1.2rem; }
+        .value-item h3 { font-size: 0.9rem; color: #fff; margin: 0; }
+        .value-item p { font-size: 0.75rem; color: #888; line-height: 1.4; }
+
+        /* Two column layout */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        /* Tabs */
+        .tabs {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+            overflow: hidden;
+        }
+
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 1rem;
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.03);
+        }
+
+        .tab-btn.active {
+            color: #fff;
+            background: rgba(131, 56, 236, 0.2);
+            border-bottom: 2px solid #8338ec;
+        }
+
+        .tab-content {
+            padding: 1.5rem;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            height: fit-content;
+        }
+
+        .sidebar-card h3 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.2);
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .status .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status.loading .dot { background: #ffc107; animation: pulse 1s infinite; }
+        .status.ready .dot { background: #00ff94; }
+        .status.error .dot { background: #ff5252; }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .demo-btn {
+            width: 100%;
+            padding: 1.25rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+            background: linear-gradient(135deg, #ff006e 0%, #8338ec 100%);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(255, 0, 110, 0.3);
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .demo-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(255, 0, 110, 0.4);
+        }
+
+        .demo-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .demo-info {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .demo-info code {
+            background: rgba(0,0,0,0.3);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            color: #00ff94;
+        }
+
+        /* Player */
+        .player { display: none; }
+        .player.visible { display: block; }
+
+        .track-info { text-align: center; margin-bottom: 1.5rem; }
+
+        .artwork {
+            width: 180px;
+            height: 180px;
+            margin: 0 auto 1rem;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #2d1b4e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        .artwork img, .artwork video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .track-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .track-artist { color: #888; }
+        .artist-links {
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .artist-links a {
+            font-size: 0.8rem;
+            color: #3a86ff;
+            text-decoration: none;
+            padding: 0.25rem 0.5rem;
+            background: rgba(58, 134, 255, 0.1);
+            border-radius: 4px;
+            border: 1px solid rgba(58, 134, 255, 0.2);
+            transition: all 0.2s;
+        }
+        .artist-links a:hover {
+            background: rgba(58, 134, 255, 0.2);
+            border-color: rgba(58, 134, 255, 0.4);
+        }
+
+        .media-wrapper {
+            margin: 1.5rem 0;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        audio, video {
+            width: 100%;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        video { max-height: 400px; background: #000; }
+
+        .video-wrapper {
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        /* Track list */
+        .tracks { margin-top: 1.5rem; }
+        .tracks h3 { font-size: 0.9rem; color: #888; margin-bottom: 0.75rem; }
+
+        .track-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .track-item:hover { background: rgba(131, 56, 236, 0.2); }
+        .track-item.active { background: rgba(255, 0, 110, 0.2); border: 1px solid rgba(255, 0, 110, 0.4); }
+        .track-num { font-weight: 700; color: #8338ec; min-width: 24px; }
+        .track-name { flex: 1; }
+        .track-time { font-family: monospace; color: #00ff94; font-size: 0.85rem; }
+
+        /* License info */
+        .license {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(131, 56, 236, 0.1);
+            border: 1px solid rgba(131, 56, 236, 0.3);
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+
+        .license h4 { color: #8338ec; margin-bottom: 0.5rem; }
+        .license p { color: #888; line-height: 1.5; }
+
+        /* Download section */
+        .download-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .download-section h3 {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .download-links {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .download-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .download-link:hover {
+            background: rgba(255,255,255,0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            font-size: 0.85rem;
+        }
+
+        footer a { color: #8338ec; text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        .error {
+            background: rgba(255, 82, 82, 0.15);
+            border: 1px solid rgba(255, 82, 82, 0.4);
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #ff6b6b;
+            display: none;
+        }
+
+        .error.visible { display: block; }
+
+        /* License Manager */
+        .license-manager { }
+
+        .license-intro {
+            color: #888;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .license-intro code {
+            background: rgba(0,0,0,0.3);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            color: #00ff94;
+        }
+
+        .license-input-group {
+            margin-bottom: 1rem;
+        }
+
+        .license-input-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 0.5rem;
+        }
+
+        .license-input-group input[type="file"],
+        .license-input-group input[type="password"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+
+        .license-input-group input[type="file"] {
+            cursor: pointer;
+        }
+
+        .license-input-group input:focus {
+            outline: none;
+            border-color: #8338ec;
+        }
+
+        /* Sidebar */
+        .sidebar-desc {
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+
+        .download-links.vertical {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .download-links.vertical .download-link {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+            margin: 1.25rem 0;
+        }
+
+        .feature-list {
+            list-style: none;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .feature-list li {
+            padding: 0.4rem 0;
+            padding-left: 1.2rem;
+            position: relative;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #00ff94;
+        }
+
+        .tech-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tech-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            background: rgba(131, 56, 236, 0.2);
+            border: 1px solid rgba(131, 56, 236, 0.4);
+            border-radius: 4px;
+            color: #8338ec;
+        }
+
+        /* Mode Switcher */
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .mode-switcher {
+            display: flex;
+            background: rgba(255,255,255,0.05);
+            border-radius: 25px;
+            padding: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .mode-btn {
+            padding: 0.5rem 1.25rem;
+            border: none;
+            border-radius: 20px;
+            background: transparent;
+            color: #888;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .mode-btn:hover {
+            color: #fff;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #ff006e 0%, #8338ec 100%);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(255, 0, 110, 0.3);
+        }
+
+        /* Mode Views */
+        .mode-view {
+            display: none;
+        }
+
+        .mode-view.active {
+            display: block;
+        }
+
+        /* Profile Mode Styles */
+        .profile-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 2rem;
+            min-height: 70vh;
+        }
+
+        .profile-sidebar {
+            background: rgba(255,255,255,0.03);
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            text-align: center;
+        }
+
+        .profile-avatar {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            overflow: hidden;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .profile-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .profile-tagline {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .profile-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .profile-links a {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .profile-links a:hover {
+            background: rgba(131, 56, 236, 0.2);
+            border-color: rgba(131, 56, 236, 0.4);
+        }
+
+        .profile-main {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .profile-hero {
+            background: rgba(0,0,0,0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .profile-hero video {
+            width: 100%;
+            display: block;
+        }
+
+        .profile-hero-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 2rem;
+            padding-bottom: 3.5rem; /* Space for video controls */
+            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            pointer-events: none; /* Allow clicks through to video controls */
+        }
+
+        .profile-hero-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .profile-hero-artist {
+            color: #888;
+        }
+
+        .profile-bio {
+            background: rgba(255,255,255,0.03);
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .profile-bio h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .profile-bio p {
+            color: #aaa;
+            line-height: 1.6;
+        }
+
+        .profile-releases {
+            background: rgba(255,255,255,0.03);
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .profile-releases h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .release-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .release-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .release-card:hover {
+            background: rgba(131, 56, 236, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .release-card .artwork {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .release-card .title {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .profile-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            color: #888;
+        }
+
+        .profile-loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(131, 56, 236, 0.3);
+            border-top-color: #8338ec;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Artist Mode Styles */
+        .artist-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .artist-card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 0.4rem;
+        }
+
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #8338ec;
+        }
+
+        .track-row {
+            display: grid;
+            grid-template-columns: auto 1fr 80px 80px 100px auto;
+            gap: 0.5rem;
+            align-items: center;
+            padding: 0.5rem;
+            background: rgba(131, 56, 236, 0.1);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .track-num {
+            color: #8338ec;
+            font-weight: 700;
+            min-width: 25px;
+        }
+
+        .track-row input,
+        .track-row select {
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.8rem;
+        }
+
+        .track-row .time-input {
+            text-align: center;
+            color: #00ff94;
+        }
+
+        .remove-track {
+            padding: 0.4rem 0.6rem;
+            background: rgba(255,82,82,0.2);
+            border: 1px solid rgba(255,82,82,0.4);
+            color: #ff5252;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .add-track-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px dashed rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .add-track-btn:hover {
+            border-color: #8338ec;
+            color: #8338ec;
+        }
+
+        .license-output {
+            background: rgba(0, 255, 148, 0.1);
+            border: 1px solid rgba(0, 255, 148, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .license-token {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 1.1rem;
+            color: #00ff94;
+            background: rgba(0,0,0,0.3);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .copy-btn {
+            padding: 0.4rem 0.8rem;
+            background: rgba(0, 255, 148, 0.2);
+            border: 1px solid rgba(0, 255, 148, 0.4);
+            color: #00ff94;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .license-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .license-actions button {
+            flex: 1;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .btn-download {
+            background: rgba(131, 56, 236, 0.2);
+            border: 1px solid rgba(131, 56, 236, 0.4);
+            color: #8338ec;
+        }
+
+        .btn-test {
+            background: rgba(58, 134, 255, 0.2);
+            border: 1px solid rgba(58, 134, 255, 0.4);
+            color: #3a86ff;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff006e, #8338ec);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        .progress {
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .progress.visible { display: block; }
+
+        .progress-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff006e, #8338ec);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-row">
+            <div class="hero" style="text-align: left; padding: 0;">
+                <div class="logo">dapp.fm</div>
+            </div>
+            <div class="mode-switcher">
+                <button class="mode-btn active" data-mode="profile">👤 Profile</button>
+                <button class="mode-btn" data-mode="fan">🎧 Fan</button>
+                <button class="mode-btn" data-mode="artist">🎨 Artist</button>
+            </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; gap: 1rem;">
+            <p class="tagline" style="margin: 0;">Zero-Trust DRM for Independent Artists</p>
+            <div style="background: rgba(255, 193, 7, 0.15); border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 8px; padding: 0.4rem 0.75rem; font-size: 0.75rem; color: #ffc107;">
+                ⚠️ Demo pre-seeded with keys for protocol demonstration
+            </div>
+        </div>
+
+        <div class="value-prop">
+            <div class="value-item">
+                <div class="title-row"><span class="icon">🔐</span><h3>No Middlemen</h3></div>
+                <p>ChaCha20-Poly1305 encryption. The password IS the license.</p>
+            </div>
+            <div class="value-item">
+                <div class="title-row"><span class="icon">💰</span><h3>No Platform Fees</h3></div>
+                <p>Artists keep 100%. Sell direct to fans.</p>
+            </div>
+            <div class="value-item">
+                <div class="title-row"><span class="icon">☁️</span><h3>Host Anywhere</h3></div>
+                <p>CDN, IPFS, S3, your own server. Encrypted is encrypted.</p>
+            </div>
+            <div class="value-item">
+                <div class="title-row"><span class="icon">🌐</span><h3>Browser or Native</h3></div>
+                <p>WASM in browser, Wails for desktop. Same encryption.</p>
+            </div>
+        </div>
+
+        <!-- Fan Mode -->
+        <div id="fan-view" class="mode-view">
+        <div class="two-col">
+            <div class="tabs">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="demo">🎵 Live Demo</button>
+                    <button class="tab-btn" data-tab="unlock">🔓 Unlock Content</button>
+                </div>
+                <div class="tab-content">
+                    <!-- Live Demo Tab -->
+                    <div id="tab-demo" class="tab-panel active">
+                        <div id="status" class="status loading">
+                            <span class="dot"></span>
+                            <span>Loading decryption engine...</span>
+                        </div>
+
+                        <div id="error" class="error"></div>
+
+                        <button id="demo-btn" class="demo-btn" disabled>Play Demo Track</button>
+
+                        <div id="progress" class="progress">
+                            <div class="progress-bar">
+                                <div id="progress-fill" class="progress-fill"></div>
+                            </div>
+                            <div id="progress-text" class="progress-text">Loading...</div>
+                        </div>
+
+                        <div class="demo-info">
+                            Demo password: <code>PMVXogAJNVe_DDABfTmLYztaJAzsD0R7</code>
+                        </div>
+
+                        <div id="player" class="player">
+                            <div class="track-info">
+                                <div id="artwork" class="artwork">🎶</div>
+                                <div id="title" class="track-title">Track Title</div>
+                                <div id="artist" class="track-artist">Artist Name</div>
+                                <div id="artist-links" class="artist-links" style="display: none;"></div>
+                            </div>
+
+                            <div id="media-wrapper" class="media-wrapper"></div>
+
+                            <div id="track-list" class="tracks" style="display: none;">
+                                <h3>💿 Tracks</h3>
+                                <div id="tracks"></div>
+                            </div>
+
+                            <div class="license">
+                                <h4>🔓 Licensed Content</h4>
+                                <p>Decrypted entirely in your browser using WebAssembly. No servers touched your content.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Unlock Content Tab -->
+                    <div id="tab-unlock" class="tab-panel">
+                        <div class="license-manager">
+                            <p class="license-intro">Have a <code>.smsg</code> file? Enter your license key to unlock it.</p>
+
+                            <div class="license-input-group">
+                                <label for="smsg-file">📦 Encrypted Package</label>
+                                <input type="file" id="smsg-file" accept=".smsg" />
+                            </div>
+
+                            <div class="license-input-group">
+                                <label for="license-key">🔑 License Key</label>
+                                <input type="password" id="license-key" placeholder="Enter your license key..." />
+                            </div>
+
+                            <button id="unlock-btn" class="demo-btn" disabled>Unlock Content</button>
+
+                            <div id="license-error" class="error"></div>
+
+                            <div id="license-progress" class="progress">
+                                <div class="progress-bar">
+                                    <div id="license-progress-fill" class="progress-fill"></div>
+                                </div>
+                                <div id="license-progress-text" class="progress-text">Processing...</div>
+                            </div>
+
+                            <div id="license-player" class="player">
+                                <div class="track-info">
+                                    <div id="license-artwork" class="artwork">🎶</div>
+                                    <div id="license-title" class="track-title">Track Title</div>
+                                    <div id="license-artist" class="track-artist">Artist Name</div>
+                                    <div id="license-artist-links" class="artist-links" style="display: none;"></div>
+                                </div>
+
+                                <div id="license-media-wrapper" class="media-wrapper"></div>
+
+                                <div class="license">
+                                    <h4>🔓 Your Licensed Content</h4>
+                                    <p>Decrypted locally. Your license key never leaves your device.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="sidebar-card">
+                <h3>📥 Native App</h3>
+                <p class="sidebar-desc">For the best experience, download the desktop player.</p>
+                <div class="download-links vertical">
+                    <a href="https://github.com/Snider/Borg/releases" class="download-link" target="_blank">
+                        🐧 Linux
+                    </a>
+                    <a href="https://github.com/Snider/Borg/releases" class="download-link" target="_blank">
+                        🍎 macOS
+                    </a>
+                    <a href="https://github.com/Snider/Borg/releases" class="download-link" target="_blank">
+                        🪟 Windows
+                    </a>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <h3>🎨 For Artists</h3>
+                <p class="sidebar-desc">Create encrypted releases with the License Manager.</p>
+                <a href="https://github.com/Snider/Borg/blob/main/js/borg-stmf/artist-portal.html" class="download-link" target="_blank" style="width: 100%; justify-content: center; margin-bottom: 0.5rem;">
+                    🎫 Artist Portal
+                </a>
+
+                <div class="sidebar-divider"></div>
+
+                <h3>⚡ Why Native?</h3>
+                <ul class="feature-list">
+                    <li>Memory-speed decryption</li>
+                    <li>No WASM overhead</li>
+                    <li>Offline playback</li>
+                    <li>System integration</li>
+                </ul>
+
+                <div class="sidebar-divider"></div>
+
+                <h3>🛡️ Tech Stack</h3>
+                <div class="tech-badges">
+                    <span class="tech-badge">ChaCha20</span>
+                    <span class="tech-badge">Poly1305</span>
+                    <span class="tech-badge">WASM</span>
+                    <span class="tech-badge">Wails</span>
+                </div>
+            </div>
+        </div>
+        </div><!-- /fan-view -->
+
+        <!-- Artist Mode -->
+        <div id="artist-view" class="mode-view">
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-value" id="artist-stat-licenses">0</div>
+                    <div class="stat-label">Licenses Created</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="artist-stat-revenue">$0</div>
+                    <div class="stat-label">Potential Revenue</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">100%</div>
+                    <div class="stat-label">Your Cut</div>
+                </div>
+            </div>
+
+            <!-- Artist Tabs -->
+            <div class="tabs" id="artist-tabs">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-artist-tab="rekey">🔄 Re-Key</button>
+                    <button class="tab-btn" data-artist-tab="create">🎵 Create New</button>
+                    <button class="tab-btn" data-artist-tab="history">📋 History</button>
+                </div>
+                <div class="tab-content">
+                    <!-- Re-Key Tab (Default) -->
+                    <div class="tab-panel active" id="artist-panel-rekey">
+                        <h2 style="margin-bottom: 0.5rem;">Re-Key Existing Content</h2>
+                        <p style="color: #888; font-size: 0.85rem; margin-bottom: 1.5rem;">
+                            Issue new time-limited licenses for content already on your CDN. Fetch, decrypt with original key, re-encrypt with new expiry.
+                        </p>
+
+                        <div class="input-row">
+                            <div class="input-group" style="margin-bottom: 0;">
+                                <label>Source URL (CDN/IPFS)</label>
+                                <input type="text" id="rekey-url" placeholder="https://cdn.example.com/album.smsg" value="demo-track.smsg" />
+                            </div>
+                            <div class="input-group" style="margin-bottom: 0;">
+                                <label>Or Upload File</label>
+                                <input type="file" id="rekey-file" accept=".smsg" />
+                            </div>
+                        </div>
+
+                        <div class="input-row">
+                            <div class="input-group" style="margin-bottom: 0;">
+                                <label>Original Password (Master Key)</label>
+                                <input type="password" id="rekey-original-password" placeholder="Enter original password..." value="PMVXogAJNVe_DDABfTmLYztaJAzsD0R7" />
+                            </div>
+                            <div class="input-group" style="margin-bottom: 0;">
+                                <label>New License Type</label>
+                                <select id="rekey-license-type">
+                                    <option value="perpetual">Perpetual (Own Forever)</option>
+                                    <option value="rental">Rental (7 days)</option>
+                                    <option value="stream">Streaming (24h)</option>
+                                    <option value="preview">Preview (30s)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label>New License Token (leave blank to auto-generate)</label>
+                            <input type="text" id="rekey-new-token" placeholder="Leave blank to auto-generate..." />
+                        </div>
+
+                        <button id="rekey-btn" class="demo-btn" style="background: linear-gradient(135deg, #3a86ff 0%, #8338ec 100%);">
+                            Re-Key Content
+                        </button>
+
+                        <div id="rekey-status" style="margin-top: 1rem; display: none;"></div>
+
+                        <div id="rekey-output" class="license-output" style="display: none; border-color: rgba(58, 134, 255, 0.3);">
+                            <div class="license-token" style="background: rgba(58, 134, 255, 0.1);">
+                                <span id="rekey-token-display" style="color: #3a86ff;"></span>
+                                <button class="copy-btn" id="rekey-copy-token" style="background: rgba(58, 134, 255, 0.2); border-color: rgba(58, 134, 255, 0.4); color: #3a86ff;">Copy</button>
+                            </div>
+                            <div class="license-actions">
+                                <button class="btn-download" id="rekey-download-btn">📥 Download Re-Keyed .smsg</button>
+                            </div>
+                            <p style="color: #888; font-size: 0.8rem; margin-top: 0.75rem;">
+                                💡 Tip: Upload this to your CDN or send directly to customer with the new token.
+                            </p>
+                        </div>
+
+                        <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(58, 134, 255, 0.1); border-radius: 12px; border: 1px solid rgba(58, 134, 255, 0.2);">
+                            <p style="color: #3a86ff; font-size: 0.85rem; margin: 0;">
+                                <strong>Demo:</strong> Pre-filled with demo-track.smsg. Try re-keying with a 24h streaming license!
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Create New Tab -->
+                    <div class="tab-panel" id="artist-panel-create">
+                        <div class="artist-card" style="margin-top: 0;">
+                            <h2>🎵 Your Content</h2>
+                            <div class="input-group">
+                                <label>Upload Media File</label>
+                                <input type="file" id="artist-content-file" accept="audio/*,video/*" />
+                            </div>
+                            <div id="artist-content-info" style="color: #888; font-size: 0.85rem;">
+                                No file selected - using demo content for testing
+                            </div>
+                        </div>
+
+                        <div class="artist-card">
+                            <h2>💿 Track List</h2>
+                            <p style="color: #666; font-size: 0.8rem; margin-bottom: 1rem;">Define chapter markers like mastering a CD</p>
+                            <div id="artist-track-list"></div>
+                            <button class="add-track-btn" id="artist-add-track">+ Add Track</button>
+                        </div>
+
+                        <div class="artist-card">
+                            <h2>🎫 License Configuration</h2>
+                            <div class="input-row">
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label>Release Name</label>
+                                    <input type="text" id="artist-release-name" placeholder="e.g., Summer EP 2024" />
+                                </div>
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label>Master Password</label>
+                                    <input type="password" id="artist-master-password" placeholder="Your secret archival key..." />
+                                </div>
+                            </div>
+                            <p style="color: #888; font-size: 0.8rem; margin: 0.5rem 0 1rem; padding: 0.5rem; background: rgba(131, 56, 236, 0.1); border-radius: 8px;">
+                                🔐 <strong>Master Password</strong> = your archival key. Keep it secret! Use it to re-key content for time-limited licenses later.
+                            </p>
+                            <div class="input-row">
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label>License Type</label>
+                                    <select id="artist-license-type">
+                                        <option value="perpetual">Perpetual (Own Forever)</option>
+                                        <option value="rental">Rental (Time-Limited)</option>
+                                        <option value="stream">Streaming (24h)</option>
+                                        <option value="preview">Preview (30s)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label>Customer Token</label>
+                                    <input type="text" id="artist-custom-token" placeholder="Leave blank to auto-generate..." />
+                                </div>
+                            </div>
+                            <div class="input-row">
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label>Customer Email (optional)</label>
+                                    <input type="email" id="artist-customer-email" placeholder="customer@example.com" />
+                                </div>
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label>Price</label>
+                                    <input type="text" id="artist-price" placeholder="$9.99" />
+                                </div>
+                            </div>
+                            <button id="artist-generate-btn" class="demo-btn" disabled>Generate License</button>
+
+                            <div id="artist-license-output" class="license-output" style="display: none;">
+                                <div class="license-token">
+                                    <span id="artist-token-display"></span>
+                                    <button class="copy-btn" id="artist-copy-token">Copy</button>
+                                </div>
+                                <div id="artist-license-guidance" style="margin: 0.75rem 0; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem;"></div>
+                                <div class="license-actions">
+                                    <button class="btn-download" id="artist-download-btn">📥 Download .smsg</button>
+                                    <button class="btn-test" id="artist-test-btn">▶️ Test in Player</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- History Tab -->
+                    <div class="tab-panel" id="artist-panel-history">
+                        <h2 style="margin-bottom: 1rem;">📋 Issued Licenses</h2>
+                        <div id="artist-license-list">
+                            <p style="color: #666; text-align: center; padding: 2rem;">No licenses created yet. Create or re-key content to see licenses here.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /artist-view -->
+
+        <!-- Profile Mode -->
+        <div id="profile-view" class="mode-view active">
+            <div class="profile-layout">
+                <!-- Sidebar -->
+                <div class="profile-sidebar">
+                    <div class="profile-avatar">
+                        <img src="profile-avatar.jpg" alt="The Conductor & The Cowboy" />
+                    </div>
+                    <div class="profile-name">The Conductor & The Cowboy</div>
+                    <div class="profile-tagline">House & Techno Producers</div>
+
+                    <div class="profile-links">
+                        <a href="https://www.beatport.com/release/it-feels-so-good-the-conductor-the-cowboy-mixes/5372229" target="_blank" style="background: rgba(0, 255, 148, 0.1); border-color: rgba(0, 255, 148, 0.3);">
+                            🛒 Buy on Beatport
+                        </a>
+                        <a href="https://open.spotify.com/artist/33N9EYlv06HF26gpMMFGZk" target="_blank">
+                            🎧 Spotify
+                        </a>
+                        <a href="https://music.apple.com/gb/artist/the-conductor-the-cowboy/287332373" target="_blank">
+                            🍎 Apple Music
+                        </a>
+                        <a href="https://soundcloud.com/conductorandcowboy" target="_blank">
+                            ☁️ SoundCloud
+                        </a>
+                        <a href="https://www.youtube.com/@conductorcowboy" target="_blank">
+                            ▶️ YouTube
+                        </a>
+                        <a href="https://www.twitch.tv/conductorandcowboy" target="_blank">
+                            📺 Twitch
+                        </a>
+                        <a href="https://linktr.ee/conductorandcowboy" target="_blank">
+                            🔗 Linktree
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="profile-main">
+                    <!-- Buy CTA - Top -->
+                    <div style="background: linear-gradient(135deg, rgba(255, 0, 110, 0.2) 0%, rgba(131, 56, 236, 0.2) 100%); border-radius: 20px; padding: 1.5rem; text-align: center; border: 1px solid rgba(131, 56, 236, 0.3);">
+                        <a href="https://www.beatport.com/release/it-feels-so-good-the-conductor-the-cowboy-mixes/5372229" target="_blank"
+                           style="display: inline-block; padding: 0.75rem 2rem; background: linear-gradient(135deg, #ff006e 0%, #8338ec 100%); border-radius: 30px; color: #fff; text-decoration: none; font-weight: 600; font-size: 1.1rem;">
+                            🛒 Buy This Track on Beatport
+                        </a>
+                        <p style="color: #888; margin-top: 0.75rem; margin-bottom: 0; font-size: 0.85rem;">95%-100%* goes to the artist. No middlemen.</p>
+                        <p style="color: #666; margin-top: 0.25rem; margin-bottom: 0; font-size: 0.7rem;">*only via dapp.fm</p>
+                    </div>
+
+                    <!-- Hero Video -->
+                    <div class="profile-hero" style="position: relative; min-height: 300px;">
+                        <div id="profile-loading" class="profile-loading" style="position: absolute; inset: 0; background: rgba(15, 15, 26, 0.95); z-index: 10; border-radius: 20px;">
+                            <div class="spinner"></div>
+                            <div>Decrypting content...</div>
+                        </div>
+                        <video id="profile-video" style="opacity: 0; transition: opacity 0.5s;" autoplay loop controls playsinline></video>
+                        <div class="profile-hero-overlay">
+                            <div class="profile-hero-title">It Feels So Good</div>
+                            <div class="profile-hero-artist">The Conductor & The Cowboy's Amnesia Mix</div>
+                        </div>
+                    </div>
+
+                    <!-- Bio -->
+                    <div class="profile-bio">
+                        <h2>About</h2>
+                        <p>
+                            The Conductor & The Cowboy are a house and techno production duo known for their infectious remixes
+                            and original productions. With releases on major labels and support from top DJs worldwide,
+                            they've carved out a unique sound that blends classic house grooves with modern production techniques.
+                        </p>
+                        <p style="margin-top: 1rem;">
+                            Their Amnesia Mix of Sonique's "It Feels So Good" showcases their signature style -
+                            driving beats, euphoric breakdowns, and that unmistakable dancefloor energy.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /profile-view -->
+    </div>
+
+    <footer>
+        <p>
+            <a href="https://github.com/Snider/Borg">GitHub</a> ·
+            <a href="https://github.com/Snider/Borg/blob/main/LICENSE">EUPL-1.2</a> ·
+            Built with <a href="https://github.com/Snider/Borg">Borg</a>
+        </p>
+        <p style="margin-top: 0.5rem;">Viva La OpenSource 💜</p>
+    </footer>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        // Config - change these for your CDN
+        const DEMO_URL = 'https://demo.dapp.fm/demo-track.smsg';
+        const DEMO_PASSWORD = 'PMVXogAJNVe_DDABfTmLYztaJAzsD0R7';
+
+        let wasmReady = false;
+        let manifest = null;
+
+        // Initialize WASM
+        async function initWasm() {
+            const statusEl = document.getElementById('status');
+            try {
+                const go = new Go();
+                const result = await WebAssembly.instantiateStreaming(
+                    fetch('stmf.wasm'),
+                    go.importObject
+                );
+                go.run(result.instance);
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Timeout')), 5000);
+                    if (typeof BorgSMSG !== 'undefined' && BorgSMSG.ready) {
+                        clearTimeout(timeout);
+                        resolve();
+                        return;
+                    }
+                    document.addEventListener('borgstmf:ready', () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    });
+                });
+
+                wasmReady = true;
+                statusEl.className = 'status ready';
+                while (statusEl.firstChild) statusEl.removeChild(statusEl.firstChild);
+                const dot = document.createElement('span');
+                dot.className = 'dot';
+                const text = document.createElement('span');
+                text.textContent = 'Ready (v' + BorgSMSG.version + ')';
+                statusEl.appendChild(dot);
+                statusEl.appendChild(text);
+                document.getElementById('demo-btn').disabled = false;
+                // Enable Re-Key button if pre-filled values exist
+                if (typeof checkRekeyReady === 'function') checkRekeyReady();
+                // Auto-load profile video since it's the default view
+                if (typeof loadProfileVideo === 'function') loadProfileVideo();
+            } catch (err) {
+                statusEl.className = 'status error';
+                while (statusEl.firstChild) statusEl.removeChild(statusEl.firstChild);
+                const dot = document.createElement('span');
+                dot.className = 'dot';
+                const text = document.createElement('span');
+                text.textContent = 'Failed: ' + err.message;
+                statusEl.appendChild(dot);
+                statusEl.appendChild(text);
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error');
+            el.textContent = msg;
+            el.classList.add('visible');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.remove('visible');
+        }
+
+        function setProgress(percent, text) {
+            const progress = document.getElementById('progress');
+            const fill = document.getElementById('progress-fill');
+            const textEl = document.getElementById('progress-text');
+
+            progress.classList.add('visible');
+            fill.style.width = percent + '%';
+            textEl.textContent = text;
+        }
+
+        function hideProgress() {
+            document.getElementById('progress').classList.remove('visible');
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return mins + ':' + secs.toString().padStart(2, '0');
+        }
+
+        async function loadDemo() {
+            if (!wasmReady) return;
+            hideError();
+
+            const btn = document.getElementById('demo-btn');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+
+            try {
+                // Fetch encrypted content
+                setProgress(10, 'Fetching encrypted content...');
+                const response = await fetch(DEMO_URL);
+                if (!response.ok) throw new Error('Demo file not found');
+
+                const contentLength = response.headers.get('content-length');
+                const reader = response.body.getReader();
+                const chunks = [];
+                let received = 0;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    received += value.length;
+                    if (contentLength) {
+                        const pct = Math.round((received / contentLength) * 40) + 10;
+                        setProgress(pct, 'Downloading... ' + Math.round(received / 1024 / 1024) + 'MB');
+                    }
+                }
+
+                // Combine chunks and convert to base64
+                setProgress(55, 'Preparing for decryption...');
+                const allChunks = new Uint8Array(received);
+                let position = 0;
+                for (const chunk of chunks) {
+                    allChunks.set(chunk, position);
+                    position += chunk.length;
+                }
+
+                // Convert to base64 in chunks to avoid stack overflow
+                let base64 = '';
+                const chunkSize = 32768;
+                for (let i = 0; i < allChunks.length; i += chunkSize) {
+                    const chunk = allChunks.subarray(i, Math.min(i + chunkSize, allChunks.length));
+                    base64 += String.fromCharCode.apply(null, chunk);
+                }
+                base64 = btoa(base64);
+
+                // Get manifest first
+                setProgress(60, 'Reading metadata...');
+                try {
+                    const info = await BorgSMSG.getInfo(base64);
+                    manifest = info.manifest;
+                } catch (e) {
+                    console.log('No manifest:', e);
+                }
+
+                // Decrypt using streaming API (returns Uint8Array directly)
+                setProgress(70, 'Decrypting with ChaCha20-Poly1305...');
+                const msg = await BorgSMSG.decryptStream(base64, DEMO_PASSWORD);
+
+                setProgress(95, 'Preparing player...');
+                displayMedia(msg);
+
+                hideProgress();
+                btn.textContent = 'Demo Loaded!';
+                setTimeout(() => {
+                    btn.textContent = 'Play Demo Track';
+                    btn.disabled = false;
+                }, 2000);
+
+            } catch (err) {
+                hideProgress();
+                showError('Failed: ' + err.message);
+                btn.textContent = 'Play Demo Track';
+                btn.disabled = false;
+            }
+        }
+
+        function displayMedia(msg) {
+            const player = document.getElementById('player');
+            const mediaWrapper = document.getElementById('media-wrapper');
+            const artwork = document.getElementById('artwork');
+
+            // Set track info
+            document.getElementById('title').textContent =
+                (manifest && manifest.title) || msg.subject || 'Demo Track';
+
+            // Artist name - link to home if available
+            const artistEl = document.getElementById('artist');
+            const artistName = (manifest && manifest.artist) || msg.from || 'dapp.fm';
+            const artistHome = manifest && manifest.links && manifest.links.home;
+            if (artistHome) {
+                artistEl.innerHTML = '<a href="' + artistHome + '" target="_blank" style="color: #888; text-decoration: none; border-bottom: 1px dotted #888;">' + artistName + '</a>';
+            } else {
+                artistEl.textContent = artistName;
+            }
+
+            // Artist links - show all platform links
+            const linksEl = document.getElementById('artist-links');
+            linksEl.innerHTML = '';
+            if (manifest && manifest.links) {
+                const platformNames = {
+                    home: 'Website',
+                    beatport: 'Beatport',
+                    soundcloud: 'SoundCloud',
+                    bandcamp: 'Bandcamp',
+                    spotify: 'Spotify',
+                    apple: 'Apple Music',
+                    youtube: 'YouTube',
+                    instagram: 'Instagram',
+                    twitter: 'Twitter'
+                };
+                Object.entries(manifest.links).forEach(([platform, url]) => {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.target = '_blank';
+                    a.textContent = platformNames[platform] || platform;
+                    linksEl.appendChild(a);
+                });
+                linksEl.style.display = 'flex';
+            } else {
+                linksEl.style.display = 'none';
+            }
+
+            // Clear previous
+            while (mediaWrapper.firstChild) mediaWrapper.removeChild(mediaWrapper.firstChild);
+            while (artwork.firstChild) artwork.removeChild(artwork.firstChild);
+            artwork.textContent = '🎶';
+
+            if (msg.attachments && msg.attachments.length > 0) {
+                msg.attachments.forEach(att => {
+                    // att.data is already Uint8Array from decryptStream!
+                    const blob = new Blob([att.data], { type: att.mime });
+                    const url = URL.createObjectURL(blob);
+
+                    if (att.mime.startsWith('video/')) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'video-wrapper';
+                        const video = document.createElement('video');
+                        video.controls = true;
+                        video.src = url;
+                        wrapper.appendChild(video);
+                        mediaWrapper.appendChild(wrapper);
+                        artwork.textContent = '🎬';
+
+                    } else if (att.mime.startsWith('audio/')) {
+                        const audio = document.createElement('audio');
+                        audio.controls = true;
+                        audio.src = url;
+                        mediaWrapper.appendChild(audio);
+                        artwork.textContent = '🎵';
+
+                    } else if (att.mime.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        artwork.textContent = '';
+                        artwork.appendChild(img);
+                    }
+                });
+            }
+
+            // Track list
+            if (manifest && manifest.tracks && manifest.tracks.length > 0) {
+                const trackList = document.getElementById('track-list');
+                const tracksEl = document.getElementById('tracks');
+                trackList.style.display = 'block';
+                while (tracksEl.firstChild) tracksEl.removeChild(tracksEl.firstChild);
+
+                manifest.tracks.forEach((track, i) => {
+                    const item = document.createElement('div');
+                    item.className = 'track-item';
+
+                    const numSpan = document.createElement('span');
+                    numSpan.className = 'track-num';
+                    numSpan.textContent = track.trackNum || (i + 1);
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'track-name';
+                    nameSpan.textContent = track.title || 'Track ' + (i + 1);
+
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'track-time';
+                    timeSpan.textContent = formatTime(track.start || 0);
+
+                    item.appendChild(numSpan);
+                    item.appendChild(nameSpan);
+                    item.appendChild(timeSpan);
+
+                    item.addEventListener('click', () => {
+                        const media = document.querySelector('audio, video');
+                        if (media) {
+                            media.currentTime = track.start || 0;
+                            media.play();
+                            document.querySelectorAll('.track-item').forEach(t => t.classList.remove('active'));
+                            item.classList.add('active');
+                        }
+                    });
+                    tracksEl.appendChild(item);
+                });
+            }
+
+            player.classList.add('visible');
+            player.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Tab switching - Fan mode tabs
+        document.querySelectorAll('[data-tab]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                const container = btn.closest('.tabs');
+
+                // Update buttons within this tabs container
+                container.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Update panels within this tabs container
+                container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                document.getElementById('tab-' + tab).classList.add('active');
+            });
+        });
+
+        // Tab switching - Artist mode tabs
+        document.querySelectorAll('[data-artist-tab]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.artistTab;
+                const container = btn.closest('.tabs');
+
+                // Update buttons within this tabs container
+                container.querySelectorAll('[data-artist-tab]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Update panels within this tabs container
+                container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                document.getElementById('artist-panel-' + tab).classList.add('active');
+            });
+        });
+
+        // License Manager
+        let licenseFile = null;
+
+        document.getElementById('smsg-file').addEventListener('change', (e) => {
+            licenseFile = e.target.files[0];
+            checkUnlockReady();
+        });
+
+        document.getElementById('license-key').addEventListener('input', checkUnlockReady);
+
+        function checkUnlockReady() {
+            const hasFile = licenseFile !== null;
+            const hasKey = document.getElementById('license-key').value.length > 0;
+            document.getElementById('unlock-btn').disabled = !wasmReady || !hasFile || !hasKey;
+        }
+
+        function showLicenseError(msg) {
+            const el = document.getElementById('license-error');
+            el.textContent = msg;
+            el.classList.add('visible');
+        }
+
+        function hideLicenseError() {
+            document.getElementById('license-error').classList.remove('visible');
+        }
+
+        function setLicenseProgress(percent, text) {
+            const progress = document.getElementById('license-progress');
+            const fill = document.getElementById('license-progress-fill');
+            const textEl = document.getElementById('license-progress-text');
+
+            progress.classList.add('visible');
+            fill.style.width = percent + '%';
+            textEl.textContent = text;
+        }
+
+        function hideLicenseProgress() {
+            document.getElementById('license-progress').classList.remove('visible');
+        }
+
+        async function unlockLicensedContent() {
+            if (!wasmReady || !licenseFile) return;
+            hideLicenseError();
+
+            const btn = document.getElementById('unlock-btn');
+            const password = document.getElementById('license-key').value;
+
+            btn.disabled = true;
+            btn.textContent = 'Unlocking...';
+
+            try {
+                setLicenseProgress(20, 'Reading file...');
+
+                const arrayBuffer = await licenseFile.arrayBuffer();
+                const bytes = new Uint8Array(arrayBuffer);
+
+                setLicenseProgress(40, 'Preparing for decryption...');
+
+                // Convert to base64 in chunks
+                let base64 = '';
+                const chunkSize = 32768;
+                for (let i = 0; i < bytes.length; i += chunkSize) {
+                    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+                    base64 += String.fromCharCode.apply(null, chunk);
+                }
+                base64 = btoa(base64);
+
+                setLicenseProgress(60, 'Decrypting with ChaCha20-Poly1305...');
+
+                // Get manifest
+                let licenseManifest = null;
+                try {
+                    const info = await BorgSMSG.getInfo(base64);
+                    licenseManifest = info.manifest;
+                } catch (e) {
+                    console.log('No manifest:', e);
+                }
+
+                const msg = await BorgSMSG.decryptStream(base64, password);
+
+                setLicenseProgress(90, 'Preparing player...');
+                displayLicensedMedia(msg, licenseManifest);
+
+                hideLicenseProgress();
+                btn.textContent = 'Content Unlocked!';
+                setTimeout(() => {
+                    btn.textContent = 'Unlock Content';
+                    checkUnlockReady();
+                }, 2000);
+
+            } catch (err) {
+                hideLicenseProgress();
+                showLicenseError('Failed: ' + err.message);
+                btn.textContent = 'Unlock Content';
+                checkUnlockReady();
+            }
+        }
+
+        function displayLicensedMedia(msg, licenseManifest) {
+            const player = document.getElementById('license-player');
+            const mediaWrapper = document.getElementById('license-media-wrapper');
+            const artwork = document.getElementById('license-artwork');
+
+            document.getElementById('license-title').textContent =
+                (licenseManifest && licenseManifest.title) || msg.subject || 'Unlocked Track';
+
+            // Artist name - link to home if available
+            const licenseArtistEl = document.getElementById('license-artist');
+            const licenseArtistName = (licenseManifest && licenseManifest.artist) || msg.from || 'Artist';
+            const licenseArtistHome = licenseManifest && licenseManifest.links && licenseManifest.links.home;
+            if (licenseArtistHome) {
+                licenseArtistEl.innerHTML = '<a href="' + licenseArtistHome + '" target="_blank" style="color: #888; text-decoration: none; border-bottom: 1px dotted #888;">' + licenseArtistName + '</a>';
+            } else {
+                licenseArtistEl.textContent = licenseArtistName;
+            }
+
+            // Artist links - show all platform links
+            const licenseLinksEl = document.getElementById('license-artist-links');
+            licenseLinksEl.innerHTML = '';
+            if (licenseManifest && licenseManifest.links) {
+                const platformNames = {
+                    home: 'Website',
+                    beatport: 'Beatport',
+                    soundcloud: 'SoundCloud',
+                    bandcamp: 'Bandcamp',
+                    spotify: 'Spotify',
+                    apple: 'Apple Music',
+                    youtube: 'YouTube',
+                    instagram: 'Instagram',
+                    twitter: 'Twitter'
+                };
+                Object.entries(licenseManifest.links).forEach(([platform, url]) => {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.target = '_blank';
+                    a.textContent = platformNames[platform] || platform;
+                    licenseLinksEl.appendChild(a);
+                });
+                licenseLinksEl.style.display = 'flex';
+            } else {
+                licenseLinksEl.style.display = 'none';
+            }
+
+            while (mediaWrapper.firstChild) mediaWrapper.removeChild(mediaWrapper.firstChild);
+            while (artwork.firstChild) artwork.removeChild(artwork.firstChild);
+            artwork.textContent = '🎶';
+
+            if (msg.attachments && msg.attachments.length > 0) {
+                msg.attachments.forEach(att => {
+                    const blob = new Blob([att.data], { type: att.mime });
+                    const url = URL.createObjectURL(blob);
+
+                    if (att.mime.startsWith('video/')) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'video-wrapper';
+                        const video = document.createElement('video');
+                        video.controls = true;
+                        video.src = url;
+                        wrapper.appendChild(video);
+                        mediaWrapper.appendChild(wrapper);
+                        artwork.textContent = '🎬';
+
+                    } else if (att.mime.startsWith('audio/')) {
+                        const audio = document.createElement('audio');
+                        audio.controls = true;
+                        audio.src = url;
+                        mediaWrapper.appendChild(audio);
+                        artwork.textContent = '🎵';
+
+                    } else if (att.mime.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = url;
+                        artwork.textContent = '';
+                        artwork.appendChild(img);
+                    }
+                });
+            }
+
+            player.classList.add('visible');
+            player.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Event listeners
+        document.getElementById('demo-btn').addEventListener('click', loadDemo);
+        document.getElementById('unlock-btn').addEventListener('click', unlockLicensedContent);
+
+        // ========== MODE SWITCHING ==========
+        let profileLoaded = false;
+
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+
+                // Update buttons
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Update views
+                document.querySelectorAll('.mode-view').forEach(v => v.classList.remove('active'));
+                document.getElementById(mode + '-view').classList.add('active');
+
+                // Auto-load profile video when switching to profile mode
+                if (mode === 'profile' && !profileLoaded && wasmReady) {
+                    loadProfileVideo();
+                }
+            });
+        });
+
+        // ========== PROFILE MODE ==========
+        async function loadProfileVideo() {
+            if (profileLoaded) return;
+
+            const loading = document.getElementById('profile-loading');
+            const video = document.getElementById('profile-video');
+
+            try {
+                // Fetch encrypted content
+                const response = await fetch(DEMO_URL);
+                if (!response.ok) throw new Error('Demo file not found');
+
+                const buffer = await response.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+
+                // Convert to base64
+                let base64 = '';
+                const chunkSize = 32768;
+                for (let i = 0; i < bytes.length; i += chunkSize) {
+                    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+                    base64 += String.fromCharCode.apply(null, chunk);
+                }
+                base64 = btoa(base64);
+
+                // Decrypt
+                const msg = await BorgSMSG.decryptStream(base64, DEMO_PASSWORD);
+
+                // Display video
+                if (msg.attachments && msg.attachments.length > 0) {
+                    const att = msg.attachments[0];
+                    if (att.mime.startsWith('video/')) {
+                        const blob = new Blob([att.data], { type: att.mime });
+                        const url = URL.createObjectURL(blob);
+                        video.src = url;
+
+                        // Start at specific timestamp for emotional impact
+                        const PROFILE_START_TIME = 68; // 1:08 - the drop
+                        video.addEventListener('loadedmetadata', () => {
+                            video.currentTime = PROFILE_START_TIME;
+                        }, { once: true });
+
+                        // Fade in smoothly when video can play
+                        video.addEventListener('canplay', () => {
+                            loading.style.opacity = '0';
+                            loading.style.transition = 'opacity 0.5s';
+                            video.style.opacity = '1';
+                            setTimeout(() => {
+                                loading.style.display = 'none';
+                            }, 500);
+                        }, { once: true });
+
+                        profileLoaded = true;
+                    }
+                }
+            } catch (err) {
+                loading.innerHTML = '<div style="color: #ff5252;">Failed to load: ' + err.message + '</div>';
+            }
+        }
+
+        // ========== ARTIST MODE ==========
+        let artistContentData = null;
+        let artistContentName = 'Demo Content';
+        let artistContentMime = 'video/mp4';
+        let artistTracks = [];
+        let artistTrackCounter = 0;
+        let artistLicenses = [];
+        let artistLicenseCounter = 0;
+
+        // File upload
+        document.getElementById('artist-content-file').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const buffer = await file.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+                // Convert to base64 in chunks
+                let base64 = '';
+                const chunkSize = 32768;
+                for (let i = 0; i < bytes.length; i += chunkSize) {
+                    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+                    base64 += String.fromCharCode.apply(null, chunk);
+                }
+                artistContentData = btoa(base64);
+                artistContentName = file.name;
+                artistContentMime = file.type || 'application/octet-stream';
+
+                const info = document.getElementById('artist-content-info');
+                info.textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB) - Ready';
+                info.style.color = '#00ff94';
+            } catch (err) {
+                alert('Failed to load file: ' + err.message);
+            }
+        });
+
+        // Track management
+        function artistAddTrack() {
+            artistTrackCounter++;
+            artistTracks.push({
+                id: artistTrackCounter,
+                title: '',
+                start: '',
+                end: '',
+                type: 'full'
+            });
+            artistRenderTracks();
+        }
+
+        function artistRemoveTrack(id) {
+            artistTracks = artistTracks.filter(t => t.id !== id);
+            artistRenderTracks();
+        }
+
+        function artistRenderTracks() {
+            const container = document.getElementById('artist-track-list');
+            container.innerHTML = '';
+
+            if (artistTracks.length === 0) {
+                const empty = document.createElement('p');
+                empty.style.cssText = 'color: #666; text-align: center; padding: 1rem; font-size: 0.85rem;';
+                empty.textContent = 'No tracks. Click "Add Track" to define chapters.';
+                container.appendChild(empty);
+                return;
+            }
+
+            artistTracks.forEach((track, idx) => {
+                const row = document.createElement('div');
+                row.className = 'track-row';
+
+                row.innerHTML = '<span class="track-num">' + (idx + 1) + '.</span>' +
+                    '<input type="text" placeholder="Track title" value="' + (track.title || '') + '" data-field="title">' +
+                    '<input type="text" class="time-input" placeholder="0:00" value="' + (track.start || '') + '" data-field="start">' +
+                    '<input type="text" class="time-input" placeholder="end" value="' + (track.end || '') + '" data-field="end">' +
+                    '<select data-field="type">' +
+                    '<option value="full"' + (track.type === 'full' ? ' selected' : '') + '>Full</option>' +
+                    '<option value="intro"' + (track.type === 'intro' ? ' selected' : '') + '>Intro</option>' +
+                    '<option value="verse"' + (track.type === 'verse' ? ' selected' : '') + '>Verse</option>' +
+                    '<option value="chorus"' + (track.type === 'chorus' ? ' selected' : '') + '>Chorus</option>' +
+                    '<option value="drop"' + (track.type === 'drop' ? ' selected' : '') + '>Drop</option>' +
+                    '<option value="outro"' + (track.type === 'outro' ? ' selected' : '') + '>Outro</option>' +
+                    '</select>' +
+                    '<button class="remove-track">✕</button>';
+
+                // Event listeners
+                row.querySelectorAll('input, select').forEach(input => {
+                    input.addEventListener('change', (e) => {
+                        track[e.target.dataset.field] = e.target.value;
+                    });
+                });
+                row.querySelector('.remove-track').addEventListener('click', () => artistRemoveTrack(track.id));
+
+                container.appendChild(row);
+            });
+        }
+
+        document.getElementById('artist-add-track').addEventListener('click', artistAddTrack);
+
+        // Generate token
+        function generateArtistToken() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const segments = [];
+            for (let s = 0; s < 4; s++) {
+                let segment = '';
+                for (let i = 0; i < 4; i++) {
+                    segment += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                segments.push(segment);
+            }
+            return segments.join('-');
+        }
+
+        // Parse time to seconds
+        function parseTime(str) {
+            if (!str) return 0;
+            const parts = str.split(':');
+            if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+            if (parts.length === 3) return parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2]);
+            return parseFloat(str) || 0;
+        }
+
+        // Generate license
+        async function artistGenerateLicense() {
+            if (!wasmReady) return;
+
+            const btn = document.getElementById('artist-generate-btn');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                const masterPassword = document.getElementById('artist-master-password').value;
+                const customToken = document.getElementById('artist-custom-token').value.trim();
+                const releaseName = document.getElementById('artist-release-name').value.trim() || artistContentName;
+                const licenseType = document.getElementById('artist-license-type').value;
+                const customerEmail = document.getElementById('artist-customer-email').value.trim();
+                const price = document.getElementById('artist-price').value.trim() || '$0';
+
+                // Determine encryption password and customer token
+                // For perpetual: master password = customer token (direct sale)
+                // For time-limited: encrypt with master, tell artist to use Re-Key
+                const isPerpetual = licenseType === 'perpetual';
+                const encryptionPassword = masterPassword;
+                const token = isPerpetual ? masterPassword : (customToken || '(use Re-Key tab)');
+
+                // Build manifest
+                const now = Math.floor(Date.now() / 1000);
+                let expiresAt = 0;
+                if (licenseType === 'preview') expiresAt = now + 30;
+                else if (licenseType === 'stream') expiresAt = now + 86400;
+                else if (licenseType === 'rental') expiresAt = now + 604800;
+
+                const manifest = {
+                    title: releaseName,
+                    artist: 'Artist',
+                    licenseType: isPerpetual ? 'perpetual' : 'master', // Mark as master copy for time-limited
+                    issuedAt: now,
+                    expiresAt: isPerpetual ? 0 : expiresAt,
+                    tracks: artistTracks.map((t, i) => ({
+                        title: t.title || 'Track ' + (i + 1),
+                        start: parseTime(t.start),
+                        end: parseTime(t.end) || 0,
+                        type: t.type
+                    }))
+                };
+
+                // Use demo content if no file uploaded
+                const contentData = artistContentData || btoa('Demo content - upload your own file');
+
+                // Encrypt with master password
+                const encrypted = await BorgSMSG.encryptWithManifest({
+                    body: 'Licensed content from dapp.fm',
+                    subject: releaseName,
+                    from: 'Artist',
+                    attachments: [{
+                        name: artistContentName,
+                        content: contentData,
+                        mime: artistContentMime
+                    }]
+                }, encryptionPassword, manifest);
+
+                // Save license
+                artistLicenseCounter++;
+                const license = {
+                    id: artistLicenseCounter,
+                    token: token,
+                    customer: customerEmail,
+                    price: price,
+                    timestamp: new Date(),
+                    encrypted: encrypted,
+                    contentName: releaseName,
+                    licenseType: licenseType
+                };
+                artistLicenses.unshift(license);
+
+                // Show output
+                document.getElementById('artist-token-display').textContent = token;
+                document.getElementById('artist-license-output').style.display = 'block';
+
+                // Show guidance based on license type
+                const guidanceEl = document.getElementById('artist-license-guidance');
+                if (isPerpetual) {
+                    guidanceEl.innerHTML = '✅ <strong>Direct Sale:</strong> Send customer the .smsg file + the token above. They own it forever.';
+                    guidanceEl.style.background = 'rgba(0, 255, 148, 0.1)';
+                    guidanceEl.style.color = '#00ff94';
+                } else {
+                    guidanceEl.innerHTML = '📦 <strong>Master Copy:</strong> Upload this .smsg to your CDN. Then use the <strong>Re-Key tab</strong> to create time-limited customer tokens.';
+                    guidanceEl.style.background = 'rgba(58, 134, 255, 0.1)';
+                    guidanceEl.style.color = '#3a86ff';
+                }
+
+                // Store for download/test
+                document.getElementById('artist-download-btn').onclick = () => {
+                    const blob = new Blob([encrypted], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = releaseName.replace(/[^a-z0-9]/gi, '-') + '.smsg';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+
+                document.getElementById('artist-test-btn').onclick = () => {
+                    if (!isPerpetual) {
+                        alert('For time-limited licenses, use the Re-Key tab to create a customer token first, then test that version.');
+                        return;
+                    }
+                    // Switch to fan mode and load content
+                    document.querySelector('[data-mode="fan"]').click();
+                    document.querySelector('[data-tab="unlock"]').click();
+
+                    // Pre-fill the license key (master password for perpetual)
+                    document.getElementById('license-key').value = masterPassword;
+                    alert('Paste the downloaded .smsg file and the token is pre-filled!');
+                };
+
+                // Update stats
+                artistUpdateStats();
+                artistRenderLicenses();
+
+                // Clear inputs
+                document.getElementById('artist-custom-token').value = '';
+
+            } catch (err) {
+                alert('Failed to generate: ' + err.message);
+            } finally {
+                btn.textContent = 'Generate License';
+                btn.disabled = false;
+            }
+        }
+
+        function artistUpdateStats() {
+            document.getElementById('artist-stat-licenses').textContent = artistLicenses.length;
+            let total = 0;
+            artistLicenses.forEach(l => {
+                const match = l.price.match(/[\d.]+/);
+                if (match) total += parseFloat(match[0]);
+            });
+            document.getElementById('artist-stat-revenue').textContent = '$' + total.toFixed(2);
+        }
+
+        function artistRenderLicenses() {
+            const container = document.getElementById('artist-license-list');
+            container.innerHTML = '';
+
+            if (artistLicenses.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center; padding: 1rem;">No licenses created yet</p>';
+                return;
+            }
+
+            artistLicenses.forEach(license => {
+                const item = document.createElement('div');
+                item.style.cssText = 'background: rgba(0,0,0,0.2); border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem;';
+                item.innerHTML = '<div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">' +
+                    '<span style="color: #888; font-size: 0.8rem;">#' + license.id + ' · ' + license.timestamp.toLocaleString() + '</span>' +
+                    '<span style="color: #8338ec; font-size: 0.8rem;">' + license.licenseType.toUpperCase() + '</span>' +
+                    '</div>' +
+                    '<div style="font-family: monospace; color: #00ff94; background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">' + license.token + '</div>' +
+                    '<div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #888;">' +
+                    '<span>' + license.contentName + '</span>' +
+                    '<span>' + license.price + '</span>' +
+                    '</div>';
+                container.appendChild(item);
+            });
+        }
+
+        document.getElementById('artist-generate-btn').addEventListener('click', artistGenerateLicense);
+        document.getElementById('artist-copy-token').addEventListener('click', async () => {
+            const token = document.getElementById('artist-token-display').textContent;
+            await navigator.clipboard.writeText(token);
+            const btn = document.getElementById('artist-copy-token');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 1500);
+        });
+
+        // Enable generate button when WASM ready AND master password set
+        function checkArtistGenerateReady() {
+            const hasMasterPassword = document.getElementById('artist-master-password').value.length > 0;
+            document.getElementById('artist-generate-btn').disabled = !wasmReady || !hasMasterPassword;
+        }
+
+        document.getElementById('artist-master-password').addEventListener('input', checkArtistGenerateReady);
+
+        const originalInitWasm = initWasm;
+        initWasm = async function() {
+            await originalInitWasm();
+            if (wasmReady) {
+                checkArtistGenerateReady();
+            }
+        };
+
+        // Init tracks
+        artistRenderTracks();
+
+        // ========== RE-KEY FUNCTIONALITY ==========
+        let rekeySourceData = null;
+        let rekeySourceName = 'content';
+
+        // Handle URL or file input
+        document.getElementById('rekey-url').addEventListener('input', checkRekeyReady);
+        document.getElementById('rekey-original-password').addEventListener('input', checkRekeyReady);
+
+        document.getElementById('rekey-file').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const buffer = await file.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+                // Check if it's text (base64) or binary
+                const isText = bytes.every(b => b < 128);
+                if (isText) {
+                    rekeySourceData = new TextDecoder().decode(bytes);
+                } else {
+                    let base64 = '';
+                    const chunkSize = 32768;
+                    for (let i = 0; i < bytes.length; i += chunkSize) {
+                        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+                        base64 += String.fromCharCode.apply(null, chunk);
+                    }
+                    rekeySourceData = btoa(base64);
+                }
+                rekeySourceName = file.name.replace(/\.smsg$/, '');
+                document.getElementById('rekey-url').value = '';
+                checkRekeyReady();
+            } catch (err) {
+                alert('Failed to load file: ' + err.message);
+            }
+        });
+
+        function checkRekeyReady() {
+            const hasSource = rekeySourceData || document.getElementById('rekey-url').value.trim();
+            const hasPassword = document.getElementById('rekey-original-password').value.length > 0;
+            document.getElementById('rekey-btn').disabled = !wasmReady || !hasSource || !hasPassword;
+        }
+
+        function showRekeyStatus(message, isError) {
+            const status = document.getElementById('rekey-status');
+            status.style.display = 'block';
+            status.style.padding = '0.75rem';
+            status.style.borderRadius = '8px';
+            status.style.fontSize = '0.85rem';
+            if (isError) {
+                status.style.background = 'rgba(255, 82, 82, 0.1)';
+                status.style.color = '#ff5252';
+            } else {
+                status.style.background = 'rgba(58, 134, 255, 0.1)';
+                status.style.color = '#3a86ff';
+            }
+            status.textContent = message;
+        }
+
+        async function rekeyContent() {
+            if (!wasmReady) return;
+
+            const btn = document.getElementById('rekey-btn');
+            btn.disabled = true;
+            btn.textContent = 'Re-Keying...';
+            document.getElementById('rekey-output').style.display = 'none';
+
+            try {
+                let sourceBase64 = rekeySourceData;
+
+                // Fetch from URL if no file uploaded
+                if (!sourceBase64) {
+                    const url = document.getElementById('rekey-url').value.trim();
+                    showRekeyStatus('Fetching from ' + url + '...');
+
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error('Failed to fetch: ' + response.status);
+
+                    const contentType = response.headers.get('content-type') || '';
+                    if (contentType.includes('text') || contentType.includes('json')) {
+                        sourceBase64 = await response.text();
+                    } else {
+                        const buffer = await response.arrayBuffer();
+                        const bytes = new Uint8Array(buffer);
+                        let base64 = '';
+                        const chunkSize = 32768;
+                        for (let i = 0; i < bytes.length; i += chunkSize) {
+                            const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+                            base64 += String.fromCharCode.apply(null, chunk);
+                        }
+                        sourceBase64 = btoa(base64);
+                    }
+                    rekeySourceName = url.split('/').pop().replace(/\.smsg$/, '') || 'content';
+                }
+
+                const originalPassword = document.getElementById('rekey-original-password').value;
+                const newToken = document.getElementById('rekey-new-token').value.trim() || generateArtistToken();
+                const licenseType = document.getElementById('rekey-license-type').value;
+
+                // Decrypt with original password
+                showRekeyStatus('Decrypting with original key...');
+                const decrypted = await BorgSMSG.decryptStream(sourceBase64, originalPassword);
+
+                // Get original manifest if exists
+                let originalManifest = {};
+                try {
+                    const info = await BorgSMSG.getInfo(sourceBase64);
+                    if (info.manifest) originalManifest = info.manifest;
+                } catch (e) { }
+
+                // Build new manifest with updated expiry
+                const now = Math.floor(Date.now() / 1000);
+                let expiresAt = 0;
+                if (licenseType === 'preview') expiresAt = now + 30;
+                else if (licenseType === 'stream') expiresAt = now + 86400;
+                else if (licenseType === 'rental') expiresAt = now + 604800;
+
+                const newManifest = {
+                    ...originalManifest,
+                    licenseType: licenseType,
+                    issuedAt: now,
+                    expiresAt: expiresAt,
+                    rekeyedFrom: originalManifest.title || rekeySourceName
+                };
+
+                // Re-encrypt with new token
+                showRekeyStatus('Re-encrypting with new token...');
+
+                // Rebuild attachments from decrypted data
+                const attachments = [];
+                if (decrypted.attachments) {
+                    for (const att of decrypted.attachments) {
+                        // att.data is Uint8Array, convert back to base64
+                        let base64Content = '';
+                        const chunkSize = 32768;
+                        for (let i = 0; i < att.data.length; i += chunkSize) {
+                            const chunk = att.data.subarray(i, Math.min(i + chunkSize, att.data.length));
+                            base64Content += String.fromCharCode.apply(null, chunk);
+                        }
+                        attachments.push({
+                            name: att.name,
+                            mime: att.mime,
+                            content: btoa(base64Content)
+                        });
+                    }
+                }
+
+                const encrypted = await BorgSMSG.encryptWithManifest({
+                    body: decrypted.body || 'Re-keyed content',
+                    subject: decrypted.subject || newManifest.title || rekeySourceName,
+                    from: decrypted.from || 'Artist',
+                    attachments: attachments
+                }, newToken, newManifest);
+
+                // Show output
+                document.getElementById('rekey-status').style.display = 'none';
+                document.getElementById('rekey-token-display').textContent = newToken;
+                document.getElementById('rekey-output').style.display = 'block';
+
+                // Download handler
+                document.getElementById('rekey-download-btn').onclick = () => {
+                    const blob = new Blob([encrypted], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = rekeySourceName + '-' + licenseType + '.smsg';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+
+                // Add to issued licenses
+                artistLicenseCounter++;
+                artistLicenses.unshift({
+                    id: artistLicenseCounter,
+                    token: newToken,
+                    customer: '',
+                    price: '(re-keyed)',
+                    timestamp: new Date(),
+                    encrypted: encrypted,
+                    contentName: rekeySourceName + ' [RE-KEY]',
+                    licenseType: licenseType
+                });
+                artistUpdateStats();
+                artistRenderLicenses();
+
+            } catch (err) {
+                showRekeyStatus('Failed: ' + err.message, true);
+            } finally {
+                btn.textContent = 'Re-Key Content';
+                checkRekeyReady();
+            }
+        }
+
+        document.getElementById('rekey-btn').addEventListener('click', rekeyContent);
+        document.getElementById('rekey-copy-token').addEventListener('click', async () => {
+            const token = document.getElementById('rekey-token-display').textContent;
+            await navigator.clipboard.writeText(token);
+            const btn = document.getElementById('rekey-copy-token');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 1500);
+        });
+
+        // Init
+        initWasm();
+    </script>
+</body>
+</html>

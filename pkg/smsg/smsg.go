@@ -1,14 +1,19 @@
 package smsg
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/Snider/Enchantrix/pkg/enchantrix"
 	"github.com/Snider/Enchantrix/pkg/trix"
+	"github.com/klauspost/compress/zstd"
 )
 
 // DeriveKey derives a 32-byte key from a password using SHA-256.
@@ -177,6 +182,7 @@ func EncryptWithManifestBase64(msg *Message, password string, manifest *Manifest
 }
 
 // Decrypt decrypts an SMSG container with a password
+// Automatically handles both v1 (base64) and v2 (binary) formats
 func Decrypt(data []byte, password string) (*Message, error) {
 	if password == "" {
 		return nil, ErrPasswordRequired
@@ -186,6 +192,16 @@ func Decrypt(data []byte, password string) (*Message, error) {
 	t, err := trix.Decode(data, Magic, nil)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidMagic, err)
+	}
+
+	// Extract format and compression from header
+	format := ""
+	compression := ""
+	if f, ok := t.Header["format"].(string); ok {
+		format = f
+	}
+	if c, ok := t.Header["compression"].(string); ok {
+		compression = c
 	}
 
 	// Derive key and create sigil
@@ -201,7 +217,28 @@ func Decrypt(data []byte, password string) (*Message, error) {
 		return nil, ErrDecryptionFailed
 	}
 
-	// Parse message
+	// Decompress if needed
+	switch compression {
+	case CompressionGzip:
+		decompressed, err := gzipDecompress(decrypted)
+		if err != nil {
+			return nil, fmt.Errorf("gzip decompression failed: %w", err)
+		}
+		decrypted = decompressed
+	case CompressionZstd:
+		decompressed, err := zstdDecompress(decrypted)
+		if err != nil {
+			return nil, fmt.Errorf("zstd decompression failed: %w", err)
+		}
+		decrypted = decompressed
+	}
+
+	// Parse based on format
+	if format == FormatV2 {
+		return parseV2Payload(decrypted)
+	}
+
+	// v1 format: plain JSON with base64 attachments
 	var msg Message
 	if err := json.Unmarshal(decrypted, &msg); err != nil {
 		return nil, fmt.Errorf("%w: invalid message format", ErrInvalidPayload)
@@ -232,6 +269,12 @@ func GetInfo(data []byte) (*Header, error) {
 	}
 	if v, ok := t.Header["algorithm"].(string); ok {
 		header.Algorithm = v
+	}
+	if v, ok := t.Header["format"].(string); ok {
+		header.Format = v
+	}
+	if v, ok := t.Header["compression"].(string); ok {
+		header.Compression = v
 	}
 	if v, ok := t.Header["hint"].(string); ok {
 		header.Hint = v
@@ -283,4 +326,211 @@ func QuickDecrypt(encoded, password string) (string, error) {
 		return "", err
 	}
 	return msg.Body, nil
+}
+
+// EncryptV2 encrypts a message using v2 binary format (smaller file size)
+// Attachments are stored as raw binary instead of base64-encoded JSON
+// Uses zstd compression by default (faster than gzip, better ratio)
+func EncryptV2(msg *Message, password string) ([]byte, error) {
+	return EncryptV2WithOptions(msg, password, nil, CompressionZstd)
+}
+
+// EncryptV2WithManifest encrypts with v2 binary format and public manifest
+// Uses zstd compression by default (faster than gzip, better ratio)
+func EncryptV2WithManifest(msg *Message, password string, manifest *Manifest) ([]byte, error) {
+	return EncryptV2WithOptions(msg, password, manifest, CompressionZstd)
+}
+
+// EncryptV2WithOptions encrypts with full control over format options
+func EncryptV2WithOptions(msg *Message, password string, manifest *Manifest, compression string) ([]byte, error) {
+	if password == "" {
+		return nil, ErrPasswordRequired
+	}
+	if msg.Body == "" && len(msg.Attachments) == 0 {
+		return nil, ErrEmptyMessage
+	}
+
+	if msg.Timestamp == 0 {
+		msg.Timestamp = time.Now().Unix()
+	}
+
+	// Build v2 payload: [4-byte JSON length][JSON][binary attachments...]
+	payload, err := buildV2Payload(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build v2 payload: %w", err)
+	}
+
+	// Apply compression if requested
+	switch compression {
+	case CompressionGzip:
+		compressed, err := gzipCompress(payload)
+		if err != nil {
+			return nil, fmt.Errorf("gzip compression failed: %w", err)
+		}
+		payload = compressed
+	case CompressionZstd:
+		compressed, err := zstdCompress(payload)
+		if err != nil {
+			return nil, fmt.Errorf("zstd compression failed: %w", err)
+		}
+		payload = compressed
+	}
+
+	// Encrypt
+	key := DeriveKey(password)
+	sigil, err := enchantrix.NewChaChaPolySigil(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sigil: %w", err)
+	}
+
+	encrypted, err := sigil.In(payload)
+	if err != nil {
+		return nil, fmt.Errorf("encryption failed: %w", err)
+	}
+
+	// Build header
+	headerMap := map[string]interface{}{
+		"version":   Version,
+		"algorithm": "chacha20poly1305",
+		"format":    FormatV2,
+	}
+	if compression != CompressionNone {
+		headerMap["compression"] = compression
+	}
+	if manifest != nil {
+		headerMap["manifest"] = manifest
+	}
+
+	t := &trix.Trix{
+		Header:  headerMap,
+		Payload: encrypted,
+	}
+
+	return trix.Encode(t, Magic, nil)
+}
+
+// buildV2Payload creates the v2 binary payload structure
+func buildV2Payload(msg *Message) ([]byte, error) {
+	// Create a copy of the message with attachment content stripped
+	// We'll append the binary data after the JSON
+	msgCopy := *msg
+	var binaryData [][]byte
+
+	for i := range msgCopy.Attachments {
+		att := &msgCopy.Attachments[i]
+		if att.Content != "" {
+			// Decode the base64 content to get binary
+			data, err := base64.StdEncoding.DecodeString(att.Content)
+			if err != nil {
+				return nil, fmt.Errorf("invalid base64 in attachment %s: %w", att.Name, err)
+			}
+			binaryData = append(binaryData, data)
+			att.Size = len(data) // Store actual binary size
+			att.Content = ""     // Clear content from JSON
+		} else {
+			binaryData = append(binaryData, nil)
+		}
+	}
+
+	// Serialize the message (without attachment content)
+	jsonData, err := json.Marshal(&msgCopy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	// Build payload: [4-byte length][JSON][binary1][binary2]...
+	var buf bytes.Buffer
+
+	// Write JSON length as uint32 big-endian
+	if err := binary.Write(&buf, binary.BigEndian, uint32(len(jsonData))); err != nil {
+		return nil, err
+	}
+
+	// Write JSON
+	buf.Write(jsonData)
+
+	// Write binary attachments
+	for _, data := range binaryData {
+		buf.Write(data)
+	}
+
+	return buf.Bytes(), nil
+}
+
+// parseV2Payload extracts message and binary attachments from v2 format
+func parseV2Payload(data []byte) (*Message, error) {
+	if len(data) < 4 {
+		return nil, fmt.Errorf("payload too short")
+	}
+
+	// Read JSON length
+	jsonLen := binary.BigEndian.Uint32(data[:4])
+	if int(jsonLen) > len(data)-4 {
+		return nil, fmt.Errorf("invalid JSON length")
+	}
+
+	// Parse JSON
+	var msg Message
+	if err := json.Unmarshal(data[4:4+jsonLen], &msg); err != nil {
+		return nil, fmt.Errorf("failed to parse message JSON: %w", err)
+	}
+
+	// Read binary attachments
+	offset := 4 + int(jsonLen)
+	for i := range msg.Attachments {
+		att := &msg.Attachments[i]
+		if att.Size > 0 {
+			if offset+att.Size > len(data) {
+				return nil, fmt.Errorf("attachment %s: data truncated", att.Name)
+			}
+			// Re-encode as base64 for API compatibility
+			att.Content = base64.StdEncoding.EncodeToString(data[offset : offset+att.Size])
+			offset += att.Size
+		}
+	}
+
+	return &msg, nil
+}
+
+// gzipCompress compresses data using gzip
+func gzipCompress(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	w := gzip.NewWriter(&buf)
+	if _, err := w.Write(data); err != nil {
+		return nil, err
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// gzipDecompress decompresses gzip data
+func gzipDecompress(data []byte) ([]byte, error) {
+	r, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return io.ReadAll(r)
+}
+
+// zstdCompress compresses data using zstd (faster than gzip, better ratio)
+func zstdCompress(data []byte) ([]byte, error) {
+	encoder, err := zstd.NewWriter(nil)
+	if err != nil {
+		return nil, err
+	}
+	defer encoder.Close()
+	return encoder.EncodeAll(data, nil), nil
+}
+
+// zstdDecompress decompresses zstd data
+func zstdDecompress(data []byte) ([]byte, error) {
+	decoder, err := zstd.NewReader(nil)
+	if err != nil {
+		return nil, err
+	}
+	defer decoder.Close()
+	return decoder.DecodeAll(data, nil)
 }

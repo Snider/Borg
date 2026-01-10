@@ -5,6 +5,7 @@
 package smsg
 
 import (
+	"encoding/base64"
 	"errors"
 	"time"
 )
@@ -27,9 +28,9 @@ var (
 // Attachment represents a file attached to the message
 type Attachment struct {
 	Name     string `json:"name"`
-	Content  string `json:"content"` // base64-encoded
+	Content  string `json:"content,omitempty"` // base64-encoded (v1) or empty (v2, populated on decrypt)
 	MimeType string `json:"mime,omitempty"`
-	Size     int    `json:"size,omitempty"`
+	Size     int    `json:"size,omitempty"` // binary size in bytes
 }
 
 // PKIInfo contains public key information for authenticated replies
@@ -84,13 +85,25 @@ func (m *Message) WithTimestamp(ts int64) *Message {
 	return m
 }
 
-// AddAttachment adds a file attachment
+// AddAttachment adds a file attachment (content is base64-encoded)
 func (m *Message) AddAttachment(name, content, mimeType string) *Message {
 	m.Attachments = append(m.Attachments, Attachment{
 		Name:     name,
 		Content:  content,
 		MimeType: mimeType,
-		Size:     len(content),
+		Size:     len(content), // base64 size for v1 compatibility
+	})
+	return m
+}
+
+// AddBinaryAttachment adds a raw binary attachment (for v2 format)
+// The content will be base64-encoded for API compatibility
+func (m *Message) AddBinaryAttachment(name string, data []byte, mimeType string) *Message {
+	m.Attachments = append(m.Attachments, Attachment{
+		Name:     name,
+		Content:  base64.StdEncoding.EncodeToString(data),
+		MimeType: mimeType,
+		Size:     len(data), // actual binary size
 	})
 	return m
 }
@@ -161,6 +174,9 @@ type Manifest struct {
 	// Track list (like CD master)
 	Tracks []Track `json:"tracks,omitempty"`
 
+	// Artist links - direct to artist, skip the middlemen
+	Links map[string]string `json:"links,omitempty"` // platform -> URL (bandcamp, soundcloud, website, etc.)
+
 	// Custom metadata
 	Tags  []string          `json:"tags,omitempty"`
 	Extra map[string]string `json:"extra,omitempty"`
@@ -170,6 +186,7 @@ type Manifest struct {
 func NewManifest(title string) *Manifest {
 	return &Manifest{
 		Title:       title,
+		Links:       make(map[string]string),
 		Extra:       make(map[string]string),
 		LicenseType: "perpetual",
 	}
@@ -248,10 +265,34 @@ func (m *Manifest) AddTrackFull(title string, start, end float64, trackType stri
 	return m
 }
 
+// AddLink adds an artist link (platform -> URL)
+func (m *Manifest) AddLink(platform, url string) *Manifest {
+	if m.Links == nil {
+		m.Links = make(map[string]string)
+	}
+	m.Links[platform] = url
+	return m
+}
+
+// Format versions
+const (
+	FormatV1 = ""   // Original format: JSON with base64-encoded attachments
+	FormatV2 = "v2" // Binary format: JSON header + raw binary attachments
+)
+
+// Compression types
+const (
+	CompressionNone = ""     // No compression (default, backwards compatible)
+	CompressionGzip = "gzip" // Gzip compression (stdlib, WASM compatible)
+	CompressionZstd = "zstd" // Zstandard compression (faster, better ratio)
+)
+
 // Header represents the SMSG container header
 type Header struct {
-	Version   string    `json:"version"`
-	Algorithm string    `json:"algorithm"`
-	Hint      string    `json:"hint,omitempty"`     // optional password hint
-	Manifest  *Manifest `json:"manifest,omitempty"` // public metadata for discovery
+	Version     string    `json:"version"`
+	Algorithm   string    `json:"algorithm"`
+	Format      string    `json:"format,omitempty"`      // v2 for binary, empty for v1 (base64)
+	Compression string    `json:"compression,omitempty"` // gzip or empty for none
+	Hint        string    `json:"hint,omitempty"`        // optional password hint
+	Manifest    *Manifest `json:"manifest,omitempty"`    // public metadata for discovery
 }

@@ -4,3 +4,9 @@ borg
 *.datanode
 .idea
 coverage.txt
+
+# Demo content (hosted on CDN)
+demo-track.smsg
+
+# Dev artifacts
+.playwright-mcp/

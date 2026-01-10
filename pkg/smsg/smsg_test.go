@@ -462,3 +462,249 @@ func TestExpirationInHeader(t *testing.T) {
 		t.Error("New streaming license should not be expired")
 	}
 }
+
+func TestManifestLinks(t *testing.T) {
+	manifest := NewManifest("Test Track").
+		AddLink("home", "https://example.com/artist").
+		AddLink("beatport", "https://beatport.com/artist/test").
+		AddLink("soundcloud", "https://soundcloud.com/test")
+
+	if len(manifest.Links) != 3 {
+		t.Fatalf("Links count = %d, want 3", len(manifest.Links))
+	}
+
+	if manifest.Links["home"] != "https://example.com/artist" {
+		t.Errorf("Links[home] = %q, want %q", manifest.Links["home"], "https://example.com/artist")
+	}
+
+	if manifest.Links["beatport"] != "https://beatport.com/artist/test" {
+		t.Errorf("Links[beatport] = %q, want %q", manifest.Links["beatport"], "https://beatport.com/artist/test")
+	}
+
+	// Test manifest with links in encrypted message
+	msg := NewMessage("Track content")
+	password := "link-test"
+
+	encrypted, err := EncryptWithManifest(msg, password, manifest)
+	if err != nil {
+		t.Fatalf("EncryptWithManifest failed: %v", err)
+	}
+
+	header, err := GetInfo(encrypted)
+	if err != nil {
+		t.Fatalf("GetInfo failed: %v", err)
+	}
+
+	if header.Manifest == nil {
+		t.Fatal("Expected manifest in header")
+	}
+
+	if len(header.Manifest.Links) != 3 {
+		t.Fatalf("Header Links count = %d, want 3", len(header.Manifest.Links))
+	}
+
+	if header.Manifest.Links["home"] != "https://example.com/artist" {
+		t.Errorf("Header Links[home] = %q, want %q", header.Manifest.Links["home"], "https://example.com/artist")
+	}
+}
+
+func TestV2BinaryFormat(t *testing.T) {
+	// Create message with binary attachment
+	binaryData := []byte("Hello, this is binary content! \x00\x01\x02\x03")
+	msg := NewMessage("V2 format test").
+		AddBinaryAttachment("test.bin", binaryData, "application/octet-stream")
+
+	password := "v2-test"
+
+	// Encrypt with v2 format
+	encrypted, err := EncryptV2(msg, password)
+	if err != nil {
+		t.Fatalf("EncryptV2 failed: %v", err)
+	}
+
+	// Check header
+	header, err := GetInfo(encrypted)
+	if err != nil {
+		t.Fatalf("GetInfo failed: %v", err)
+	}
+
+	if header.Format != FormatV2 {
+		t.Errorf("Format = %q, want %q", header.Format, FormatV2)
+	}
+
+	if header.Compression != CompressionZstd {
+		t.Errorf("Compression = %q, want %q", header.Compression, CompressionZstd)
+	}
+
+	// Decrypt
+	decrypted, err := Decrypt(encrypted, password)
+	if err != nil {
+		t.Fatalf("Decrypt failed: %v", err)
+	}
+
+	if decrypted.Body != "V2 format test" {
+		t.Errorf("Body = %q, want %q", decrypted.Body, "V2 format test")
+	}
+
+	if len(decrypted.Attachments) != 1 {
+		t.Fatalf("Attachments count = %d, want 1", len(decrypted.Attachments))
+	}
+
+	att := decrypted.Attachments[0]
+	if att.Name != "test.bin" {
+		t.Errorf("Attachment name = %q, want %q", att.Name, "test.bin")
+	}
+
+	// Decode attachment and verify content
+	decoded, err := base64.StdEncoding.DecodeString(att.Content)
+	if err != nil {
+		t.Fatalf("Failed to decode attachment: %v", err)
+	}
+
+	if string(decoded) != string(binaryData) {
+		t.Errorf("Attachment content mismatch")
+	}
+}
+
+func TestV2WithManifest(t *testing.T) {
+	binaryData := make([]byte, 1024) // 1KB of zeros
+	for i := range binaryData {
+		binaryData[i] = byte(i % 256)
+	}
+
+	msg := NewMessage("V2 with manifest").
+		AddBinaryAttachment("data.bin", binaryData, "application/octet-stream")
+
+	manifest := NewManifest("Test Album").
+		AddLink("home", "https://example.com")
+	manifest.Artist = "Test Artist"
+
+	password := "v2-manifest-test"
+
+	encrypted, err := EncryptV2WithManifest(msg, password, manifest)
+	if err != nil {
+		t.Fatalf("EncryptV2WithManifest failed: %v", err)
+	}
+
+	// Verify header
+	header, err := GetInfo(encrypted)
+	if err != nil {
+		t.Fatalf("GetInfo failed: %v", err)
+	}
+
+	if header.Format != FormatV2 {
+		t.Errorf("Format = %q, want %q", header.Format, FormatV2)
+	}
+
+	if header.Manifest == nil {
+		t.Fatal("Expected manifest")
+	}
+
+	if header.Manifest.Title != "Test Album" {
+		t.Errorf("Manifest Title = %q, want %q", header.Manifest.Title, "Test Album")
+	}
+
+	if header.Manifest.Artist != "Test Artist" {
+		t.Errorf("Manifest Artist = %q, want %q", header.Manifest.Artist, "Test Artist")
+	}
+
+	// Decrypt and verify
+	decrypted, err := Decrypt(encrypted, password)
+	if err != nil {
+		t.Fatalf("Decrypt failed: %v", err)
+	}
+
+	if len(decrypted.Attachments) != 1 {
+		t.Fatalf("Attachments count = %d, want 1", len(decrypted.Attachments))
+	}
+
+	decoded, _ := base64.StdEncoding.DecodeString(decrypted.Attachments[0].Content)
+	if len(decoded) != 1024 {
+		t.Errorf("Decoded length = %d, want 1024", len(decoded))
+	}
+}
+
+func TestV2SizeSavings(t *testing.T) {
+	// Create a message with binary data
+	binaryData := make([]byte, 10000) // 10KB
+	for i := range binaryData {
+		binaryData[i] = byte(i % 256)
+	}
+
+	msg := NewMessage("Size comparison test")
+	msg.AddBinaryAttachment("large.bin", binaryData, "application/octet-stream")
+
+	password := "size-test"
+
+	// Encrypt with v1 (base64)
+	v1Encrypted, err := Encrypt(msg, password)
+	if err != nil {
+		t.Fatalf("Encrypt v1 failed: %v", err)
+	}
+
+	// Encrypt with v2 (binary + gzip)
+	v2Encrypted, err := EncryptV2(msg, password)
+	if err != nil {
+		t.Fatalf("EncryptV2 failed: %v", err)
+	}
+
+	t.Logf("V1 size: %d bytes", len(v1Encrypted))
+	t.Logf("V2 size: %d bytes", len(v2Encrypted))
+	t.Logf("Savings: %.1f%%", (1.0-float64(len(v2Encrypted))/float64(len(v1Encrypted)))*100)
+
+	// V2 should be smaller (at least 20% savings from base64 removal alone)
+	if len(v2Encrypted) >= len(v1Encrypted) {
+		t.Errorf("V2 should be smaller than V1: v2=%d, v1=%d", len(v2Encrypted), len(v1Encrypted))
+	}
+
+	// Both should decrypt to the same content
+	d1, _ := Decrypt(v1Encrypted, password)
+	d2, _ := Decrypt(v2Encrypted, password)
+
+	if d1.Body != d2.Body {
+		t.Error("Decrypted bodies don't match")
+	}
+
+	c1, _ := base64.StdEncoding.DecodeString(d1.Attachments[0].Content)
+	c2, _ := base64.StdEncoding.DecodeString(d2.Attachments[0].Content)
+
+	if string(c1) != string(c2) {
+		t.Error("Decrypted attachment content doesn't match")
+	}
+}
+
+func TestV2NoCompression(t *testing.T) {
+	msg := NewMessage("No compression test").
+		AddBinaryAttachment("test.txt", []byte("Hello World"), "text/plain")
+
+	password := "no-compress"
+
+	// Encrypt without compression
+	encrypted, err := EncryptV2WithOptions(msg, password, nil, CompressionNone)
+	if err != nil {
+		t.Fatalf("EncryptV2WithOptions failed: %v", err)
+	}
+
+	header, err := GetInfo(encrypted)
+	if err != nil {
+		t.Fatalf("GetInfo failed: %v", err)
+	}
+
+	if header.Format != FormatV2 {
+		t.Errorf("Format = %q, want %q", header.Format, FormatV2)
+	}
+
+	if header.Compression != "" {
+		t.Errorf("Compression = %q, want empty", header.Compression)
+	}
+
+	// Should still decrypt
+	decrypted, err := Decrypt(encrypted, password)
+	if err != nil {
+		t.Fatalf("Decrypt failed: %v", err)
+	}
+
+	if decrypted.Body != "No compression test" {
+		t.Errorf("Body = %q, want %q", decrypted.Body, "No compression test")
+	}
+}
