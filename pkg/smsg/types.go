@@ -2,6 +2,14 @@
 // SMSG (Secure Message) enables encrypted message exchange where the recipient
 // decrypts using a pre-shared password. Useful for secure support replies,
 // confidential documents, and any scenario requiring password-protected content.
+//
+// Format versions:
+//   - v1: JSON with base64-encoded attachments (legacy)
+//   - v2: Binary format with zstd compression (current)
+//   - v3: Streaming with LTHN rolling keys (planned)
+//
+// Encryption note: Nonces are embedded in ciphertext, not transmitted separately.
+// See smsg.go header comment for details.
 package smsg
 
 import (

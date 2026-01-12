@@ -1,5 +1,23 @@
 package smsg
 
+// SMSG (Secure Message) provides ChaCha20-Poly1305 authenticated encryption.
+//
+// IMPORTANT: Nonce handling for developers
+// =========================================
+// Enchantrix embeds the nonce directly in the ciphertext:
+//
+//     [24-byte nonce][encrypted data][16-byte auth tag]
+//
+// The nonce is NOT transmitted separately in headers. It is:
+//   - Generated fresh (random) for each encryption
+//   - Extracted automatically from ciphertext during decryption
+//   - Safe to transmit (public) - only the KEY must remain secret
+//
+// This means wrapped keys, encrypted payloads, etc. are self-contained.
+// You only need the correct key to decrypt - no nonce management required.
+//
+// See: github.com/Snider/Enchantrix/pkg/enchantrix/crypto_sigil.go
+
 import (
 	"bytes"
 	"compress/gzip"
