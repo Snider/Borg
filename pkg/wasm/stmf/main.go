@@ -16,7 +16,7 @@ import (
 )
 
 // Version of the WASM module
-const Version = "1.2.0"
+const Version = "1.3.0"
 
 func main() {
 	// Export the BorgSTMF object to JavaScript global scope
@@ -32,6 +32,7 @@ func main() {
 	js.Global().Set("BorgSMSG", js.ValueOf(map[string]interface{}{
 		"decrypt":             js.FuncOf(smsgDecrypt),
 		"decryptStream":       js.FuncOf(smsgDecryptStream),
+		"decryptV3":           js.FuncOf(smsgDecryptV3),       // v3 streaming with rolling keys
 		"encrypt":             js.FuncOf(smsgEncrypt),
 		"encryptWithManifest": js.FuncOf(smsgEncryptWithManifest),
 		"getInfo":             js.FuncOf(smsgGetInfo),
@@ -495,6 +496,25 @@ func smsgGetInfo(this js.Value, args []js.Value) interface{} {
 				result["hint"] = header.Hint
 			}
 
+			// V3 streaming fields
+			if header.KeyMethod != "" {
+				result["keyMethod"] = header.KeyMethod
+			}
+			if header.Cadence != "" {
+				result["cadence"] = string(header.Cadence)
+			}
+			if len(header.WrappedKeys) > 0 {
+				wrappedKeys := make([]interface{}, len(header.WrappedKeys))
+				for i, wk := range header.WrappedKeys {
+					wrappedKeys[i] = map[string]interface{}{
+						"date": wk.Date,
+						// Note: wrapped key itself is not exposed for security
+					}
+				}
+				result["wrappedKeys"] = wrappedKeys
+				result["isV3Streaming"] = true
+			}
+
 			// Include manifest if present
 			if header.Manifest != nil {
 				result["manifest"] = manifestToJS(header.Manifest)
@@ -617,6 +637,118 @@ func smsgQuickDecrypt(this js.Value, args []js.Value) interface{} {
 			}
 
 			resolve.Invoke(body)
+		}()
+
+		return nil
+	})
+
+	promiseConstructor := js.Global().Get("Promise")
+	return promiseConstructor.New(handler)
+}
+
+// smsgDecryptV3 decrypts a v3 streaming message using LTHN rolling keys.
+// JavaScript usage:
+//
+//	const result = await BorgSMSG.decryptV3(encryptedBase64, {
+//	  license: 'user-license-id',
+//	  fingerprint: 'device-fingerprint'
+//	});
+//	// result.attachments[0].data is a Uint8Array
+func smsgDecryptV3(this js.Value, args []js.Value) interface{} {
+	handler := js.FuncOf(func(this js.Value, promiseArgs []js.Value) interface{} {
+		resolve := promiseArgs[0]
+		reject := promiseArgs[1]
+
+		go func() {
+			if len(args) < 2 {
+				reject.Invoke(newError("decryptV3 requires 2 arguments: encryptedBase64, {license, fingerprint}"))
+				return
+			}
+
+			encryptedB64 := args[0].String()
+			paramsObj := args[1]
+
+			// Extract stream params
+			license := paramsObj.Get("license").String()
+			fingerprint := ""
+			if !paramsObj.Get("fingerprint").IsUndefined() {
+				fingerprint = paramsObj.Get("fingerprint").String()
+			}
+
+			if license == "" {
+				reject.Invoke(newError("license is required for v3 decryption"))
+				return
+			}
+
+			params := &smsg.StreamParams{
+				License:     license,
+				Fingerprint: fingerprint,
+			}
+
+			// Decode base64
+			data, err := base64.StdEncoding.DecodeString(encryptedB64)
+			if err != nil {
+				reject.Invoke(newError("invalid base64: " + err.Error()))
+				return
+			}
+
+			// Decrypt v3
+			msg, header, err := smsg.DecryptV3(data, params)
+			if err != nil {
+				reject.Invoke(newError("v3 decryption failed: " + err.Error()))
+				return
+			}
+
+			// Build result with binary attachment data
+			result := map[string]interface{}{
+				"body":      msg.Body,
+				"timestamp": msg.Timestamp,
+			}
+
+			if msg.Subject != "" {
+				result["subject"] = msg.Subject
+			}
+			if msg.From != "" {
+				result["from"] = msg.From
+			}
+
+			// Include header info
+			if header != nil {
+				result["header"] = map[string]interface{}{
+					"format":    header.Format,
+					"keyMethod": header.KeyMethod,
+				}
+				if header.Manifest != nil {
+					result["manifest"] = manifestToJS(header.Manifest)
+				}
+			}
+
+			// Convert attachments with binary data
+			if len(msg.Attachments) > 0 {
+				attachments := make([]interface{}, len(msg.Attachments))
+				for i, att := range msg.Attachments {
+					// Decode base64 to binary
+					data, err := base64.StdEncoding.DecodeString(att.Content)
+					if err != nil {
+						reject.Invoke(newError("failed to decode attachment: " + err.Error()))
+						return
+					}
+
+					// Create Uint8Array in JS
+					uint8Array := js.Global().Get("Uint8Array").New(len(data))
+					js.CopyBytesToJS(uint8Array, data)
+
+					attachments[i] = map[string]interface{}{
+						"name": att.Name,
+						"mime": att.MimeType,
+						"size": len(data),
+						"data": uint8Array,
+					}
+				}
+				result["attachments"] = attachments
+			}
+
+			resolve.Invoke(js.ValueOf(result))
 		}()
 
 		return nil

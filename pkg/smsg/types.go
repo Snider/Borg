@@ -31,6 +31,9 @@ var (
 	ErrDecryptionFailed = errors.New("decryption failed (wrong password?)")
 	ErrPasswordRequired = errors.New("password is required")
 	ErrEmptyMessage     = errors.New("message cannot be empty")
+	ErrStreamKeyExpired = errors.New("stream key expired (outside rolling window)")
+	ErrNoValidKey       = errors.New("no valid wrapped key found for current date")
+	ErrLicenseRequired  = errors.New("license is required for stream decryption")
 )
 
 // Attachment represents a file attached to the message
@@ -286,6 +289,7 @@ func (m *Manifest) AddLink(platform, url string) *Manifest {
 const (
 	FormatV1 = ""   // Original format: JSON with base64-encoded attachments
 	FormatV2 = "v2" // Binary format: JSON header + raw binary attachments
+	FormatV3 = "v3" // Streaming format: CEK wrapped with rolling LTHN keys
 )
 
 // Compression types
@@ -295,12 +299,57 @@ const (
 	CompressionZstd = "zstd" // Zstandard compression (faster, better ratio)
 )
 
+// Key derivation methods for v3 streaming
+const (
+	// KeyMethodDirect uses password directly (v1/v2 behavior)
+	KeyMethodDirect = ""
+
+	// KeyMethodLTHNRolling uses LTHN hash with rolling date windows
+	// Key = SHA256(LTHN(date:license:fingerprint))
+	// Valid keys: current period and next period (rolling window)
+	KeyMethodLTHNRolling = "lthn-rolling"
+)
+
+// Cadence defines how often stream keys rotate
+type Cadence string
+
+const (
+	// CadenceDaily rotates keys every 24 hours (default)
+	// Date format: "2006-01-02"
+	CadenceDaily Cadence = "daily"
+
+	// CadenceHalfDay rotates keys every 12 hours
+	// Date format: "2006-01-02-AM" or "2006-01-02-PM"
+	CadenceHalfDay Cadence = "12h"
+
+	// CadenceQuarter rotates keys every 6 hours
+	// Date format: "2006-01-02-00", "2006-01-02-06", "2006-01-02-12", "2006-01-02-18"
+	CadenceQuarter Cadence = "6h"
+
+	// CadenceHourly rotates keys every hour
+	// Date format: "2006-01-02-15" (24-hour format)
+	CadenceHourly Cadence = "1h"
+)
+
+// WrappedKey represents a CEK (Content Encryption Key) wrapped with a time-bound stream key.
+// The stream key is derived from LTHN(date:license:fingerprint) and is never transmitted.
+// Only the wrapped CEK (which includes its own nonce) is stored in the header.
+type WrappedKey struct {
+	Date    string `json:"date"`    // ISO date "YYYY-MM-DD" for key derivation
+	Wrapped string `json:"wrapped"` // base64([nonce][ChaCha(CEK, streamKey)])
+}
+
 // Header represents the SMSG container header
 type Header struct {
 	Version     string    `json:"version"`
 	Algorithm   string    `json:"algorithm"`
-	Format      string    `json:"format,omitempty"`      // v2 for binary, empty for v1 (base64)
-	Compression string    `json:"compression,omitempty"` // gzip or empty for none
+	Format      string    `json:"format,omitempty"`      // v2 for binary, v3 for streaming, empty for v1 (base64)
+	Compression string    `json:"compression,omitempty"` // gzip, zstd, or empty for none
 	Hint        string    `json:"hint,omitempty"`        // optional password hint
 	Manifest    *Manifest `json:"manifest,omitempty"`    // public metadata for discovery
+
+	// V3 streaming fields
+	KeyMethod   string       `json:"keyMethod,omitempty"`   // lthn-rolling for v3
+	Cadence     Cadence      `json:"cadence,omitempty"`     // key rotation frequency (daily, 12h, 6h, 1h)
+	WrappedKeys []WrappedKey `json:"wrappedKeys,omitempty"` // CEK wrapped with rolling keys
 }
