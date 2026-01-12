@@ -1424,9 +1424,16 @@
 
     <script src="wasm_exec.js"></script>
     <script>
-        // Config - change these for your CDN
+        // Demo tracks with their passwords
+        const DEMO_TRACKS = {
+            'https://demo.dapp.fm/demo-track.smsg': 'PMVXogAJNVe_DDABfTmLYztaJAzsD0R7',
+            './demo-sample.smsg': '6ZhMQ034bT6maHqMaJejoxDMpfaOQvq5',
+            '../examples/demo-sample.smsg': '6ZhMQ034bT6maHqMaJejoxDMpfaOQvq5',
+        };
+
+        // Active demo - CDN for profile, local for testing
         const DEMO_URL = 'https://demo.dapp.fm/demo-track.smsg';
-        const DEMO_PASSWORD = 'PMVXogAJNVe_DDABfTmLYztaJAzsD0R7';
+        const DEMO_PASSWORD = DEMO_TRACKS[DEMO_URL];
 
         let wasmReady = false;
         let manifest = null;
