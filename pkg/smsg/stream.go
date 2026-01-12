@@ -39,6 +39,7 @@ type StreamParams struct {
 	License     string  // User's license identifier
 	Fingerprint string  // Device/session fingerprint
 	Cadence     Cadence // Key rotation cadence (default: daily)
+	ChunkSize   int     // Optional: chunk size for decrypt-while-downloading (0 = no chunking)
 }
 
 // DeriveStreamKey derives a 32-byte ChaCha key from date, license, and fingerprint.
@@ -180,6 +181,9 @@ func GenerateCEK() ([]byte, error) {
 // EncryptV3 encrypts a message using v3 streaming format with rolling keys.
 // The content is encrypted with a random CEK, which is then wrapped with
 // stream keys for today and tomorrow.
+//
+// When params.ChunkSize > 0, content is split into independently decryptable
+// chunks, enabling decrypt-while-downloading and seeking.
 func EncryptV3(msg *Message, params *StreamParams, manifest *Manifest) ([]byte, error) {
 	if params == nil || params.License == "" {
 		return nil, ErrLicenseRequired
@@ -222,6 +226,17 @@ func EncryptV3(msg *Message, params *StreamParams, manifest *Manifest) ([]byte, 
 		return nil, fmt.Errorf("failed to wrap CEK for next period: %w", err)
 	}
 
+	// Check if chunked mode requested
+	if params.ChunkSize > 0 {
+		return encryptV3Chunked(msg, params, manifest, cek, cadence, current, next, wrappedCurrent, wrappedNext)
+	}
+
+	// Non-chunked v3 (original behavior)
+	return encryptV3Standard(msg, params, manifest, cek, cadence, current, next, wrappedCurrent, wrappedNext)
+}
+
+// encryptV3Standard encrypts as a single block (original v3 behavior)
+func encryptV3Standard(msg *Message, params *StreamParams, manifest *Manifest, cek []byte, cadence Cadence, current, next, wrappedCurrent, wrappedNext string) ([]byte, error) {
 	// Build v3 payload (similar to v2 but encrypted with CEK)
 	payload, attachmentData, err := buildV3Payload(msg)
 	if err != nil {
@@ -310,8 +325,108 @@ func EncryptV3(msg *Message, params *StreamParams, manifest *Manifest) ([]byte, 
 	return trix.Encode(t, Magic, nil)
 }
 
+// encryptV3Chunked encrypts content into independently decryptable chunks
+func encryptV3Chunked(msg *Message, params *StreamParams, manifest *Manifest, cek []byte, cadence Cadence, current, next, wrappedCurrent, wrappedNext string) ([]byte, error) {
+	chunkSize := params.ChunkSize
+
+	// Build raw content to chunk: metadata JSON + binary attachments
+	metaJSON, attachmentData, err := buildV3Payload(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Combine into single byte slice for chunking
+	rawContent := append(metaJSON, attachmentData...)
+	totalSize := int64(len(rawContent))
+
+	// Create sigil with CEK for chunk encryption
+	sigil, err := enchantrix.NewChaChaPolySigil(cek)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sigil: %w", err)
+	}
+
+	// Encrypt in chunks
+	var chunks [][]byte
+	var chunkIndex []ChunkInfo
+	offset := 0
+
+	for i := 0; offset < len(rawContent); i++ {
+		// Determine this chunk's size
+		end := offset + chunkSize
+		if end > len(rawContent) {
+			end = len(rawContent)
+		}
+		chunkData := rawContent[offset:end]
+
+		// Encrypt chunk (each gets its own nonce)
+		encryptedChunk, err := sigil.In(chunkData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt chunk %d: %w", i, err)
+		}
+
+		chunks = append(chunks, encryptedChunk)
+		chunkIndex = append(chunkIndex, ChunkInfo{
+			Offset: 0, // Will be calculated after we know all sizes
+			Size:   len(encryptedChunk),
+		})
+
+		offset = end
+	}
+
+	// Calculate chunk offsets
+	currentOffset := 0
+	for i := range chunkIndex {
+		chunkIndex[i].Offset = currentOffset
+		currentOffset += chunkIndex[i].Size
+	}
+
+	// Build header with chunked info
+	chunkedInfo := &ChunkedInfo{
+		ChunkSize:   chunkSize,
+		TotalChunks: len(chunks),
+		TotalSize:   totalSize,
+		Index:       chunkIndex,
+	}
+
+	headerMap := map[string]interface{}{
+		"version":     Version,
+		"algorithm":   "chacha20poly1305",
+		"format":      FormatV3,
+		"compression": CompressionNone, // No compression in chunked mode (per-chunk not supported yet)
+		"keyMethod":   KeyMethodLTHNRolling,
+		"cadence":     string(cadence),
+		"chunked":     chunkedInfo,
+		"wrappedKeys": []WrappedKey{
+			{Date: current, Wrapped: wrappedCurrent},
+			{Date: next, Wrapped: wrappedNext},
+		},
+	}
+
+	if manifest != nil {
+		if manifest.IssuedAt == 0 {
+			manifest.IssuedAt = time.Now().Unix()
+		}
+		headerMap["manifest"] = manifest
+	}
+
+	// Concatenate all encrypted chunks
+	var payload []byte
+	for _, chunk := range chunks {
+		payload = append(payload, chunk...)
+	}
+
+	// Wrap in trix container
+	t := &trix.Trix{
+		Header:  headerMap,
+		Payload: payload,
+	}
+
+	return trix.Encode(t, Magic, nil)
+}
+
 // DecryptV3 decrypts a v3 streaming message using rolling keys.
 // It tries today's key first, then tomorrow's key.
+// Automatically handles both chunked and non-chunked v3 formats.
 func DecryptV3(data []byte, params *StreamParams) (*Message, *Header, error) {
 	if params == nil || params.License == "" {
 		return nil, nil, ErrLicenseRequired
@@ -358,10 +473,19 @@ func DecryptV3(data []byte, params *StreamParams) (*Message, *Header, error) {
 		return nil, &header, err
 	}
 
-	// Parse v3 binary payload
-	payload := t.Payload
+	// Check if chunked format
+	if header.Chunked != nil {
+		return decryptV3Chunked(t.Payload, cek, &header)
+	}
+
+	// Non-chunked v3
+	return decryptV3Standard(t.Payload, cek, &header)
+}
+
+// decryptV3Standard handles non-chunked v3 decryption
+func decryptV3Standard(payload []byte, cek []byte, header *Header) (*Message, *Header, error) {
 	if len(payload) < 8 {
-		return nil, &header, ErrInvalidPayload
+		return nil, header, ErrInvalidPayload
 	}
 
 	// Read header length (skip - we already parsed from trix header)
@@ -369,7 +493,7 @@ func DecryptV3(data []byte, params *StreamParams) (*Message, *Header, error) {
 	pos := 4 + int(headerLen)
 
 	if len(payload) < pos+4 {
-		return nil, &header, ErrInvalidPayload
+		return nil, header, ErrInvalidPayload
 	}
 
 	// Read encrypted payload length
@@ -377,7 +501,7 @@ func DecryptV3(data []byte, params *StreamParams) (*Message, *Header, error) {
 	pos += 4
 
 	if len(payload) < pos+int(encryptedLen) {
-		return nil, &header, ErrInvalidPayload
+		return nil, header, ErrInvalidPayload
 	}
 
 	// Extract encrypted payload and attachments
@@ -387,12 +511,12 @@ func DecryptV3(data []byte, params *StreamParams) (*Message, *Header, error) {
 	// Decrypt with CEK
 	sigil, err := enchantrix.NewChaChaPolySigil(cek)
 	if err != nil {
-		return nil, &header, fmt.Errorf("failed to create sigil: %w", err)
+		return nil, header, fmt.Errorf("failed to create sigil: %w", err)
 	}
 
 	compressed, err := sigil.Out(encryptedPayload)
 	if err != nil {
-		return nil, &header, ErrDecryptionFailed
+		return nil, header, ErrDecryptionFailed
 	}
 
 	// Decompress
@@ -400,7 +524,7 @@ func DecryptV3(data []byte, params *StreamParams) (*Message, *Header, error) {
 	if header.Compression == CompressionZstd {
 		decompressed, err = zstdDecompress(compressed)
 		if err != nil {
-			return nil, &header, fmt.Errorf("decompression failed: %w", err)
+			return nil, header, fmt.Errorf("decompression failed: %w", err)
 		}
 	} else {
 		decompressed = compressed
@@ -409,23 +533,74 @@ func DecryptV3(data []byte, params *StreamParams) (*Message, *Header, error) {
 	// Parse message
 	var msg Message
 	if err := json.Unmarshal(decompressed, &msg); err != nil {
-		return nil, &header, fmt.Errorf("failed to parse message: %w", err)
+		return nil, header, fmt.Errorf("failed to parse message: %w", err)
 	}
 
 	// Decrypt attachments if present
 	if len(encryptedAttachments) > 0 {
 		attachmentData, err := sigil.Out(encryptedAttachments)
 		if err != nil {
-			return nil, &header, fmt.Errorf("attachment decryption failed: %w", err)
+			return nil, header, fmt.Errorf("attachment decryption failed: %w", err)
 		}
 
 		// Restore attachment content from binary data
 		if err := restoreV3Attachments(&msg, attachmentData); err != nil {
-			return nil, &header, err
+			return nil, header, err
 		}
 	}
 
-	return &msg, &header, nil
+	return &msg, header, nil
+}
+
+// decryptV3Chunked handles chunked v3 decryption
+func decryptV3Chunked(payload []byte, cek []byte, header *Header) (*Message, *Header, error) {
+	if header.Chunked == nil {
+		return nil, header, fmt.Errorf("v3 chunked format missing chunked info")
+	}
+
+	// Create sigil for decryption
+	sigil, err := enchantrix.NewChaChaPolySigil(cek)
+	if err != nil {
+		return nil, header, fmt.Errorf("failed to create sigil: %w", err)
+	}
+
+	// Decrypt all chunks
+	var decrypted []byte
+
+	for i, ci := range header.Chunked.Index {
+		if ci.Offset+ci.Size > len(payload) {
+			return nil, header, fmt.Errorf("chunk %d out of bounds", i)
+		}
+
+		chunkData := payload[ci.Offset : ci.Offset+ci.Size]
+		plaintext, err := sigil.Out(chunkData)
+		if err != nil {
+			return nil, header, fmt.Errorf("failed to decrypt chunk %d: %w", i, err)
+		}
+
+		decrypted = append(decrypted, plaintext...)
+	}
+
+	// Parse decrypted content (metadata JSON + attachments)
+	var msg Message
+	if err := json.Unmarshal(decrypted, &msg); err != nil {
+		// First part should be JSON, but may be mixed with binary
+		// Try to find JSON boundary
+		for i := 0; i < len(decrypted); i++ {
+			if decrypted[i] == '}' {
+				if err := json.Unmarshal(decrypted[:i+1], &msg); err == nil {
+					// Found valid JSON, rest is attachment data
+					if err := restoreV3Attachments(&msg, decrypted[i+1:]); err != nil {
+						return nil, header, err
+					}
+					return &msg, header, nil
+				}
+			}
+		}
+		return nil, header, fmt.Errorf("failed to parse message: %w", err)
+	}
+
+	return &msg, header, nil
 }
 
 // tryUnwrapCEK attempts to unwrap the CEK using current or next period's key
@@ -499,4 +674,154 @@ func restoreV3Attachments(msg *Message, data []byte) error {
 		}
 	}
 	return nil
+}
+
+// =============================================================================
+// V3 Chunked Streaming Helpers
+// =============================================================================
+//
+// When StreamParams.ChunkSize > 0, v3 format uses independently decryptable
+// chunks, enabling:
+//   - Decrypt-while-downloading: Play media as it arrives
+//   - HTTP Range requests: Fetch specific chunks by byte range
+//   - Seekable playback: Jump to any position without decrypting everything
+//
+// Each chunk is encrypted with the same CEK but has its own nonce,
+// making it independently decryptable.
+
+// DecryptV3Chunk decrypts a single chunk by index.
+// This enables streaming playback and seeking without decrypting the entire file.
+//
+// Usage for streaming:
+//
+//	header, _ := GetV3Header(data)
+//	cek, _ := UnwrapCEKFromHeader(header, params)
+//	payload, _ := GetV3Payload(data)
+//	for i := 0; i < header.Chunked.TotalChunks; i++ {
+//	    chunk, _ := DecryptV3Chunk(payload, cek, i, header.Chunked)
+//	    player.Write(chunk)
+//	}
+func DecryptV3Chunk(payload []byte, cek []byte, chunkIndex int, chunked *ChunkedInfo) ([]byte, error) {
+	if chunked == nil {
+		return nil, fmt.Errorf("chunked info is nil")
+	}
+	if chunkIndex < 0 || chunkIndex >= len(chunked.Index) {
+		return nil, fmt.Errorf("chunk index %d out of range [0, %d)", chunkIndex, len(chunked.Index))
+	}
+
+	ci := chunked.Index[chunkIndex]
+	if ci.Offset+ci.Size > len(payload) {
+		return nil, fmt.Errorf("chunk %d data out of bounds", chunkIndex)
+	}
+
+	// Create sigil and decrypt
+	sigil, err := enchantrix.NewChaChaPolySigil(cek)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sigil: %w", err)
+	}
+
+	chunkData := payload[ci.Offset : ci.Offset+ci.Size]
+	return sigil.Out(chunkData)
+}
+
+// GetV3Header extracts the header from a v3 file without decrypting.
+// Useful for getting chunk index for Range requests.
+func GetV3Header(data []byte) (*Header, error) {
+	t, err := trix.Decode(data, Magic, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode container: %w", err)
+	}
+
+	headerJSON, err := json.Marshal(t.Header)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal header: %w", err)
+	}
+
+	var header Header
+	if err := json.Unmarshal(headerJSON, &header); err != nil {
+		return nil, fmt.Errorf("failed to parse header: %w", err)
+	}
+
+	if header.Format != FormatV3 {
+		return nil, fmt.Errorf("not a v3 format: %s", header.Format)
+	}
+
+	return &header, nil
+}
+
+// UnwrapCEKFromHeader unwraps the CEK from a v3 header using stream params.
+// Returns the CEK for use with DecryptV3Chunk.
+func UnwrapCEKFromHeader(header *Header, params *StreamParams) ([]byte, error) {
+	if params == nil || params.License == "" {
+		return nil, ErrLicenseRequired
+	}
+
+	cadence := header.Cadence
+	if cadence == "" && params.Cadence != "" {
+		cadence = params.Cadence
+	}
+	if cadence == "" {
+		cadence = CadenceDaily
+	}
+
+	return tryUnwrapCEK(header.WrappedKeys, params, cadence)
+}
+
+// GetV3Payload extracts just the payload from a v3 file.
+// Use with DecryptV3Chunk for individual chunk decryption.
+func GetV3Payload(data []byte) ([]byte, error) {
+	t, err := trix.Decode(data, Magic, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode container: %w", err)
+	}
+	return t.Payload, nil
+}
+
+// GetV3HeaderFromPrefix parses the v3 header from just the file prefix.
+// This enables streaming: parse header as soon as first few KB arrive.
+// Returns header and payload offset (where encrypted chunks start).
+//
+// File format:
+//   - Bytes 0-3: Magic "SMSG"
+//   - Bytes 4-5: Version (2-byte little endian)
+//   - Bytes 6-8: Header length (3-byte big endian)
+//   - Bytes 9+: Header JSON
+//   - Payload starts at offset 9 + headerLen
+func GetV3HeaderFromPrefix(data []byte) (*Header, int, error) {
+	// Need at least magic + version + header length indicator
+	if len(data) < 9 {
+		return nil, 0, fmt.Errorf("need at least 9 bytes, got %d", len(data))
+	}
+
+	// Check magic
+	if string(data[0:4]) != Magic {
+		return nil, 0, ErrInvalidMagic
+	}
+
+	// Parse header length (3 bytes big endian at offset 6-8)
+	headerLen := int(data[6])<<16 | int(data[7])<<8 | int(data[8])
+	if headerLen <= 0 || headerLen > 16*1024*1024 {
+		return nil, 0, fmt.Errorf("invalid header length: %d", headerLen)
+	}
+
+	// Calculate payload offset
+	payloadOffset := 9 + headerLen
+
+	// Check if we have enough data for the header
+	if len(data) < payloadOffset {
+		return nil, 0, fmt.Errorf("need %d bytes for header, got %d", payloadOffset, len(data))
+	}
+
+	// Parse header JSON
+	headerJSON := data[9:payloadOffset]
+	var header Header
+	if err := json.Unmarshal(headerJSON, &header); err != nil {
+		return nil, 0, fmt.Errorf("failed to parse header JSON: %w", err)
+	}
+
+	if header.Format != FormatV3 {
+		return nil, 0, fmt.Errorf("not a v3 format: %s", header.Format)
+	}
+
+	return &header, payloadOffset, nil
 }

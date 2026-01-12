@@ -11,6 +11,8 @@
 
 | Date | Status | Notes |
 |------|--------|-------|
+| 2026-01-12 | Proposed | **Chunked streaming**: v3 now supports optional ChunkSize for independently decryptable chunks - enables seek, HTTP Range, and decrypt-while-downloading. |
+| 2026-01-12 | Proposed | **v3 Streaming**: LTHN rolling keys with configurable cadence (daily/12h/6h/1h). CEK wrapping for zero-trust streaming. WASM v1.3.0 with decryptV3(). |
 | 2026-01-10 | Proposed | Technical review passed. Fixed section numbering (7.x, 8.x, 9.x, 11.x). Updated WASM size to 5.9MB. Implementation verified complete for stated scope. |
 
 ---
@@ -142,14 +144,16 @@ Key properties:
 
 #### Format Versions
 
-| Format | Payload Structure | Size | Speed |
-|--------|------------------|------|-------|
-| **v1** | JSON with base64-encoded attachments | +33% overhead | Baseline |
-| **v2** | Binary header + raw attachments + zstd | ~Original size | 3-10x faster |
+| Format | Payload Structure | Size | Speed | Use Case |
+|--------|------------------|------|-------|----------|
+| **v1** | JSON with base64-encoded attachments | +33% overhead | Baseline | Legacy |
+| **v2** | Binary header + raw attachments + zstd | ~Original size | 3-10x faster | Download-to-own |
+| **v3** | CEK + wrapped keys + rolling LTHN | ~Original size | 3-10x faster | **Streaming** |
+| **v3+chunked** | v3 with independently decryptable chunks | ~Original size | Seekable | **Chunked streaming** |
 
-v2 is recommended for production. v1 is maintained for backwards compatibility.
+v2 is recommended for download-to-own (perpetual license). v3 is recommended for streaming (time-limited access). v3 with chunking is recommended for large files requiring seek capability or decrypt-while-downloading.
 
-### 3.3 Key Derivation
+### 3.3 Key Derivation (v1/v2)
 
 ```
 License Key (password)
@@ -168,7 +172,136 @@ Simple, auditable, no key escrow.
 
 **Note on password hashing**: SHA-256 is used for simplicity and speed. For high-value content, artists may choose to use stronger KDFs (Argon2, scrypt) in custom implementations. The format supports algorithm negotiation via the header.
 
-### 3.4 Supported Content Types
+### 3.4 Streaming Key Derivation (v3)
+
+v3 format uses **LTHN rolling keys** for zero-trust streaming. The platform controls key refresh cadence.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    v3 STREAMING KEY FLOW                          │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  SERVER (encryption time):                                        │
+│  ─────────────────────────                                        │
+│  1. Generate random CEK (Content Encryption Key)                  │
+│  2. Encrypt content with CEK (one-time)                          │
+│  3. For current period AND next period:                          │
+│     streamKey = SHA256(LTHN(period:license:fingerprint))         │
+│     wrappedKey = ChaCha(CEK, streamKey)                          │
+│  4. Store wrapped keys in header (CEK never transmitted)         │
+│                                                                    │
+│  CLIENT (decryption time):                                        │
+│  ────────────────────────                                        │
+│  1. Derive streamKey = SHA256(LTHN(period:license:fingerprint))  │
+│  2. Try to unwrap CEK from current period key                    │
+│  3. If fails, try next period key                                │
+│  4. Decrypt content with unwrapped CEK                           │
+│                                                                    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### LTHN Hash Function
+
+LTHN is rainbow-table resistant because the salt is derived from the input itself:
+
+```
+LTHN(input) = SHA256(input + reverse_leet(input))
+
+where reverse_leet swaps: o↔0, l↔1, e↔3, a↔4, s↔z, t↔7
+
+Example:
+  LTHN("2026-01-12:license:fp")
+  = SHA256("2026-01-12:license:fp" + "pf:3zn3ci1:21-10-6202")
+```
+
+You cannot compute the hash without knowing the original input.
+
+#### Cadence Options
+
+The platform chooses the key refresh rate. Faster cadence = tighter access control.
+
+| Cadence | Period Format | Rolling Window | Use Case |
+|---------|---------------|----------------|----------|
+| `daily` | `2026-01-12` | 24-48 hours | Standard streaming |
+| `12h` | `2026-01-12-AM/PM` | 12-24 hours | Premium content |
+| `6h` | `2026-01-12-00/06/12/18` | 6-12 hours | High-value content |
+| `1h` | `2026-01-12-15` | 1-2 hours | Live events |
+
+The rolling window ensures smooth key transitions. At any time, both the current period key AND the next period key are valid.
+
+#### Zero-Trust Properties
+
+- **Server never stores keys** - Derived on-demand from LTHN
+- **Keys auto-expire** - No revocation mechanism needed
+- **Sharing keys is pointless** - They expire within the cadence window
+- **Fingerprint binds to device** - Different device = different key
+- **License ties to user** - Different user = different key
+
+### 3.5 Chunked Streaming (v3 with ChunkSize)
+
+When `StreamParams.ChunkSize > 0`, v3 format splits content into independently decryptable chunks, enabling:
+
+- **Decrypt-while-downloading** - Play media as chunks arrive
+- **HTTP Range requests** - Fetch specific chunks by byte offset
+- **Seekable playback** - Jump to any position without decrypting previous chunks
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    V3 CHUNKED FORMAT                              │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  Header (cleartext):                                              │
+│    format: "v3"                                                   │
+│    chunked: {                                                     │
+│      chunkSize: 1048576,     // 1MB default                       │
+│      totalChunks: N,                                              │
+│      totalSize: X,           // unencrypted total                 │
+│      index: [                // for HTTP Range / seeking          │
+│        { offset: 0, size: Y },                                    │
+│        { offset: Y, size: Z },                                    │
+│        ...                                                        │
+│      ]                                                            │
+│    }                                                              │
+│    wrappedKeys: [...]        // same as non-chunked v3           │
+│                                                                    │
+│  Payload:                                                         │
+│    [chunk 0: nonce + encrypted + tag]                            │
+│    [chunk 1: nonce + encrypted + tag]                            │
+│    ...                                                            │
+│    [chunk N: nonce + encrypted + tag]                            │
+│                                                                    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key insight**: Each chunk is encrypted with the same CEK but gets its own random nonce, making chunks independently decryptable. The chunk index in the header enables:
+
+1. **Seeking**: Calculate which chunk contains byte offset X, fetch just that chunk
+2. **Range requests**: Use HTTP Range headers to fetch specific encrypted chunks
+3. **Streaming**: Decrypt chunk 0 for metadata, then stream chunks 1-N as they arrive
+
+**Usage example**:
+```go
+params := &StreamParams{
+    License:     "user-license",
+    Fingerprint: "device-fp",
+    ChunkSize:   1024 * 1024,  // 1MB chunks
+}
+
+// Encrypt with chunking
+encrypted, _ := EncryptV3(msg, params, manifest)
+
+// For streaming playback:
+header, _ := GetV3Header(encrypted)
+cek, _ := UnwrapCEKFromHeader(header, params)
+payload, _ := GetV3Payload(encrypted)
+
+for i := 0; i < header.Chunked.TotalChunks; i++ {
+    chunk, _ := DecryptV3Chunk(payload, cek, i, header.Chunked)
+    player.Write(chunk)  // Stream to audio/video player
+}
+```
+
+### 3.6 Supported Content Types
 
 SMSG is content-agnostic. Any file can be an attachment:
 
@@ -479,7 +612,7 @@ Local playback                    Third-party hosting
 ## 8. Implementation Status
 
 ### 8.1 Completed
-- [x] SMSG format specification (v1 and v2)
+- [x] SMSG format specification (v1, v2, v3)
 - [x] Go encryption/decryption library (pkg/smsg)
 - [x] WASM build for browser (pkg/wasm/stmf)
 - [x] Native desktop app (Wails, cmd/dapp-fm-app)
@@ -491,17 +624,21 @@ Local playback                    Third-party hosting
 - [x] **Manifest links** - Artist platform links in metadata
 - [x] **Live demo** - https://demo.dapp.fm
 - [x] RFC-quality demo file with cryptographically secure password
+- [x] **v3 streaming format** - LTHN rolling keys with CEK wrapping
+- [x] **Configurable cadence** - daily/12h/6h/1h key rotation
+- [x] **WASM v1.3.0** - `BorgSMSG.decryptV3()` for streaming
+- [x] **Chunked streaming** - Independently decryptable chunks for seek/streaming
 
 ### 8.2 Fixed Issues
 - [x] ~~Double base64 encoding bug~~ - Fixed by using binary format
 - [x] ~~Demo file format detection~~ - v2 format auto-detected via header
+- [x] ~~Key wrapping for streaming~~ - Implemented in v3 format
 
 ### 8.3 Future Work
-- [ ] Chunked streaming (decrypt while downloading)
-- [ ] Key wrapping for multi-license files (dapp.radio.fm)
+- [ ] Multi-bitrate adaptive streaming (like HLS/DASH but encrypted)
 - [ ] Payment integration examples (Stripe, Gumroad)
 - [ ] IPFS distribution guide
-- [ ] Expiring license enforcement
+- [ ] Demo page "Streaming" tab for v3 showcase
 
 ## 9. Usage Examples
 

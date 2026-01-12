@@ -289,8 +289,26 @@ func (m *Manifest) AddLink(platform, url string) *Manifest {
 const (
 	FormatV1 = ""   // Original format: JSON with base64-encoded attachments
 	FormatV2 = "v2" // Binary format: JSON header + raw binary attachments
-	FormatV3 = "v3" // Streaming format: CEK wrapped with rolling LTHN keys
+	FormatV3 = "v3" // Streaming format: CEK wrapped with rolling LTHN keys, optional chunking
 )
+
+// Default chunk size for v3 chunked format (1MB)
+const DefaultChunkSize = 1024 * 1024
+
+// ChunkInfo describes a single chunk in v3 chunked format
+type ChunkInfo struct {
+	Offset int `json:"offset"` // byte offset in payload
+	Size   int `json:"size"`   // encrypted chunk size (includes nonce + tag)
+}
+
+// ChunkedInfo contains chunking metadata for v3 streaming
+// When present, enables decrypt-while-downloading and seeking
+type ChunkedInfo struct {
+	ChunkSize   int         `json:"chunkSize"`   // size of each chunk before encryption
+	TotalChunks int         `json:"totalChunks"` // number of chunks
+	TotalSize   int64       `json:"totalSize"`   // total unencrypted size
+	Index       []ChunkInfo `json:"index"`       // chunk locations for seeking
+}
 
 // Compression types
 const (
@@ -352,4 +370,7 @@ type Header struct {
 	KeyMethod   string       `json:"keyMethod,omitempty"`   // lthn-rolling for v3
 	Cadence     Cadence      `json:"cadence,omitempty"`     // key rotation frequency (daily, 12h, 6h, 1h)
 	WrappedKeys []WrappedKey `json:"wrappedKeys,omitempty"` // CEK wrapped with rolling keys
+
+	// V3 chunked streaming (optional - enables decrypt-while-downloading)
+	Chunked *ChunkedInfo `json:"chunked,omitempty"` // chunk index for seeking/range requests
 }

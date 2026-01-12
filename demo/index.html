@@ -983,6 +983,7 @@
                 <button class="mode-btn active" data-mode="profile">👤 Profile</button>
                 <button class="mode-btn" data-mode="fan">🎧 Fan</button>
                 <button class="mode-btn" data-mode="artist">🎨 Artist</button>
+                <button class="mode-btn" data-mode="streaming">📡 Streaming</button>
             </div>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; gap: 1rem;">
@@ -1334,6 +1335,151 @@
             </div>
         </div><!-- /artist-view -->
 
+        <!-- Streaming Mode -->
+        <div id="streaming-view" class="mode-view">
+            <div class="two-col">
+                <div class="tabs">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" data-streaming-tab="chunked">📦 Chunked Decrypt</button>
+                        <button class="tab-btn" data-streaming-tab="seek">⏩ Seek Demo</button>
+                    </div>
+                    <div class="tab-content">
+                        <!-- Chunked Decryption Tab -->
+                        <div id="streaming-chunked" class="tab-panel active">
+                            <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <span>📦</span> Chunk-by-Chunk Decryption
+                            </h3>
+                            <p style="color: #888; font-size: 0.85rem; margin-bottom: 1.5rem;">
+                                V3 streaming format enables decrypt-while-downloading. Each chunk is independently decryptable
+                                using a single Content Encryption Key (CEK). Perfect for large files and HTTP Range requests.
+                            </p>
+
+                            <div class="input-group" style="margin-bottom: 1rem;">
+                                <label style="color: #888; font-size: 0.85rem; margin-bottom: 0.5rem; display: block;">License Token:</label>
+                                <input type="text" id="streaming-license" placeholder="Enter license token..."
+                                       style="width: 100%; padding: 0.75rem 1rem; border: 2px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace;">
+                            </div>
+
+                            <button id="streaming-start-btn" class="demo-btn" disabled style="margin-bottom: 1.5rem;">
+                                Start Chunked Decryption
+                            </button>
+
+                            <!-- Progress visualization -->
+                            <div id="streaming-progress" style="display: none;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="color: #888; font-size: 0.85rem;">Decryption Progress</span>
+                                    <span id="streaming-progress-text" style="color: #00ff94; font-size: 0.85rem;">0%</span>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.3); border-radius: 8px; height: 12px; overflow: hidden; margin-bottom: 1rem;">
+                                    <div id="streaming-progress-bar" style="background: linear-gradient(90deg, #ff006e, #8338ec); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                                </div>
+
+                                <!-- Chunk grid visualization -->
+                                <div id="streaming-chunks" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(24px, 1fr)); gap: 4px; margin-bottom: 1rem;"></div>
+
+                                <div id="streaming-stats" style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 1rem; font-size: 0.8rem;">
+                                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                                        <div><span style="color: #888;">Total Chunks:</span> <span id="stat-total-chunks" style="color: #fff;">-</span></div>
+                                        <div><span style="color: #888;">Chunk Size:</span> <span id="stat-chunk-size" style="color: #fff;">-</span></div>
+                                        <div><span style="color: #888;">Decrypted:</span> <span id="stat-decrypted" style="color: #00ff94;">-</span></div>
+                                        <div><span style="color: #888;">Total Size:</span> <span id="stat-total-size" style="color: #fff;">-</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Result player -->
+                            <div id="streaming-player" style="display: none; margin-top: 1.5rem;">
+                                <div id="streaming-complete-banner" style="display: none; background: rgba(0,255,148,0.1); border: 1px solid rgba(0,255,148,0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; color: #00ff94; font-weight: 600;">
+                                        <span>✅</span> Decryption Complete - Ready to Play
+                                    </div>
+                                </div>
+                                <div id="streaming-media-wrapper"></div>
+                            </div>
+                        </div>
+
+                        <!-- Seek Demo Tab -->
+                        <div id="streaming-seek" class="tab-panel">
+                            <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <span>⏩</span> Seekable Streaming
+                            </h3>
+                            <p style="color: #888; font-size: 0.85rem; margin-bottom: 1.5rem;">
+                                Jump to any position without decrypting previous chunks. The chunk index in the header
+                                enables O(1) seeking to any byte offset.
+                            </p>
+
+                            <div class="input-group" style="margin-bottom: 1rem;">
+                                <label style="color: #888; font-size: 0.85rem; margin-bottom: 0.5rem; display: block;">Jump to Chunk:</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="number" id="seek-chunk-input" min="0" value="0"
+                                           style="flex: 1; padding: 0.75rem 1rem; border: 2px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff;">
+                                    <button id="seek-chunk-btn" class="demo-btn" disabled style="padding: 0.75rem 1.5rem; width: auto;">
+                                        Decrypt Chunk
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="seek-result" style="display: none; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                                <div style="color: #888; font-size: 0.8rem; margin-bottom: 0.5rem;">Chunk <span id="seek-chunk-num">0</span> Data (first 100 bytes hex):</div>
+                                <div id="seek-hex-output" style="font-family: monospace; font-size: 0.75rem; color: #00ff94; word-break: break-all; background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 6px;"></div>
+                                <div style="color: #888; font-size: 0.75rem; margin-top: 0.5rem;">
+                                    Decrypted <span id="seek-bytes-count">0</span> bytes from chunk <span id="seek-chunk-offset">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <div class="sidebar-card">
+                    <h3>📡 V3 Streaming Format</h3>
+                    <p class="sidebar-desc">
+                        Chunked encryption for large media files. Decrypt as you download, seek without decrypting everything.
+                    </p>
+
+                    <div class="sidebar-divider" style="margin: 1rem 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
+
+                    <h4 style="font-size: 0.85rem; color: #8338ec; margin-bottom: 0.75rem;">How It Works</h4>
+                    <div style="font-size: 0.8rem; color: #888; line-height: 1.6;">
+                        <p style="margin-bottom: 0.5rem;"><strong style="color: #fff;">1.</strong> Content split into fixed-size chunks (default 1MB)</p>
+                        <p style="margin-bottom: 0.5rem;"><strong style="color: #fff;">2.</strong> Single CEK encrypts all chunks</p>
+                        <p style="margin-bottom: 0.5rem;"><strong style="color: #fff;">3.</strong> Each chunk gets unique nonce</p>
+                        <p style="margin-bottom: 0.5rem;"><strong style="color: #fff;">4.</strong> Header contains chunk index with offsets</p>
+                        <p><strong style="color: #fff;">5.</strong> CEK wrapped with LTHN rolling keys</p>
+                    </div>
+
+                    <div class="sidebar-divider" style="margin: 1rem 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
+
+                    <h4 style="font-size: 0.85rem; color: #ff006e; margin-bottom: 0.75rem;">Use Cases</h4>
+                    <div style="font-size: 0.8rem; color: #888;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span>🎬</span> Large video files
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span>📻</span> Live streaming
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span>📱</span> Mobile with limited RAM
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span>🌐</span> CDN with Range requests
+                        </div>
+                    </div>
+
+                    <div class="sidebar-divider" style="margin: 1rem 0; border-top: 1px solid rgba(255,255,255,0.1);"></div>
+
+                    <div id="streaming-file-info" style="display: none;">
+                        <h4 style="font-size: 0.85rem; color: #00ff94; margin-bottom: 0.75rem;">Loaded File</h4>
+                        <div style="font-size: 0.8rem; color: #888;">
+                            <div><span style="color: #fff;">Format:</span> <span id="info-format">-</span></div>
+                            <div><span style="color: #fff;">Cadence:</span> <span id="info-cadence">-</span></div>
+                            <div><span style="color: #fff;">Chunked:</span> <span id="info-chunked">-</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /streaming-view -->
+
         <!-- Profile Mode -->
         <div id="profile-view" class="mode-view active">
             <div class="profile-layout">
@@ -1384,11 +1530,17 @@
 
                     <!-- Hero Video -->
                     <div class="profile-hero" style="position: relative; min-height: 300px;">
-                        <div id="profile-loading" class="profile-loading" style="position: absolute; inset: 0; background: rgba(15, 15, 26, 0.95); z-index: 10; border-radius: 20px;">
+                        <div id="profile-loading" class="profile-loading" style="display: none; position: absolute; inset: 0; background: rgba(15, 15, 26, 0.95); z-index: 10; border-radius: 20px;">
                             <div class="spinner"></div>
-                            <div>Decrypting content...</div>
+                            <div>Loading...</div>
                         </div>
-                        <video id="profile-video" style="opacity: 0; transition: opacity 0.5s;" autoplay loop controls playsinline></video>
+                        <div id="profile-play-btn" style="position: absolute; inset: 0; z-index: 10; cursor: pointer; background: rgba(15, 15, 26, 0.7); border-radius: 20px;">
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                                <div style="font-size: 64px; margin-bottom: 10px;">▶️</div>
+                                <div style="color: #fff; font-size: 18px;">Click to play</div>
+                            </div>
+                        </div>
+                        <video id="profile-video" style="opacity: 0; transition: opacity 0.5s;" loop controls playsinline></video>
                         <div class="profile-hero-overlay">
                             <div class="profile-hero-title">It Feels So Good</div>
                             <div class="profile-hero-artist">The Conductor & The Cowboy's Amnesia Mix</div>
@@ -1474,8 +1626,7 @@
                 document.getElementById('demo-btn').disabled = false;
                 // Enable Re-Key button if pre-filled values exist
                 if (typeof checkRekeyReady === 'function') checkRekeyReady();
-                // Auto-load profile video since it's the default view
-                if (typeof loadProfileVideo === 'function') loadProfileVideo();
+                // Profile play button is ready - click handler already attached
             } catch (err) {
                 statusEl.className = 'status error';
                 while (statusEl.firstChild) statusEl.removeChild(statusEl.firstChild);
@@ -1557,27 +1708,18 @@
                     position += chunk.length;
                 }
 
-                // Convert to base64 in chunks to avoid stack overflow
-                let base64 = '';
-                const chunkSize = 32768;
-                for (let i = 0; i < allChunks.length; i += chunkSize) {
-                    const chunk = allChunks.subarray(i, Math.min(i + chunkSize, allChunks.length));
-                    base64 += String.fromCharCode.apply(null, chunk);
-                }
-                base64 = btoa(base64);
-
-                // Get manifest first
+                // Get manifest first (binary API)
                 setProgress(60, 'Reading metadata...');
                 try {
-                    const info = await BorgSMSG.getInfo(base64);
+                    const info = await BorgSMSG.getInfoBinary(allChunks);
                     manifest = info.manifest;
                 } catch (e) {
                     console.log('No manifest:', e);
                 }
 
-                // Decrypt using streaming API (returns Uint8Array directly)
-                setProgress(70, 'Decrypting with ChaCha20-Poly1305...');
-                const msg = await BorgSMSG.decryptStream(base64, DEMO_PASSWORD);
+                // Decrypt using binary API - no base64, pure zstd speed!
+                setProgress(70, 'Decrypting (zstd)...');
+                const msg = await BorgSMSG.decryptBinary(allChunks, DEMO_PASSWORD);
 
                 setProgress(95, 'Preparing player...');
                 displayMedia(msg);
@@ -1812,29 +1954,21 @@
                 const arrayBuffer = await licenseFile.arrayBuffer();
                 const bytes = new Uint8Array(arrayBuffer);
 
-                setLicenseProgress(40, 'Preparing for decryption...');
+                setLicenseProgress(40, 'Reading metadata...');
 
-                // Convert to base64 in chunks
-                let base64 = '';
-                const chunkSize = 32768;
-                for (let i = 0; i < bytes.length; i += chunkSize) {
-                    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-                    base64 += String.fromCharCode.apply(null, chunk);
-                }
-                base64 = btoa(base64);
-
-                setLicenseProgress(60, 'Decrypting with ChaCha20-Poly1305...');
-
-                // Get manifest
+                // Get manifest (binary API)
                 let licenseManifest = null;
                 try {
-                    const info = await BorgSMSG.getInfo(base64);
+                    const info = await BorgSMSG.getInfoBinary(bytes);
                     licenseManifest = info.manifest;
                 } catch (e) {
                     console.log('No manifest:', e);
                 }
 
-                const msg = await BorgSMSG.decryptStream(base64, password);
+                setLicenseProgress(60, 'Decrypting (zstd)...');
+
+                // Decrypt using binary API - no base64, pure zstd speed!
+                const msg = await BorgSMSG.decryptBinary(bytes, password);
 
                 setLicenseProgress(90, 'Preparing player...');
                 displayLicensedMedia(msg, licenseManifest);
@@ -1957,71 +2091,70 @@
                 document.querySelectorAll('.mode-view').forEach(v => v.classList.remove('active'));
                 document.getElementById(mode + '-view').classList.add('active');
 
-                // Auto-load profile video when switching to profile mode
-                if (mode === 'profile' && !profileLoaded && wasmReady) {
-                    loadProfileVideo();
+                // Profile play button is always visible - no setup needed
+
+                // Initialize streaming demo when switching to streaming mode
+                if (mode === 'streaming' && wasmReady && !streamingHeaderInfo) {
+                    initStreamingDemo();
                 }
             });
         });
 
         // ========== PROFILE MODE ==========
-        async function loadProfileVideo() {
-            if (profileLoaded) return;
-
-            const loading = document.getElementById('profile-loading');
+        // Play button click handler - loads WASM and video only when clicked
+        document.getElementById('profile-play-btn').addEventListener('click', async function() {
+            const playBtn = this;
             const video = document.getElementById('profile-video');
 
+            // Show loading state
+            playBtn.innerHTML = '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;"><div class="spinner"></div><div style="color: #fff; font-size: 14px; margin-top: 10px;">Loading WASM...</div></div>';
+
             try {
+                // Load WASM if not ready
+                if (!wasmReady) {
+                    await initWasm();
+                }
+
+                playBtn.querySelector('div > div:last-child').textContent = 'Downloading...';
+
                 // Fetch encrypted content
                 const response = await fetch(DEMO_URL);
                 if (!response.ok) throw new Error('Demo file not found');
 
+                playBtn.querySelector('div > div:last-child').textContent = 'Decrypting...';
+
                 const buffer = await response.arrayBuffer();
                 const bytes = new Uint8Array(buffer);
 
-                // Convert to base64
-                let base64 = '';
-                const chunkSize = 32768;
-                for (let i = 0; i < bytes.length; i += chunkSize) {
-                    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-                    base64 += String.fromCharCode.apply(null, chunk);
-                }
-                base64 = btoa(base64);
+                // Decrypt directly from binary
+                const msg = await BorgSMSG.decryptBinary(bytes, DEMO_PASSWORD);
 
-                // Decrypt
-                const msg = await BorgSMSG.decryptStream(base64, DEMO_PASSWORD);
-
-                // Display video
                 if (msg.attachments && msg.attachments.length > 0) {
                     const att = msg.attachments[0];
                     if (att.mime.startsWith('video/')) {
                         const blob = new Blob([att.data], { type: att.mime });
-                        const url = URL.createObjectURL(blob);
-                        video.src = url;
+                        const videoUrl = URL.createObjectURL(blob);
 
                         // Start at specific timestamp for emotional impact
                         const PROFILE_START_TIME = 68; // 1:08 - the drop
+
+                        video.src = videoUrl;
                         video.addEventListener('loadedmetadata', () => {
                             video.currentTime = PROFILE_START_TIME;
                         }, { once: true });
 
-                        // Fade in smoothly when video can play
+                        // Hide play button, show video, and play
                         video.addEventListener('canplay', () => {
-                            loading.style.opacity = '0';
-                            loading.style.transition = 'opacity 0.5s';
+                            playBtn.style.display = 'none';
                             video.style.opacity = '1';
-                            setTimeout(() => {
-                                loading.style.display = 'none';
-                            }, 500);
+                            video.play();
                         }, { once: true });
-
-                        profileLoaded = true;
                     }
                 }
             } catch (err) {
-                loading.innerHTML = '<div style="color: #ff5252;">Failed to load: ' + err.message + '</div>';
+                playBtn.innerHTML = '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #ff5252;">Failed: ' + err.message + '</div>';
             }
-        }
+        }, { once: true });
 
         // ========== ARTIST MODE ==========
         let artistContentData = null;
@@ -2537,8 +2670,352 @@
             setTimeout(() => btn.textContent = 'Copy', 1500);
         });
 
-        // Init
-        initWasm();
+        // ========== STREAMING MODE ==========
+        // Uses v3 chunked format with chunk-by-chunk decryption
+        const STREAMING_V3_URL = 'demo-track-v3.smsg';  // V3 chunked file
+        const STREAMING_LICENSE = '6ZhMQ034bT6maHqMaJejoxDMpfaOQvq5';
+        let streamingHeaderInfo = null;
+        let streamingCEK = null;
+        let streamingFileBytes = null;
+
+        // Tab switching for streaming mode
+        document.querySelectorAll('[data-streaming-tab]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.streamingTab;
+                document.querySelectorAll('[data-streaming-tab]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('#streaming-chunked, #streaming-seek').forEach(p => p.classList.remove('active'));
+                document.getElementById('streaming-' + tab).classList.add('active');
+            });
+        });
+
+        async function initStreamingDemo() {
+            if (!wasmReady) return;
+
+            document.getElementById('streaming-license').value = STREAMING_LICENSE;
+
+            // Chunk grid will be populated when we know the actual chunk count
+            const progressDiv = document.getElementById('streaming-progress');
+            progressDiv.style.display = 'block';
+            document.getElementById('streaming-progress-bar').style.width = '0%';
+            document.getElementById('streaming-progress-text').textContent = 'Ready';
+            document.getElementById('stat-total-chunks').textContent = '-';
+            document.getElementById('stat-chunk-size').textContent = '-';
+            document.getElementById('stat-decrypted').textContent = '0 B';
+            document.getElementById('stat-total-size').textContent = '-';
+
+            document.getElementById('streaming-start-btn').disabled = false;
+            document.getElementById('seek-chunk-btn').disabled = false;
+
+            // Update sidebar for v3
+            document.getElementById('streaming-file-info').style.display = 'block';
+            document.getElementById('info-format').textContent = 'v3 (chunked)';
+            document.getElementById('info-cadence').textContent = 'daily';
+            document.getElementById('info-chunked').textContent = 'Yes';
+        }
+
+        // Chunk-by-chunk streaming decryption
+        document.getElementById('streaming-start-btn').addEventListener('click', async () => {
+            const license = document.getElementById('streaming-license').value;
+            if (!license) return;
+
+            const playerDiv = document.getElementById('streaming-player');
+            const wrapper = document.getElementById('streaming-media-wrapper');
+            const chunksDiv = document.getElementById('streaming-chunks');
+
+            // Show player
+            playerDiv.style.display = 'block';
+            wrapper.innerHTML = `
+                <div style="position: relative; border-radius: 12px; overflow: hidden; background: #000;">
+                    <video id="streaming-video" style="width: 100%; max-height: 300px; display: block; opacity: 0.3;" controls></video>
+                    <div id="buffer-overlay" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); padding: 0.5rem 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div style="color: #ff006e; font-size: 0.8rem;" id="buffer-status">Fetching header...</div>
+                            <div style="flex: 1; background: rgba(255,255,255,0.2); height: 4px; border-radius: 2px; overflow: hidden;">
+                                <div id="buffer-bar" style="background: linear-gradient(90deg, #ff006e, #8338ec); height: 100%; width: 0%; transition: width 0.1s;"></div>
+                            </div>
+                            <div id="buffer-text" style="color: #888; font-size: 0.75rem; font-family: monospace;">0%</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const updateStatus = (status) => {
+                document.getElementById('buffer-status').textContent = status;
+            };
+
+            const updateProgress = (percent) => {
+                document.getElementById('streaming-progress-bar').style.width = percent + '%';
+                document.getElementById('streaming-progress-text').textContent = Math.round(percent) + '%';
+                document.getElementById('buffer-bar').style.width = percent + '%';
+                document.getElementById('buffer-text').textContent = Math.round(percent) + '%';
+            };
+
+            const markChunk = (idx, state) => {
+                const el = document.getElementById('chunk-' + idx);
+                if (!el) return;
+                if (state === 'done') {
+                    el.style.background = 'linear-gradient(135deg, #ff006e, #8338ec)';
+                    el.style.color = '#fff';
+                } else if (state === 'active') {
+                    el.style.background = '#ff006e';
+                    el.style.color = '#fff';
+                }
+            };
+
+            try {
+                // Stream download with MediaSource - play video as chunks arrive
+                updateStatus('Connecting...');
+                const response = await fetch(STREAMING_V3_URL);
+                if (!response.ok) throw new Error('V3 file not found');
+
+                const contentLength = parseInt(response.headers.get('content-length') || '0');
+                const reader = response.body.getReader();
+
+                // Accumulate bytes as they stream in
+                let receivedBytes = new Uint8Array(contentLength || 50 * 1024 * 1024);
+                let receivedLength = 0;
+                let headerParsed = false;
+                let numChunks = 0;
+                let lastDecryptedChunk = -1;
+                let decryptedBytes = 0;
+
+                // Collect decrypted chunks for blob URL (works with any MP4)
+                const decryptedChunks = [];
+                let videoDataOffset = 0;
+                let mimeType = 'video/mp4';
+
+                // Read stream
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    // Append to buffer
+                    if (receivedLength + value.length > receivedBytes.length) {
+                        const newBuffer = new Uint8Array(receivedBytes.length * 2);
+                        newBuffer.set(receivedBytes);
+                        receivedBytes = newBuffer;
+                    }
+                    receivedBytes.set(value, receivedLength);
+                    receivedLength += value.length;
+
+                    updateStatus(`Downloading... ${formatBytes(receivedLength)}`);
+
+                    // Try to parse header once we have enough data
+                    if (!headerParsed && receivedLength > 5000) {
+                        try {
+                            streamingFileBytes = receivedBytes.subarray(0, receivedLength);
+                            streamingHeaderInfo = await BorgSMSG.parseV3Header(streamingFileBytes);
+
+                            if (streamingHeaderInfo.chunked) {
+                                headerParsed = true;
+                                numChunks = streamingHeaderInfo.chunked.totalChunks;
+
+                                // Update UI
+                                document.getElementById('stat-total-chunks').textContent = numChunks;
+                                document.getElementById('stat-chunk-size').textContent = formatBytes(streamingHeaderInfo.chunked.chunkSize);
+                                document.getElementById('stat-total-size').textContent = formatBytes(streamingHeaderInfo.chunked.totalSize);
+
+                                // Create chunk grid
+                                chunksDiv.innerHTML = '';
+                                for (let i = 0; i < numChunks; i++) {
+                                    const chunkEl = document.createElement('div');
+                                    chunkEl.style.cssText = 'width: 24px; height: 24px; border-radius: 4px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: #666; transition: all 0.15s;';
+                                    chunkEl.textContent = i + 1;
+                                    chunkEl.id = 'chunk-' + i;
+                                    chunksDiv.appendChild(chunkEl);
+                                }
+
+                                // Unwrap CEK
+                                updateStatus('Unwrapping key...');
+                                streamingCEK = await BorgSMSG.unwrapCEKFromHeader(
+                                    streamingHeaderInfo.wrappedKeys,
+                                    { license: license, fingerprint: '' },
+                                    streamingHeaderInfo.cadence
+                                );
+                            }
+                        } catch (e) {
+                            // Not enough data yet, keep downloading
+                        }
+                    }
+
+                    // Decrypt chunks as they become available
+                    if (headerParsed && streamingCEK) {
+                        for (let i = lastDecryptedChunk + 1; i < numChunks; i++) {
+                            const chunkInfo = streamingHeaderInfo.chunked.index[i];
+                            const chunkStart = streamingHeaderInfo.payloadOffset + chunkInfo.offset;
+                            const chunkEnd = chunkStart + chunkInfo.size;
+
+                            // Check if we have enough data for this chunk
+                            if (receivedLength >= chunkEnd) {
+                                markChunk(i, 'active');
+                                const chunkBytes = receivedBytes.subarray(chunkStart, chunkEnd);
+
+                                // Decrypt this chunk
+                                const decrypted = await BorgSMSG.decryptChunkDirect(chunkBytes, streamingCEK);
+                                decryptedBytes += decrypted.length;
+                                lastDecryptedChunk = i;
+
+                                // First chunk: parse metadata to get MIME type
+                                if (i === 0) {
+                                    for (let j = 0; j < Math.min(decrypted.length, 10000); j++) {
+                                        if (decrypted[j] === 0x7D) {
+                                            try {
+                                                const meta = JSON.parse(new TextDecoder().decode(decrypted.subarray(0, j + 1)));
+                                                videoDataOffset = j + 1;
+                                                if (meta.attachments && meta.attachments[0]) {
+                                                    mimeType = meta.attachments[0].mime || 'video/mp4';
+                                                }
+                                                break;
+                                            } catch (e) {}
+                                        }
+                                    }
+                                }
+
+                                // Store decrypted chunk
+                                decryptedChunks.push(decrypted);
+
+                                markChunk(i, 'done');
+                                updateProgress((i + 1) / numChunks * 100);
+                                document.getElementById('stat-decrypted').textContent = formatBytes(decryptedBytes);
+                                updateStatus(`Chunk ${i + 1}/${numChunks} decrypted`);
+                            } else {
+                                break; // Wait for more data
+                            }
+                        }
+                    }
+                }
+
+                // Final trim
+                streamingFileBytes = receivedBytes.subarray(0, receivedLength);
+
+                // Decrypt any remaining chunks
+                if (headerParsed && streamingCEK) {
+                    for (let i = lastDecryptedChunk + 1; i < numChunks; i++) {
+                        markChunk(i, 'active');
+                        const chunkInfo = streamingHeaderInfo.chunked.index[i];
+                        const chunkStart = streamingHeaderInfo.payloadOffset + chunkInfo.offset;
+                        const chunkEnd = chunkStart + chunkInfo.size;
+                        const chunkBytes = streamingFileBytes.subarray(chunkStart, chunkEnd);
+
+                        const decrypted = await BorgSMSG.decryptChunkDirect(chunkBytes, streamingCEK);
+                        decryptedBytes += decrypted.length;
+                        decryptedChunks.push(decrypted);
+
+                        markChunk(i, 'done');
+                        updateProgress((i + 1) / numChunks * 100);
+                        document.getElementById('stat-decrypted').textContent = formatBytes(decryptedBytes);
+                    }
+                }
+
+                // Combine decrypted chunks and create video blob
+                updateStatus('Assembling video...');
+                const totalSize = decryptedChunks.reduce((sum, c) => sum + c.length, 0);
+                const combined = new Uint8Array(totalSize);
+                let offset = 0;
+                for (const chunk of decryptedChunks) {
+                    combined.set(chunk, offset);
+                    offset += chunk.length;
+                }
+
+                // Extract video data (skip JSON metadata in first chunk)
+                const videoData = combined.subarray(videoDataOffset);
+                const blob = new Blob([videoData], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+
+                const video = document.getElementById('streaming-video');
+                video.src = url;
+                video.style.opacity = '1';
+                document.getElementById('buffer-overlay').style.display = 'none';
+
+                updateProgress(100);
+                updateStatus('Ready to play');
+                document.getElementById('streaming-complete-banner').style.display = 'block';
+
+            } catch (err) {
+                console.error('Streaming failed:', err);
+                document.getElementById('buffer-status').textContent = 'Error: ' + err.message;
+                document.getElementById('buffer-status').style.color = '#ff5252';
+            }
+        });
+
+        // Seek to specific chunk - uses v3 chunked format
+        document.getElementById('seek-chunk-btn').addEventListener('click', async () => {
+            const chunkNum = parseInt(document.getElementById('seek-chunk-input').value) || 0;
+            const license = document.getElementById('streaming-license').value;
+
+            if (!license) return;
+
+            try {
+                // Load file if not already loaded
+                if (!streamingFileBytes) {
+                    const response = await fetch(STREAMING_V3_URL);
+                    if (!response.ok) throw new Error('V3 file not found');
+                    streamingFileBytes = new Uint8Array(await response.arrayBuffer());
+                }
+
+                if (!streamingHeaderInfo) {
+                    streamingHeaderInfo = await BorgSMSG.parseV3Header(streamingFileBytes);
+                }
+
+                if (!streamingHeaderInfo.chunked) {
+                    throw new Error('Not a chunked file');
+                }
+
+                if (chunkNum >= streamingHeaderInfo.chunked.totalChunks) {
+                    throw new Error(`Chunk ${chunkNum} out of range (max: ${streamingHeaderInfo.chunked.totalChunks - 1})`);
+                }
+
+                if (!streamingCEK) {
+                    streamingCEK = await BorgSMSG.unwrapCEKFromHeader(
+                        streamingHeaderInfo.wrappedKeys,
+                        { license: license, fingerprint: '' },
+                        streamingHeaderInfo.cadence
+                    );
+                }
+
+                // Decrypt just this one chunk
+                const chunkInfo = streamingHeaderInfo.chunked.index[chunkNum];
+                const chunkStart = streamingHeaderInfo.payloadOffset + chunkInfo.offset;
+                const chunkEnd = chunkStart + chunkInfo.size;
+                const chunkBytes = streamingFileBytes.subarray(chunkStart, chunkEnd);
+
+                const decrypted = await BorgSMSG.decryptChunkDirect(chunkBytes, streamingCEK);
+
+                // Show hex output
+                const hexOutput = Array.from(decrypted.slice(0, 100))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join(' ');
+
+                document.getElementById('seek-result').style.display = 'block';
+                document.getElementById('seek-chunk-num').textContent = chunkNum;
+                document.getElementById('seek-hex-output').textContent = hexOutput || '(empty)';
+                document.getElementById('seek-bytes-count').textContent = decrypted.length;
+                document.getElementById('seek-chunk-offset').textContent = 'offset ' + chunkInfo.offset;
+
+            } catch (err) {
+                console.error('Seek failed:', err);
+                document.getElementById('seek-result').style.display = 'block';
+                document.getElementById('seek-hex-output').textContent = 'Error: ' + err.message;
+            }
+        });
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // Initialize streaming demo when switching to that mode
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (btn.dataset.mode === 'streaming' && wasmReady && !streamingHeaderInfo) {
+                    initStreamingDemo();
+                }
+            });
+        });
+
+        // WASM loads lazily on first interaction - no auto-init
     </script>
 </body>
 </html>

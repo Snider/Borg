@@ -379,3 +379,299 @@ func TestRollingKeyWindow(t *testing.T) {
 		t.Error("Missing tomorrow's wrapped key")
 	}
 }
+
+// =============================================================================
+// V3 Chunked Streaming Tests
+// =============================================================================
+
+func TestEncryptDecryptV3ChunkedBasic(t *testing.T) {
+	msg := NewMessage("This is a chunked streaming test message")
+	msg.WithSubject("Chunked Test")
+
+	params := &StreamParams{
+		License:     "chunk-license",
+		Fingerprint: "chunk-fp",
+		ChunkSize:   64, // Small chunks for testing
+	}
+
+	manifest := NewManifest("Chunked Track")
+	manifest.Artist = "Test Artist"
+
+	// Encrypt with chunking
+	encrypted, err := EncryptV3(msg, params, manifest)
+	if err != nil {
+		t.Fatalf("EncryptV3 (chunked) failed: %v", err)
+	}
+
+	// Decrypt - automatically handles chunked format
+	decrypted, header, err := DecryptV3(encrypted, params)
+	if err != nil {
+		t.Fatalf("DecryptV3 (chunked) failed: %v", err)
+	}
+
+	// Verify content
+	if decrypted.Body != msg.Body {
+		t.Errorf("Body = %q, want %q", decrypted.Body, msg.Body)
+	}
+	if decrypted.Subject != msg.Subject {
+		t.Errorf("Subject = %q, want %q", decrypted.Subject, msg.Subject)
+	}
+
+	// Verify header
+	if header.Format != FormatV3 {
+		t.Errorf("Format = %q, want %q", header.Format, FormatV3)
+	}
+	if header.Chunked == nil {
+		t.Fatal("Chunked info is nil")
+	}
+	if header.Chunked.ChunkSize != 64 {
+		t.Errorf("ChunkSize = %d, want 64", header.Chunked.ChunkSize)
+	}
+}
+
+func TestV3ChunkedWithAttachment(t *testing.T) {
+	// Create a message with attachment larger than chunk size
+	attachmentData := make([]byte, 256)
+	for i := range attachmentData {
+		attachmentData[i] = byte(i)
+	}
+
+	msg := NewMessage("Message with large attachment")
+	msg.AddBinaryAttachment("test.bin", attachmentData, "application/octet-stream")
+
+	params := &StreamParams{
+		License:     "attach-license",
+		Fingerprint: "attach-fp",
+		ChunkSize:   64, // Force multiple chunks
+	}
+
+	// Encrypt
+	encrypted, err := EncryptV3(msg, params, nil)
+	if err != nil {
+		t.Fatalf("EncryptV3 (chunked) failed: %v", err)
+	}
+
+	// Verify we have multiple chunks
+	header, err := GetV3Header(encrypted)
+	if err != nil {
+		t.Fatalf("GetV3Header failed: %v", err)
+	}
+
+	if header.Chunked.TotalChunks <= 1 {
+		t.Errorf("TotalChunks = %d, want > 1", header.Chunked.TotalChunks)
+	}
+
+	// Decrypt
+	decrypted, _, err := DecryptV3(encrypted, params)
+	if err != nil {
+		t.Fatalf("DecryptV3 (chunked) failed: %v", err)
+	}
+
+	// Verify attachment
+	if len(decrypted.Attachments) != 1 {
+		t.Fatalf("Attachment count = %d, want 1", len(decrypted.Attachments))
+	}
+}
+
+func TestV3ChunkedIndividualChunks(t *testing.T) {
+	// Create content that spans multiple chunks
+	largeContent := make([]byte, 200)
+	for i := range largeContent {
+		largeContent[i] = byte(i % 256)
+	}
+
+	msg := NewMessage("Chunk-by-chunk test")
+	msg.AddBinaryAttachment("data.bin", largeContent, "application/octet-stream")
+
+	params := &StreamParams{
+		License:     "individual-license",
+		Fingerprint: "individual-fp",
+		ChunkSize:   50, // Force ~5 chunks
+	}
+
+	// Encrypt
+	encrypted, err := EncryptV3(msg, params, nil)
+	if err != nil {
+		t.Fatalf("EncryptV3 (chunked) failed: %v", err)
+	}
+
+	// Get header and payload
+	header, err := GetV3Header(encrypted)
+	if err != nil {
+		t.Fatalf("GetV3Header failed: %v", err)
+	}
+
+	payload, err := GetV3Payload(encrypted)
+	if err != nil {
+		t.Fatalf("GetV3Payload failed: %v", err)
+	}
+
+	// Unwrap CEK
+	cek, err := UnwrapCEKFromHeader(header, params)
+	if err != nil {
+		t.Fatalf("UnwrapCEKFromHeader failed: %v", err)
+	}
+
+	// Decrypt each chunk individually
+	var allDecrypted []byte
+	for i := 0; i < header.Chunked.TotalChunks; i++ {
+		chunk, err := DecryptV3Chunk(payload, cek, i, header.Chunked)
+		if err != nil {
+			t.Fatalf("DecryptV3Chunk(%d) failed: %v", i, err)
+		}
+		allDecrypted = append(allDecrypted, chunk...)
+	}
+
+	// Verify total size matches
+	if int64(len(allDecrypted)) != header.Chunked.TotalSize {
+		t.Errorf("Decrypted size = %d, want %d", len(allDecrypted), header.Chunked.TotalSize)
+	}
+}
+
+func TestV3ChunkedWrongLicense(t *testing.T) {
+	msg := NewMessage("Secret chunked content")
+
+	params := &StreamParams{
+		License:     "correct-chunked-license",
+		Fingerprint: "device-fp",
+		ChunkSize:   64,
+	}
+
+	encrypted, err := EncryptV3(msg, params, nil)
+	if err != nil {
+		t.Fatalf("EncryptV3 (chunked) failed: %v", err)
+	}
+
+	// Try to decrypt with wrong license
+	wrongParams := &StreamParams{
+		License:     "wrong-chunked-license",
+		Fingerprint: "device-fp",
+	}
+
+	_, _, err = DecryptV3(encrypted, wrongParams)
+	if err == nil {
+		t.Error("DecryptV3 (chunked) with wrong license should fail")
+	}
+	if err != ErrNoValidKey {
+		t.Errorf("Error = %v, want ErrNoValidKey", err)
+	}
+}
+
+func TestV3ChunkedChunkIndex(t *testing.T) {
+	msg := NewMessage("Index test")
+	msg.AddBinaryAttachment("test.dat", make([]byte, 150), "application/octet-stream")
+
+	params := &StreamParams{
+		License:     "index-license",
+		Fingerprint: "index-fp",
+		ChunkSize:   50,
+	}
+
+	encrypted, err := EncryptV3(msg, params, nil)
+	if err != nil {
+		t.Fatalf("EncryptV3 (chunked) failed: %v", err)
+	}
+
+	header, err := GetV3Header(encrypted)
+	if err != nil {
+		t.Fatalf("GetV3Header failed: %v", err)
+	}
+
+	// Verify index structure
+	if len(header.Chunked.Index) != header.Chunked.TotalChunks {
+		t.Errorf("Index length = %d, want %d", len(header.Chunked.Index), header.Chunked.TotalChunks)
+	}
+
+	// Verify offsets are sequential
+	expectedOffset := 0
+	for i, ci := range header.Chunked.Index {
+		if ci.Offset != expectedOffset {
+			t.Errorf("Chunk %d offset = %d, want %d", i, ci.Offset, expectedOffset)
+		}
+		expectedOffset += ci.Size
+	}
+}
+
+func TestV3ChunkedSeekMiddleChunk(t *testing.T) {
+	// Create predictable data
+	data := make([]byte, 300)
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+
+	msg := NewMessage("Seek test")
+	msg.AddBinaryAttachment("seek.bin", data, "application/octet-stream")
+
+	params := &StreamParams{
+		License:     "seek-license",
+		Fingerprint: "seek-fp",
+		ChunkSize:   100, // 3 data chunks minimum
+	}
+
+	encrypted, err := EncryptV3(msg, params, nil)
+	if err != nil {
+		t.Fatalf("EncryptV3 (chunked) failed: %v", err)
+	}
+
+	header, err := GetV3Header(encrypted)
+	if err != nil {
+		t.Fatalf("GetV3Header failed: %v", err)
+	}
+
+	payload, err := GetV3Payload(encrypted)
+	if err != nil {
+		t.Fatalf("GetV3Payload failed: %v", err)
+	}
+
+	cek, err := UnwrapCEKFromHeader(header, params)
+	if err != nil {
+		t.Fatalf("UnwrapCEKFromHeader failed: %v", err)
+	}
+
+	// Skip to middle chunk (simulate seeking)
+	if header.Chunked.TotalChunks < 2 {
+		t.Skip("Need at least 2 chunks for seek test")
+	}
+
+	middleIdx := header.Chunked.TotalChunks / 2
+	chunk, err := DecryptV3Chunk(payload, cek, middleIdx, header.Chunked)
+	if err != nil {
+		t.Fatalf("DecryptV3Chunk(%d) failed: %v", middleIdx, err)
+	}
+
+	// Just verify we got something
+	if len(chunk) == 0 {
+		t.Error("Middle chunk is empty")
+	}
+}
+
+func TestV3NonChunkedStillWorks(t *testing.T) {
+	// Verify non-chunked v3 still works (ChunkSize = 0)
+	msg := NewMessage("Non-chunked v3 test")
+	msg.WithSubject("No Chunks")
+
+	params := &StreamParams{
+		License:     "non-chunk-license",
+		Fingerprint: "non-chunk-fp",
+		// ChunkSize = 0 (default) - no chunking
+	}
+
+	encrypted, err := EncryptV3(msg, params, nil)
+	if err != nil {
+		t.Fatalf("EncryptV3 (non-chunked) failed: %v", err)
+	}
+
+	decrypted, header, err := DecryptV3(encrypted, params)
+	if err != nil {
+		t.Fatalf("DecryptV3 (non-chunked) failed: %v", err)
+	}
+
+	if decrypted.Body != msg.Body {
+		t.Errorf("Body = %q, want %q", decrypted.Body, msg.Body)
+	}
+
+	// Non-chunked should not have Chunked info
+	if header.Chunked != nil {
+		t.Error("Non-chunked v3 should not have Chunked info")
+	}
+}
