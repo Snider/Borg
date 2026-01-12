@@ -42,19 +42,15 @@ func main() {
 		password = base64.RawURLEncoding.EncodeToString(passwordBytes)
 	}
 
-	// Create manifest
-	manifest := smsg.NewManifest("It Feels So Good (The Conductor & The Cowboy's Amnesia Mix)")
-	manifest.Artist = "Sonique"
+	// Create manifest with filename as title
+	title := filepath.Base(inputFile)
+	ext := filepath.Ext(title)
+	if ext != "" {
+		title = title[:len(title)-len(ext)]
+	}
+	manifest := smsg.NewManifest(title)
 	manifest.LicenseType = "perpetual"
 	manifest.Format = "dapp.fm/v1"
-	manifest.ReleaseType = "single"
-	manifest.Duration = 253 // 4:13
-	manifest.AddTrack("It Feels So Good (The Conductor & The Cowboy's Amnesia Mix)", 0)
-
-	// Artist links - direct to artist, skip the middlemen
-	// "home" = preferred landing page, artist name should always link here
-	manifest.AddLink("home", "https://linktr.ee/conductorandcowboy")
-	manifest.AddLink("beatport", "https://www.beatport.com/artist/the-conductor-the-cowboy/635335")
 
 	// Create message with attachment (using binary attachment for v2 format)
 	msg := smsg.NewMessage("Welcome to dapp.fm - Zero-Trust DRM for the open web.")
