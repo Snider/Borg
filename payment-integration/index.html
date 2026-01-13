@@ -1,0 +1,1025 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="CLI and library for collecting repositories, websites, and PWAs into portable data artifacts.">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Payment Integration Guide - Borg Data Collector</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#payment-integration-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Borg Data Collector" class="md-header__button md-logo" aria-label="Borg Data Collector" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Borg Data Collector
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Payment Integration Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Snider/Borg" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Overview
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../cli/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  CLI Usage
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../library/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Library Usage
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../development/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Development
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../releasing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Releasing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Borg Data Collector" class="md-nav__button md-logo" aria-label="Borg Data Collector" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Borg Data Collector
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Snider/Borg" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releasing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releasing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="payment-integration-guide">Payment Integration Guide</h1>
+<p>This guide shows how to sell your encrypted <code>.smsg</code> content and deliver license keys (passwords) to customers using popular payment processors.</p>
+<h2 id="overview">Overview</h2>
+<p>The dapp.fm model is simple:</p>
+<pre><code>1. Customer pays via Stripe/Gumroad/PayPal
+2. Payment processor triggers webhook or delivers digital product
+3. Customer receives password (license key)
+4. Customer downloads .smsg from your CDN/IPFS
+5. Customer decrypts with password - done forever
+</code></pre>
+<p>No license servers, no accounts, no ongoing infrastructure.</p>
+<h2 id="stripe-integration">Stripe Integration</h2>
+<h3 id="option-1-stripe-payment-links-easiest">Option 1: Stripe Payment Links (Easiest)</h3>
+<p>No code required - use Stripe's hosted checkout:</p>
+<ol>
+<li>Create a Payment Link in Stripe Dashboard</li>
+<li>Set up a webhook to email the password on successful payment</li>
+<li>Host your <code>.smsg</code> file anywhere (CDN, IPFS, S3)</li>
+</ol>
+<p><strong>Webhook endpoint (Node.js/Express):</strong></p>
+<pre><code class="language-javascript">const express = require('express');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const nodemailer = require('nodemailer');
+
+const app = express();
+
+// Your content passwords (store securely!)
+const PRODUCTS = {
+  'prod_ABC123': {
+    name: 'My Album',
+    password: 'PMVXogAJNVe_DDABfTmLYztaJAzsD0R7',
+    downloadUrl: 'https://ipfs.io/ipfs/QmYourCID'
+  }
+};
+
+app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =&gt; {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const customerEmail = session.customer_details.email;
+    const productId = session.metadata.product_id;
+    const product = PRODUCTS[productId];
+
+    if (product) {
+      await sendLicenseEmail(customerEmail, product);
+    }
+  }
+
+  res.json({received: true});
+});
+
+async function sendLicenseEmail(email, product) {
+  const transporter = nodemailer.createTransport({
+    // Configure your email provider
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    }
+  });
+
+  await transporter.sendMail({
+    from: 'artist@example.com',
+    to: email,
+    subject: `Your License Key for ${product.name}`,
+    html: `
+      &lt;h1&gt;Thank you for your purchase!&lt;/h1&gt;
+      &lt;p&gt;&lt;strong&gt;Download:&lt;/strong&gt; &lt;a href=&quot;${product.downloadUrl}&quot;&gt;${product.name}&lt;/a&gt;&lt;/p&gt;
+      &lt;p&gt;&lt;strong&gt;License Key:&lt;/strong&gt; &lt;code&gt;${product.password}&lt;/code&gt;&lt;/p&gt;
+      &lt;p&gt;&lt;strong&gt;How to play:&lt;/strong&gt;&lt;/p&gt;
+      &lt;ol&gt;
+        &lt;li&gt;Download the .smsg file from the link above&lt;/li&gt;
+        &lt;li&gt;Go to &lt;a href=&quot;https://demo.dapp.fm&quot;&gt;demo.dapp.fm&lt;/a&gt;&lt;/li&gt;
+        &lt;li&gt;Click &quot;Fan&quot; tab, then &quot;Unlock Licensed Content&quot;&lt;/li&gt;
+        &lt;li&gt;Paste the file and enter your license key&lt;/li&gt;
+      &lt;/ol&gt;
+      &lt;p&gt;This is your permanent license - save this email!&lt;/p&gt;
+    `
+  });
+}
+
+app.listen(3000);
+</code></pre>
+<h3 id="option-2-stripe-checkout-session-more-control">Option 2: Stripe Checkout Session (More Control)</h3>
+<pre><code class="language-javascript">const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Create checkout session
+app.post('/create-checkout', async (req, res) =&gt; {
+  const { productId } = req.body;
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [{
+      price: 'price_ABC123', // Your Stripe price ID
+      quantity: 1,
+    }],
+    mode: 'payment',
+    success_url: 'https://yoursite.com/success?session_id={CHECKOUT_SESSION_ID}',
+    cancel_url: 'https://yoursite.com/cancel',
+    metadata: {
+      product_id: productId
+    }
+  });
+
+  res.json({ url: session.url });
+});
+
+// Success page - show license after payment
+app.get('/success', async (req, res) =&gt; {
+  const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
+
+  if (session.payment_status === 'paid') {
+    const product = PRODUCTS[session.metadata.product_id];
+    res.send(`
+      &lt;h1&gt;Thank you!&lt;/h1&gt;
+      &lt;p&gt;Download: &lt;a href=&quot;${product.downloadUrl}&quot;&gt;${product.name}&lt;/a&gt;&lt;/p&gt;
+      &lt;p&gt;License Key: &lt;code&gt;${product.password}&lt;/code&gt;&lt;/p&gt;
+    `);
+  } else {
+    res.send('Payment not completed');
+  }
+});
+</code></pre>
+<h2 id="gumroad-integration">Gumroad Integration</h2>
+<p>Gumroad is perfect for artists - handles payments, delivery, and customer management.</p>
+<h3 id="setup">Setup</h3>
+<ol>
+<li>Create a Digital Product on Gumroad</li>
+<li>Upload a text file or PDF containing the password</li>
+<li>Set your <code>.smsg</code> download URL in the product description</li>
+<li>Gumroad delivers the password file on purchase</li>
+</ol>
+<h3 id="product-setup">Product Setup</h3>
+<p><strong>Product Description:</strong></p>
+<pre><code>My Album - Encrypted Digital Download
+
+After purchase, you'll receive:
+1. A license key (in the download)
+2. Download link for the .smsg file
+
+How to play:
+1. Download the .smsg file: https://ipfs.io/ipfs/QmYourCID
+2. Go to https://demo.dapp.fm
+3. Click &quot;Fan&quot; → &quot;Unlock Licensed Content&quot;
+4. Enter your license key from the PDF
+</code></pre>
+<p><strong>Delivered File (license.txt):</strong></p>
+<pre><code>Your License Key: PMVXogAJNVe_DDABfTmLYztaJAzsD0R7
+
+Download your content: https://ipfs.io/ipfs/QmYourCID
+
+This is your permanent license - keep this file safe!
+The content works offline forever with this key.
+
+Need help? Visit https://demo.dapp.fm
+</code></pre>
+<h3 id="gumroad-ping-webhook">Gumroad Ping (Webhook)</h3>
+<p>For automated delivery, use Gumroad's Ping feature:</p>
+<pre><code class="language-javascript">const express = require('express');
+const app = express();
+
+app.use(express.urlencoded({ extended: true }));
+
+// Gumroad sends POST to this endpoint on sale
+app.post('/gumroad-ping', (req, res) =&gt; {
+  const {
+    seller_id,
+    product_id,
+    email,
+    full_name,
+    purchaser_id
+  } = req.body;
+
+  // Verify it's from Gumroad (check seller_id matches yours)
+  if (seller_id !== process.env.GUMROAD_SELLER_ID) {
+    return res.status(403).send('Invalid seller');
+  }
+
+  const product = PRODUCTS[product_id];
+  if (product) {
+    // Send custom email with password
+    sendLicenseEmail(email, product);
+  }
+
+  res.send('OK');
+});
+</code></pre>
+<h2 id="paypal-integration">PayPal Integration</h2>
+<h3 id="paypal-buttons-ipn">PayPal Buttons + IPN</h3>
+<pre><code class="language-html">&lt;!-- PayPal Buy Button --&gt;
+&lt;form action=&quot;https://www.paypal.com/cgi-bin/webscr&quot; method=&quot;post&quot;&gt;
+  &lt;input type=&quot;hidden&quot; name=&quot;cmd&quot; value=&quot;_xclick&quot;&gt;
+  &lt;input type=&quot;hidden&quot; name=&quot;business&quot; value=&quot;artist@example.com&quot;&gt;
+  &lt;input type=&quot;hidden&quot; name=&quot;item_name&quot; value=&quot;My Album - Digital Download&quot;&gt;
+  &lt;input type=&quot;hidden&quot; name=&quot;item_number&quot; value=&quot;album-001&quot;&gt;
+  &lt;input type=&quot;hidden&quot; name=&quot;amount&quot; value=&quot;9.99&quot;&gt;
+  &lt;input type=&quot;hidden&quot; name=&quot;currency_code&quot; value=&quot;USD&quot;&gt;
+  &lt;input type=&quot;hidden&quot; name=&quot;notify_url&quot; value=&quot;https://yoursite.com/paypal-ipn&quot;&gt;
+  &lt;input type=&quot;hidden&quot; name=&quot;return&quot; value=&quot;https://yoursite.com/thank-you&quot;&gt;
+  &lt;input type=&quot;submit&quot; value=&quot;Buy Now - $9.99&quot;&gt;
+&lt;/form&gt;
+</code></pre>
+<p><strong>IPN Handler:</strong></p>
+<pre><code class="language-javascript">const express = require('express');
+const axios = require('axios');
+
+app.post('/paypal-ipn', express.urlencoded({ extended: true }), async (req, res) =&gt; {
+  // Verify with PayPal
+  const verifyUrl = 'https://ipnpb.paypal.com/cgi-bin/webscr';
+  const verifyBody = 'cmd=_notify-validate&amp;' + new URLSearchParams(req.body).toString();
+
+  const response = await axios.post(verifyUrl, verifyBody);
+
+  if (response.data === 'VERIFIED' &amp;&amp; req.body.payment_status === 'Completed') {
+    const email = req.body.payer_email;
+    const itemNumber = req.body.item_number;
+    const product = PRODUCTS[itemNumber];
+
+    if (product) {
+      await sendLicenseEmail(email, product);
+    }
+  }
+
+  res.send('OK');
+});
+</code></pre>
+<h2 id="ko-fi-integration">Ko-fi Integration</h2>
+<p>Ko-fi is great for tips and single purchases.</p>
+<h3 id="setup_1">Setup</h3>
+<ol>
+<li>Enable "Commissions" or "Shop" on Ko-fi</li>
+<li>Create a product with the license key in the thank-you message</li>
+<li>Link to your .smsg download</li>
+</ol>
+<p><strong>Ko-fi Thank You Message:</strong></p>
+<pre><code>Thank you for your purchase!
+
+Your License Key: PMVXogAJNVe_DDABfTmLYztaJAzsD0R7
+
+Download: https://ipfs.io/ipfs/QmYourCID
+
+Play at: https://demo.dapp.fm (Fan → Unlock Licensed Content)
+</code></pre>
+<h2 id="serverless-options">Serverless Options</h2>
+<h3 id="vercelnetlify-functions">Vercel/Netlify Functions</h3>
+<p>No server needed - use serverless functions:</p>
+<pre><code class="language-javascript">// api/stripe-webhook.js (Vercel)
+import Stripe from 'stripe';
+import { Resend } from 'resend';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).end();
+  }
+
+  const sig = req.headers['stripe-signature'];
+  const event = stripe.webhooks.constructEvent(
+    req.body,
+    sig,
+    process.env.STRIPE_WEBHOOK_SECRET
+  );
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+
+    await resend.emails.send({
+      from: 'artist@yoursite.com',
+      to: session.customer_details.email,
+      subject: 'Your License Key',
+      html: `
+        &lt;p&gt;Download: &lt;a href=&quot;https://ipfs.io/ipfs/QmYourCID&quot;&gt;My Album&lt;/a&gt;&lt;/p&gt;
+        &lt;p&gt;License Key: &lt;code&gt;PMVXogAJNVe_DDABfTmLYztaJAzsD0R7&lt;/code&gt;&lt;/p&gt;
+      `
+    });
+  }
+
+  res.json({ received: true });
+}
+
+export const config = {
+  api: { bodyParser: false }
+};
+</code></pre>
+<h2 id="manual-workflow-no-code">Manual Workflow (No Code)</h2>
+<p>For artists who don't want to set up webhooks:</p>
+<h3 id="using-email">Using Email</h3>
+<ol>
+<li><strong>Gumroad/Ko-fi</strong>: Set product to require email</li>
+<li><strong>Manual delivery</strong>: Check sales daily, email passwords manually</li>
+<li><strong>Template</strong>:</li>
+</ol>
+<pre><code>Subject: Your License for [Album Name]
+
+Hi [Name],
+
+Thank you for your purchase!
+
+Download: [IPFS/CDN link]
+License Key: [password]
+
+How to play:
+1. Download the .smsg file
+2. Go to demo.dapp.fm
+3. Fan tab → Unlock Licensed Content
+4. Enter your license key
+
+Enjoy! This license works forever.
+
+[Artist Name]
+</code></pre>
+<h3 id="using-discordtelegram">Using Discord/Telegram</h3>
+<ol>
+<li>Sell via Gumroad (free tier)</li>
+<li>Require customers join your Discord/Telegram</li>
+<li>Bot or manual delivery of license keys</li>
+<li>Community building bonus!</li>
+</ol>
+<h2 id="security-best-practices">Security Best Practices</h2>
+<h3 id="1-one-password-per-product">1. One Password Per Product</h3>
+<p>Don't reuse passwords across products:</p>
+<pre><code class="language-javascript">const PRODUCTS = {
+  'album-2024': { password: 'unique-key-1' },
+  'album-2023': { password: 'unique-key-2' },
+  'single-summer': { password: 'unique-key-3' }
+};
+</code></pre>
+<h3 id="2-environment-variables">2. Environment Variables</h3>
+<p>Never hardcode passwords in source:</p>
+<pre><code class="language-bash"># .env
+ALBUM_2024_PASSWORD=PMVXogAJNVe_DDABfTmLYztaJAzsD0R7
+STRIPE_SECRET_KEY=sk_live_...
+</code></pre>
+<h3 id="3-webhook-verification">3. Webhook Verification</h3>
+<p>Always verify webhooks are from the payment provider:</p>
+<pre><code class="language-javascript">// Stripe
+stripe.webhooks.constructEvent(body, sig, secret);
+
+// Gumroad
+if (seller_id !== MY_SELLER_ID) reject();
+
+// PayPal
+verify with IPN endpoint
+</code></pre>
+<h3 id="4-https-only">4. HTTPS Only</h3>
+<p>All webhook endpoints must use HTTPS.</p>
+<h2 id="pricing-strategies">Pricing Strategies</h2>
+<h3 id="direct-sale-perpetual-license">Direct Sale (Perpetual License)</h3>
+<ul>
+<li>Customer pays once, owns forever</li>
+<li>Single password for all buyers</li>
+<li>Best for: Albums, films, books</li>
+</ul>
+<h3 id="time-limited-streamingrental">Time-Limited (Streaming/Rental)</h3>
+<p>Use dapp.fm Re-Key feature:</p>
+<ol>
+<li>Encrypt master copy with master password</li>
+<li>On purchase, re-key with customer-specific password + expiry</li>
+<li>Deliver unique password per customer</li>
+</ol>
+<pre><code class="language-javascript">// On purchase webhook
+const customerPassword = generateUniquePassword();
+const expiry = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+
+// Use WASM or Go to re-key
+const customerVersion = await rekeyContent(masterSmsg, masterPassword, customerPassword, expiry);
+
+// Deliver customer-specific file + password
+</code></pre>
+<h3 id="tiered-access">Tiered Access</h3>
+<p>Different passwords for different tiers:</p>
+<pre><code class="language-javascript">const TIERS = {
+  'preview': { password: 'preview-key', expiry: '30s' },
+  'rental': { password: 'rental-key', expiry: '7d' },
+  'own': { password: 'perpetual-key', expiry: null }
+};
+</code></pre>
+<h2 id="example-complete-stripe-setup">Example: Complete Stripe Setup</h2>
+<pre><code class="language-bash"># 1. Create your content
+go run ./cmd/mkdemo album.mp4 album.smsg
+# Password: PMVXogAJNVe_DDABfTmLYztaJAzsD0R7
+
+# 2. Upload to IPFS
+ipfs add album.smsg
+# QmAlbumCID
+
+# 3. Create Stripe product
+# Dashboard → Products → Add Product
+# Name: My Album
+# Price: $9.99
+
+# 4. Create Payment Link
+# Dashboard → Payment Links → New
+# Select your product
+# Get link: https://buy.stripe.com/xxx
+
+# 5. Set up webhook
+# Dashboard → Developers → Webhooks → Add endpoint
+# URL: https://yoursite.com/api/stripe-webhook
+# Events: checkout.session.completed
+
+# 6. Deploy webhook handler (Vercel example)
+vercel deploy
+
+# 7. Share payment link
+# Fans click → Pay → Get email with password → Download → Play forever
+</code></pre>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><a href="https://stripe.com/docs/webhooks">Stripe Webhooks</a></li>
+<li><a href="https://help.gumroad.com/article/149-ping">Gumroad Ping</a></li>
+<li><a href="https://developer.paypal.com/docs/ipn/">PayPal IPN</a></li>
+<li><a href="https://resend.com/">Resend (Email API)</a></li>
+<li><a href="https://vercel.com/docs/functions">Vercel Functions</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

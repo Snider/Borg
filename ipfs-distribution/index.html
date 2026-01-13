@@ -1,0 +1,869 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="CLI and library for collecting repositories, websites, and PWAs into portable data artifacts.">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>IPFS Distribution Guide - Borg Data Collector</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ipfs-distribution-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Borg Data Collector" class="md-header__button md-logo" aria-label="Borg Data Collector" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Borg Data Collector
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              IPFS Distribution Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Snider/Borg" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Overview
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../cli/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  CLI Usage
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../library/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Library Usage
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../development/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Development
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../releasing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Releasing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Borg Data Collector" class="md-nav__button md-logo" aria-label="Borg Data Collector" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Borg Data Collector
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Snider/Borg" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releasing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releasing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="ipfs-distribution-guide">IPFS Distribution Guide</h1>
+<p>This guide explains how to distribute your encrypted <code>.smsg</code> content via IPFS (InterPlanetary File System) for permanent, decentralized hosting.</p>
+<h2 id="why-ipfs">Why IPFS?</h2>
+<p>IPFS is ideal for dapp.fm content because:</p>
+<ul>
+<li><strong>Permanent links</strong> - Content-addressed (CID) means the URL never changes</li>
+<li><strong>No hosting costs</strong> - Pin with free services or self-host</li>
+<li><strong>Censorship resistant</strong> - No single point of failure</li>
+<li><strong>Global CDN</strong> - Content served from nearest peer</li>
+<li><strong>Perfect for archival</strong> - Your content survives even if you disappear</li>
+</ul>
+<p>Combined with password-as-license, IPFS creates truly permanent media distribution:</p>
+<pre><code>Artist uploads to IPFS → Fan downloads from anywhere → Password unlocks forever
+</code></pre>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="1-install-ipfs">1. Install IPFS</h3>
+<p><strong>macOS:</strong></p>
+<pre><code class="language-bash">brew install ipfs
+</code></pre>
+<p><strong>Linux:</strong></p>
+<pre><code class="language-bash">wget https://dist.ipfs.tech/kubo/v0.24.0/kubo_v0.24.0_linux-amd64.tar.gz
+tar xvfz kubo_v0.24.0_linux-amd64.tar.gz
+sudo mv kubo/ipfs /usr/local/bin/
+</code></pre>
+<p><strong>Windows:</strong>
+Download from https://dist.ipfs.tech/#kubo</p>
+<h3 id="2-initialize-and-start">2. Initialize and Start</h3>
+<pre><code class="language-bash">ipfs init
+ipfs daemon
+</code></pre>
+<h3 id="3-add-your-content">3. Add Your Content</h3>
+<pre><code class="language-bash"># Create your encrypted content first
+go run ./cmd/mkdemo my-album.mp4 my-album.smsg
+
+# Add to IPFS
+ipfs add my-album.smsg
+# Output: added QmX...abc my-album.smsg
+
+# Your content is now available at:
+# - Local: http://localhost:8080/ipfs/QmX...abc
+# - Gateway: https://ipfs.io/ipfs/QmX...abc
+</code></pre>
+<h2 id="distribution-workflow">Distribution Workflow</h2>
+<h3 id="for-artists">For Artists</h3>
+<pre><code class="language-bash"># 1. Package your media
+go run ./cmd/mkdemo album.mp4 album.smsg
+# Save the password: PMVXogAJNVe_DDABfTmLYztaJAzsD0R7
+
+# 2. Add to IPFS
+ipfs add album.smsg
+# added QmYourContentCID album.smsg
+
+# 3. Pin for persistence (choose one):
+
+# Option A: Pin locally (requires running node)
+ipfs pin add QmYourContentCID
+
+# Option B: Use Pinata (free tier: 1GB)
+curl -X POST &quot;https://api.pinata.cloud/pinning/pinByHash&quot; \
+  -H &quot;Authorization: Bearer YOUR_JWT&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;hashToPin&quot;: &quot;QmYourContentCID&quot;}'
+
+# Option C: Use web3.storage (free tier: 5GB)
+# Upload at https://web3.storage
+
+# 4. Share with fans
+# CID: QmYourContentCID
+# Password: PMVXogAJNVe_DDABfTmLYztaJAzsD0R7
+# Gateway URL: https://ipfs.io/ipfs/QmYourContentCID
+</code></pre>
+<h3 id="for-fans">For Fans</h3>
+<pre><code class="language-bash"># Download via any gateway
+curl -o album.smsg https://ipfs.io/ipfs/QmYourContentCID
+
+# Or via local node (faster if running)
+ipfs get QmYourContentCID -o album.smsg
+
+# Play with password in browser demo or native app
+</code></pre>
+<h2 id="ipfs-gateways">IPFS Gateways</h2>
+<p>Public gateways for sharing (no IPFS node required):</p>
+<table>
+<thead>
+<tr>
+<th>Gateway</th>
+<th>URL Pattern</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ipfs.io</td>
+<td><code>https://ipfs.io/ipfs/{CID}</code></td>
+<td>Official, reliable</td>
+</tr>
+<tr>
+<td>dweb.link</td>
+<td><code>https://{CID}.ipfs.dweb.link</code></td>
+<td>Subdomain style</td>
+</tr>
+<tr>
+<td>cloudflare</td>
+<td><code>https://cloudflare-ipfs.com/ipfs/{CID}</code></td>
+<td>Fast, cached</td>
+</tr>
+<tr>
+<td>w3s.link</td>
+<td><code>https://{CID}.ipfs.w3s.link</code></td>
+<td>web3.storage</td>
+</tr>
+<tr>
+<td>nftstorage.link</td>
+<td><code>https://{CID}.ipfs.nftstorage.link</code></td>
+<td>NFT.storage</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example URLs for CID <code>QmX...abc</code>:</strong></p>
+<pre><code>https://ipfs.io/ipfs/QmX...abc
+https://QmX...abc.ipfs.dweb.link
+https://cloudflare-ipfs.com/ipfs/QmX...abc
+</code></pre>
+<h2 id="pinning-services">Pinning Services</h2>
+<p>Content on IPFS is only available while someone is hosting it. Use pinning services for persistence:</p>
+<h3 id="free-options">Free Options</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Free Tier</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pinata</td>
+<td>1 GB</td>
+<td>https://pinata.cloud</td>
+</tr>
+<tr>
+<td>web3.storage</td>
+<td>5 GB</td>
+<td>https://web3.storage</td>
+</tr>
+<tr>
+<td>NFT.storage</td>
+<td>Unlimited*</td>
+<td>https://nft.storage</td>
+</tr>
+<tr>
+<td>Filebase</td>
+<td>5 GB</td>
+<td>https://filebase.com</td>
+</tr>
+</tbody>
+</table>
+<p>*NFT.storage is designed for NFT data but works for any content.</p>
+<h3 id="pin-via-cli">Pin via CLI</h3>
+<pre><code class="language-bash"># Pinata
+export PINATA_JWT=&quot;your-jwt-token&quot;
+curl -X POST &quot;https://api.pinata.cloud/pinning/pinByHash&quot; \
+  -H &quot;Authorization: Bearer $PINATA_JWT&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;hashToPin&quot;: &quot;QmYourCID&quot;, &quot;pinataMetadata&quot;: {&quot;name&quot;: &quot;my-album.smsg&quot;}}'
+
+# web3.storage (using w3 CLI)
+npm install -g @web3-storage/w3cli
+w3 login your@email.com
+w3 up my-album.smsg
+</code></pre>
+<h2 id="integration-with-demo-page">Integration with Demo Page</h2>
+<p>The demo page can load content directly from IPFS gateways:</p>
+<pre><code class="language-javascript">// In the demo page, use gateway URL
+const ipfsCID = 'QmYourContentCID';
+const gatewayUrl = `https://ipfs.io/ipfs/${ipfsCID}`;
+
+// Fetch and decrypt
+const response = await fetch(gatewayUrl);
+const bytes = new Uint8Array(await response.arrayBuffer());
+const msg = await BorgSMSG.decryptBinary(bytes, password);
+</code></pre>
+<p>Or use the Fan tab with the IPFS gateway URL directly.</p>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-always-pin-your-content">1. Always Pin Your Content</h3>
+<p>IPFS garbage-collects unpinned content. Always pin important files:</p>
+<pre><code class="language-bash">ipfs pin add QmYourCID
+# Or use a pinning service
+</code></pre>
+<h3 id="2-use-multiple-pins">2. Use Multiple Pins</h3>
+<p>Pin with 2-3 services for redundancy:</p>
+<pre><code class="language-bash"># Pin locally
+ipfs pin add QmYourCID
+
+# Also pin with Pinata
+curl -X POST &quot;https://api.pinata.cloud/pinning/pinByHash&quot; ...
+
+# And web3.storage as backup
+w3 up my-album.smsg
+</code></pre>
+<h3 id="3-share-cid-password-separately">3. Share CID + Password Separately</h3>
+<pre><code>Download: https://ipfs.io/ipfs/QmYourCID
+License: [sent via email/DM after purchase]
+</code></pre>
+<h3 id="4-use-ipns-for-updates-optional">4. Use IPNS for Updates (Optional)</h3>
+<p>IPNS lets you update content while keeping the same URL:</p>
+<pre><code class="language-bash"># Create IPNS name
+ipfs name publish QmYourCID
+# Published to k51...xyz
+
+# Your content is now at:
+# https://ipfs.io/ipns/k51...xyz
+
+# Update to new version later:
+ipfs name publish QmNewVersionCID
+</code></pre>
+<h2 id="example-full-album-release">Example: Full Album Release</h2>
+<pre><code class="language-bash"># 1. Create encrypted album
+go run ./cmd/mkdemo my-album.mp4 my-album.smsg
+# Password: PMVXogAJNVe_DDABfTmLYztaJAzsD0R7
+
+# 2. Add to IPFS
+ipfs add my-album.smsg
+# added QmAlbumCID my-album.smsg
+
+# 3. Pin with multiple services
+ipfs pin add QmAlbumCID
+w3 up my-album.smsg
+
+# 4. Create release page
+cat &gt; release.html &lt;&lt; 'EOF'
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;&lt;title&gt;My Album - Download&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;My Album&lt;/h1&gt;
+  &lt;p&gt;Download: &lt;a href=&quot;https://ipfs.io/ipfs/QmAlbumCID&quot;&gt;IPFS&lt;/a&gt;&lt;/p&gt;
+  &lt;p&gt;After purchase, you'll receive your license key via email.&lt;/p&gt;
+  &lt;p&gt;&lt;a href=&quot;https://demo.dapp.fm&quot;&gt;Play with license key&lt;/a&gt;&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+EOF
+
+# 5. Host release page on IPFS too!
+ipfs add release.html
+# added QmReleaseCID release.html
+# Share: https://ipfs.io/ipfs/QmReleaseCID
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="content-not-loading">Content Not Loading</h3>
+<ol>
+<li><strong>Check if pinned</strong>: <code>ipfs pin ls | grep QmYourCID</code></li>
+<li><strong>Try different gateway</strong>: Some gateways cache slowly</li>
+<li><strong>Check daemon running</strong>: <code>ipfs swarm peers</code> should show peers</li>
+</ol>
+<h3 id="slow-downloads">Slow Downloads</h3>
+<ol>
+<li>Use a faster gateway (cloudflare-ipfs.com is often fastest)</li>
+<li>Run your own IPFS node for direct access</li>
+<li>Pre-warm gateways by accessing content once</li>
+</ol>
+<h3 id="cid-changed-after-re-adding">CID Changed After Re-adding</h3>
+<p>IPFS CIDs are content-addressed. If you modify the file, the CID changes. For the same content, the CID is always identical.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><a href="https://docs.ipfs.tech/">IPFS Documentation</a></li>
+<li><a href="https://docs.pinata.cloud/">Pinata Docs</a></li>
+<li><a href="https://web3.storage/docs/">web3.storage Docs</a></li>
+<li><a href="https://ipfs.github.io/public-gateway-checker/">IPFS Gateway Checker</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "content.code.copy", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
