@@ -1490,6 +1490,7 @@
                     <div class="tab-buttons">
                         <button class="tab-btn active" data-streaming-tab="chunked">📦 Chunked Decrypt</button>
                         <button class="tab-btn" data-streaming-tab="seek">⏩ Seek Demo</button>
+                        <button class="tab-btn" data-streaming-tab="abr">📶 Adaptive Quality</button>
                     </div>
                     <div class="tab-content">
                         <!-- Chunked Decryption Tab -->
@@ -1572,6 +1573,86 @@
                                 <div id="seek-hex-output" style="font-family: monospace; font-size: 0.75rem; color: #00ff94; word-break: break-all; background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 6px;"></div>
                                 <div style="color: #888; font-size: 0.75rem; margin-top: 0.5rem;">
                                     Decrypted <span id="seek-bytes-count">0</span> bytes from chunk <span id="seek-chunk-offset">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ABR (Adaptive Bitrate) Tab -->
+                        <div id="streaming-abr" class="tab-panel">
+                            <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <span>📶</span> Adaptive Bitrate Streaming
+                            </h3>
+                            <p style="color: #888; font-size: 0.85rem; margin-bottom: 1.5rem;">
+                                Automatic quality switching based on your network speed. Like HLS/DASH but with ChaCha20-Poly1305 encryption.
+                            </p>
+
+                            <div class="input-group" style="margin-bottom: 1rem;">
+                                <label style="color: #888; font-size: 0.85rem; margin-bottom: 0.5rem; display: block;">ABR Manifest URL:</label>
+                                <input type="text" id="abr-manifest-url" placeholder="./abr/manifest.json"
+                                       value="./abr/manifest.json"
+                                       style="width: 100%; padding: 0.75rem 1rem; border: 2px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace;">
+                            </div>
+
+                            <div class="input-group" style="margin-bottom: 1rem;">
+                                <label style="color: #888; font-size: 0.85rem; margin-bottom: 0.5rem; display: block;">License Token:</label>
+                                <input type="text" id="abr-license" placeholder="Enter license token..."
+                                       style="width: 100%; padding: 0.75rem 1rem; border: 2px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace;">
+                            </div>
+
+                            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                                <button id="abr-start-btn" class="demo-btn" style="flex: 1;">
+                                    Start ABR Stream
+                                </button>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <label style="color: #888; font-size: 0.85rem;">Quality:</label>
+                                    <select id="abr-quality-select" style="padding: 0.5rem; border-radius: 6px; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid rgba(255,255,255,0.1);">
+                                        <option value="auto">Auto</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- ABR Status -->
+                            <div id="abr-status" style="display: none; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                    <span style="color: #888; font-size: 0.85rem;">Current Quality:</span>
+                                    <span id="abr-current-quality" style="color: #00ff94; font-weight: 600;">-</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                    <span style="color: #888; font-size: 0.85rem;">Estimated Bandwidth:</span>
+                                    <span id="abr-bandwidth" style="color: #8338ec; font-weight: 600;">-</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: #888; font-size: 0.85rem;">Variant Switches:</span>
+                                    <span id="abr-switches" style="color: #ff006e; font-weight: 600;">0</span>
+                                </div>
+                            </div>
+
+                            <!-- ABR Progress -->
+                            <div id="abr-progress" style="display: none;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="color: #888; font-size: 0.85rem;">Download Progress</span>
+                                    <span id="abr-progress-text" style="color: #00ff94; font-size: 0.85rem;">0%</span>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.3); border-radius: 8px; height: 12px; overflow: hidden; margin-bottom: 1rem;">
+                                    <div id="abr-progress-bar" style="background: linear-gradient(90deg, #ff006e, #8338ec); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                                </div>
+                            </div>
+
+                            <!-- ABR Player -->
+                            <div id="abr-player" style="display: none; margin-top: 1rem;">
+                                <div id="abr-media-wrapper"></div>
+                            </div>
+
+                            <!-- ABR Info (placeholder until manifest loads) -->
+                            <div id="abr-info" style="background: rgba(58, 134, 255, 0.1); border: 1px solid rgba(58, 134, 255, 0.3); border-radius: 12px; padding: 1rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; color: #3a86ff; font-weight: 600; margin-bottom: 0.5rem;">
+                                    <span>ℹ️</span> How ABR Works
+                                </div>
+                                <div style="color: #888; font-size: 0.85rem; line-height: 1.6;">
+                                    <p>1. Manifest lists multiple quality variants (1080p, 720p, 480p, 360p)</p>
+                                    <p>2. Player measures your download speed</p>
+                                    <p>3. Automatically switches to best quality for your connection</p>
+                                    <p>4. Same password decrypts all variants</p>
                                 </div>
                             </div>
                         </div>
@@ -2899,7 +2980,7 @@
                 const tab = btn.dataset.streamingTab;
                 document.querySelectorAll('[data-streaming-tab]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                document.querySelectorAll('#streaming-chunked, #streaming-seek').forEach(p => p.classList.remove('active'));
+                document.querySelectorAll('#streaming-chunked, #streaming-seek, #streaming-abr').forEach(p => p.classList.remove('active'));
                 document.getElementById('streaming-' + tab).classList.add('active');
             });
         });
@@ -3231,6 +3312,285 @@
         });
 
         // WASM loads lazily on first interaction - no auto-init
+
+        // ========== ADAPTIVE BITRATE (ABR) STREAMING ==========
+
+        // ABR Controller - manages bandwidth estimation and variant selection
+        class ABRController {
+            constructor(manifest) {
+                this.manifest = manifest;
+                this.bandwidthSamples = [];
+                this.currentVariantIdx = manifest.defaultIdx;
+                this.maxSamples = 10;
+                this.switchCount = 0;
+            }
+
+            // Record a bandwidth sample from a download
+            recordSample(bytes, timeMs) {
+                if (timeMs <= 0) return;
+                const bps = (bytes * 8 * 1000) / timeMs;
+                this.bandwidthSamples.push(bps);
+                if (this.bandwidthSamples.length > this.maxSamples) {
+                    this.bandwidthSamples.shift();
+                }
+            }
+
+            // Estimate current bandwidth using average of recent samples
+            estimateBandwidth() {
+                if (this.bandwidthSamples.length === 0) return 1000000; // 1 Mbps default
+                const count = Math.min(3, this.bandwidthSamples.length);
+                const recent = this.bandwidthSamples.slice(-count);
+                return recent.reduce((a, b) => a + b, 0) / count;
+            }
+
+            // Select best variant for current bandwidth
+            selectVariant() {
+                const bw = this.estimateBandwidth();
+                const safetyFactor = 0.8; // Use 80% of available bandwidth
+                let selected = 0;
+                for (let i = 0; i < this.manifest.variants.length; i++) {
+                    if (this.manifest.variants[i].bandwidth <= bw * safetyFactor) {
+                        selected = i;
+                    }
+                }
+                return selected;
+            }
+
+            // Check if we should switch variants
+            shouldSwitch() {
+                const newVariant = this.selectVariant();
+                return newVariant !== this.currentVariantIdx;
+            }
+
+            // Switch to new variant
+            switchTo(idx) {
+                if (idx !== this.currentVariantIdx) {
+                    this.currentVariantIdx = idx;
+                    this.switchCount++;
+                }
+            }
+
+            // Format bandwidth for display
+            formatBandwidth(bps) {
+                if (bps >= 1000000) return (bps / 1000000).toFixed(1) + ' Mbps';
+                if (bps >= 1000) return (bps / 1000).toFixed(0) + ' Kbps';
+                return bps + ' bps';
+            }
+        }
+
+        // ABR state
+        let abrController = null;
+        let abrManifest = null;
+        let abrManualQuality = 'auto';
+
+        // Populate quality selector from manifest
+        function populateABRQualitySelector(manifest) {
+            const select = document.getElementById('abr-quality-select');
+            select.innerHTML = '<option value="auto">Auto</option>';
+            manifest.variants.forEach((v, i) => {
+                const bw = v.bandwidth >= 1000000
+                    ? (v.bandwidth / 1000000).toFixed(1) + ' Mbps'
+                    : (v.bandwidth / 1000) + ' Kbps';
+                select.innerHTML += `<option value="${i}">${v.name} (${bw})</option>`;
+            });
+        }
+
+        // Update ABR status display
+        function updateABRStatus(abr, currentVariant) {
+            document.getElementById('abr-current-quality').textContent = currentVariant.name;
+            document.getElementById('abr-bandwidth').textContent = abr.formatBandwidth(abr.estimateBandwidth());
+            document.getElementById('abr-switches').textContent = abr.switchCount;
+        }
+
+        // Quality selector change
+        document.getElementById('abr-quality-select').addEventListener('change', (e) => {
+            abrManualQuality = e.target.value;
+        });
+
+        // Start ABR stream
+        document.getElementById('abr-start-btn').addEventListener('click', async () => {
+            const manifestUrl = document.getElementById('abr-manifest-url').value;
+            const license = document.getElementById('abr-license').value;
+
+            if (!manifestUrl) {
+                alert('Please enter a manifest URL');
+                return;
+            }
+            if (!license) {
+                alert('Please enter a license token');
+                return;
+            }
+
+            // Ensure WASM is ready
+            if (!wasmReady) {
+                document.getElementById('abr-start-btn').textContent = 'Loading WASM...';
+                document.getElementById('abr-start-btn').disabled = true;
+                await ensureWasm();
+                document.getElementById('abr-start-btn').textContent = 'Start ABR Stream';
+                document.getElementById('abr-start-btn').disabled = false;
+            }
+
+            const statusDiv = document.getElementById('abr-status');
+            const progressDiv = document.getElementById('abr-progress');
+            const playerDiv = document.getElementById('abr-player');
+            const infoDiv = document.getElementById('abr-info');
+
+            statusDiv.style.display = 'block';
+            progressDiv.style.display = 'block';
+            infoDiv.style.display = 'none';
+
+            try {
+                // 1. Fetch and parse ABR manifest
+                document.getElementById('abr-current-quality').textContent = 'Loading manifest...';
+                const manifestResponse = await fetch(manifestUrl);
+                if (!manifestResponse.ok) throw new Error('Manifest not found');
+                const manifestData = await manifestResponse.json();
+
+                // Parse manifest (can use WASM or direct)
+                abrManifest = manifestData;
+                if (abrManifest.version !== 'abr-v1') {
+                    throw new Error('Invalid ABR manifest version');
+                }
+
+                // 2. Initialize ABR controller
+                abrController = new ABRController(abrManifest);
+                populateABRQualitySelector(abrManifest);
+
+                // 3. Select initial variant
+                let variantIdx = abrManualQuality === 'auto'
+                    ? abrController.selectVariant()
+                    : parseInt(abrManualQuality);
+                abrController.currentVariantIdx = variantIdx;
+                let variant = abrManifest.variants[variantIdx];
+
+                updateABRStatus(abrController, variant);
+
+                // 4. Resolve variant URL relative to manifest
+                const baseUrl = manifestUrl.substring(0, manifestUrl.lastIndexOf('/') + 1);
+                let variantUrl = baseUrl + variant.url;
+
+                // 5. Fetch variant file
+                document.getElementById('abr-current-quality').textContent = variant.name + ' (downloading...)';
+                const startTime = performance.now();
+                const variantResponse = await fetch(variantUrl);
+                if (!variantResponse.ok) throw new Error('Variant file not found: ' + variant.url);
+
+                const variantBytes = new Uint8Array(await variantResponse.arrayBuffer());
+                const downloadTime = performance.now() - startTime;
+
+                // Record bandwidth sample
+                abrController.recordSample(variantBytes.length, downloadTime);
+                updateABRStatus(abrController, variant);
+
+                // 6. Parse v3 header
+                const header = await BorgSMSG.parseV3Header(variantBytes);
+                if (!header.chunked) throw new Error('Variant is not chunked');
+
+                // 7. Unwrap CEK
+                const cek = await BorgSMSG.unwrapCEKFromHeader(
+                    header.wrappedKeys,
+                    { license: license, fingerprint: '' },
+                    header.cadence
+                );
+
+                // 8. Decrypt chunks
+                const numChunks = header.chunked.totalChunks;
+                const decryptedChunks = [];
+                let decryptedBytes = 0;
+                let videoDataOffset = 0;
+                let mimeType = 'video/mp4';
+
+                for (let i = 0; i < numChunks; i++) {
+                    const chunkInfo = header.chunked.index[i];
+                    const chunkStart = header.payloadOffset + chunkInfo.offset;
+                    const chunkEnd = chunkStart + chunkInfo.size;
+                    const chunkBytes = variantBytes.subarray(chunkStart, chunkEnd);
+
+                    const chunkStartTime = performance.now();
+                    const decrypted = await BorgSMSG.decryptChunkDirect(chunkBytes, cek);
+                    const chunkTime = performance.now() - chunkStartTime;
+
+                    // Record sample (simulate network download time for decryption measurement)
+                    if (chunkTime > 0) {
+                        abrController.recordSample(chunkBytes.length, chunkTime * 100); // Scale for simulation
+                    }
+
+                    decryptedChunks.push(decrypted);
+                    decryptedBytes += decrypted.length;
+
+                    // First chunk contains message metadata
+                    if (i === 0) {
+                        try {
+                            const textDecoder = new TextDecoder();
+                            let jsonEnd = 0;
+                            for (let j = 0; j < Math.min(decrypted.length, 10000); j++) {
+                                if (decrypted[j] === 0) { jsonEnd = j; break; }
+                            }
+                            if (jsonEnd > 0) {
+                                const jsonStr = textDecoder.decode(decrypted.subarray(0, jsonEnd));
+                                const msg = JSON.parse(jsonStr);
+                                if (msg.attachments && msg.attachments.length > 0) {
+                                    mimeType = msg.attachments[0].mime || 'video/mp4';
+                                }
+                                videoDataOffset = jsonEnd + 1;
+                            }
+                        } catch (e) {
+                            console.log('No embedded metadata');
+                        }
+                    }
+
+                    // Update progress
+                    const progress = (i + 1) / numChunks * 100;
+                    document.getElementById('abr-progress-bar').style.width = progress + '%';
+                    document.getElementById('abr-progress-text').textContent = Math.round(progress) + '%';
+
+                    // Check for quality switch (in real ABR, would switch at this point)
+                    if (abrManualQuality === 'auto' && abrController.shouldSwitch()) {
+                        const newIdx = abrController.selectVariant();
+                        abrController.switchTo(newIdx);
+                        updateABRStatus(abrController, abrManifest.variants[newIdx]);
+                        // Note: Real implementation would fetch new variant here
+                    }
+
+                    updateABRStatus(abrController, abrManifest.variants[abrController.currentVariantIdx]);
+                }
+
+                // 9. Combine and play
+                const totalSize = decryptedChunks.reduce((sum, c) => sum + c.length, 0);
+                const combined = new Uint8Array(totalSize);
+                let offset = 0;
+                for (const chunk of decryptedChunks) {
+                    combined.set(chunk, offset);
+                    offset += chunk.length;
+                }
+
+                const videoData = combined.subarray(videoDataOffset);
+                const blob = new Blob([videoData], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+
+                // Show player
+                playerDiv.style.display = 'block';
+                const wrapper = document.getElementById('abr-media-wrapper');
+                wrapper.innerHTML = `
+                    <div style="border-radius: 12px; overflow: hidden; background: #000;">
+                        <video id="abr-video" style="width: 100%; max-height: 300px; display: block;" controls autoplay>
+                            <source src="${url}" type="${mimeType}">
+                        </video>
+                    </div>
+                    <div style="margin-top: 0.5rem; text-align: center; color: #888; font-size: 0.8rem;">
+                        Playing: ${abrManifest.title} @ ${variant.name}
+                    </div>
+                `;
+
+                document.getElementById('abr-current-quality').textContent = variant.name + ' (playing)';
+                document.getElementById('abr-progress-text').textContent = 'Complete';
+
+            } catch (err) {
+                console.error('ABR streaming failed:', err);
+                document.getElementById('abr-current-quality').textContent = 'Error: ' + err.message;
+                document.getElementById('abr-current-quality').style.color = '#ff5252';
+            }
+        });
     </script>
 </body>
 </html>

@@ -46,8 +46,11 @@ func main() {
 		"getInfo":             js.FuncOf(smsgGetInfo),
 		"getInfoBinary":       js.FuncOf(smsgGetInfoBinary), // Binary input (no base64!)
 		"quickDecrypt":        js.FuncOf(smsgQuickDecrypt),
-		"version":             Version,
-		"ready":               true,
+		// ABR (Adaptive Bitrate Streaming) functions
+		"parseABRManifest": js.FuncOf(smsgParseABRManifest), // Parse ABR manifest JSON
+		"selectVariant":    js.FuncOf(smsgSelectVariant),    // Select best variant for bandwidth
+		"version":          Version,
+		"ready":            true,
 	}))
 
 	// Dispatch a ready event
@@ -1649,4 +1652,107 @@ func jsToManifest(obj js.Value) *smsg.Manifest {
 	}
 
 	return manifest
+}
+
+// ========== ABR (Adaptive Bitrate Streaming) Functions ==========
+
+// smsgParseABRManifest parses an ABR manifest from JSON string.
+// JavaScript usage:
+//
+//	const manifest = await BorgSMSG.parseABRManifest(jsonString);
+//	// Returns: {version, title, duration, variants: [{name, bandwidth, width, height, url, ...}], defaultIdx}
+func smsgParseABRManifest(this js.Value, args []js.Value) interface{} {
+	handler := js.FuncOf(func(this js.Value, promiseArgs []js.Value) interface{} {
+		resolve := promiseArgs[0]
+		reject := promiseArgs[1]
+
+		go func() {
+			if len(args) < 1 {
+				reject.Invoke(newError("parseABRManifest requires 1 argument: jsonString"))
+				return
+			}
+
+			jsonStr := args[0].String()
+			manifest, err := smsg.ParseABRManifest([]byte(jsonStr))
+			if err != nil {
+				reject.Invoke(newError("failed to parse ABR manifest: " + err.Error()))
+				return
+			}
+
+			// Convert to JS object
+			variants := make([]interface{}, len(manifest.Variants))
+			for i, v := range manifest.Variants {
+				variants[i] = map[string]interface{}{
+					"name":       v.Name,
+					"bandwidth":  v.Bandwidth,
+					"width":      v.Width,
+					"height":     v.Height,
+					"codecs":     v.Codecs,
+					"url":        v.URL,
+					"chunkCount": v.ChunkCount,
+					"fileSize":   v.FileSize,
+				}
+			}
+
+			result := map[string]interface{}{
+				"version":    manifest.Version,
+				"title":      manifest.Title,
+				"duration":   manifest.Duration,
+				"variants":   variants,
+				"defaultIdx": manifest.DefaultIdx,
+			}
+
+			resolve.Invoke(js.ValueOf(result))
+		}()
+		return nil
+	})
+
+	return js.Global().Get("Promise").New(handler)
+}
+
+// smsgSelectVariant selects the best variant for the given bandwidth.
+// JavaScript usage:
+//
+//	const idx = await BorgSMSG.selectVariant(manifest, bandwidthBPS);
+//	// Returns: index of best variant that fits within 80% of bandwidth
+func smsgSelectVariant(this js.Value, args []js.Value) interface{} {
+	handler := js.FuncOf(func(this js.Value, promiseArgs []js.Value) interface{} {
+		resolve := promiseArgs[0]
+		reject := promiseArgs[1]
+
+		go func() {
+			if len(args) < 2 {
+				reject.Invoke(newError("selectVariant requires 2 arguments: manifest, bandwidthBPS"))
+				return
+			}
+
+			manifestObj := args[0]
+			bandwidthBPS := args[1].Int()
+
+			// Extract variants from JS object
+			variantsJS := manifestObj.Get("variants")
+			if variantsJS.IsUndefined() || variantsJS.Length() == 0 {
+				reject.Invoke(newError("manifest has no variants"))
+				return
+			}
+
+			// Build manifest struct
+			manifest := &smsg.ABRManifest{
+				Variants: make([]smsg.Variant, variantsJS.Length()),
+			}
+			for i := 0; i < variantsJS.Length(); i++ {
+				v := variantsJS.Index(i)
+				manifest.Variants[i] = smsg.Variant{
+					Bandwidth: v.Get("bandwidth").Int(),
+				}
+			}
+
+			// Select best variant
+			selectedIdx := manifest.SelectVariant(bandwidthBPS)
+			resolve.Invoke(selectedIdx)
+		}()
+		return nil
+	})
+
+	return js.Global().Get("Promise").New(handler)
 }

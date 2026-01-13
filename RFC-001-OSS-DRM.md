@@ -11,6 +11,7 @@
 
 | Date | Status | Notes |
 |------|--------|-------|
+| 2026-01-13 | Proposed | **Adaptive Bitrate (ABR)**: HLS-style multi-quality streaming with encrypted variants. New Section 3.7. All Future Work items complete. |
 | 2026-01-12 | Proposed | **Chunked streaming**: v3 now supports optional ChunkSize for independently decryptable chunks - enables seek, HTTP Range, and decrypt-while-downloading. |
 | 2026-01-12 | Proposed | **v3 Streaming**: LTHN rolling keys with configurable cadence (daily/12h/6h/1h). CEK wrapping for zero-trust streaming. WASM v1.3.0 with decryptV3(). |
 | 2026-01-10 | Proposed | Technical review passed. Fixed section numbering (7.x, 8.x, 9.x, 11.x). Updated WASM size to 5.9MB. Implementation verified complete for stated scope. |
@@ -315,6 +316,95 @@ SMSG is content-agnostic. Any file can be an attachment:
 | Any | application/octet-stream | Anything else |
 
 Multiple attachments per SMSG are supported (e.g., album + cover art + PDF booklet).
+
+### 3.7 Adaptive Bitrate Streaming (ABR)
+
+For large video content, ABR enables automatic quality switching based on network conditions—like HLS/DASH but with ChaCha20-Poly1305 encryption.
+
+**Architecture:**
+```
+ABR Manifest (manifest.json)
+├── Title: "My Video"
+├── Version: "abr-v1"
+├── Variants: [1080p, 720p, 480p, 360p]
+└── DefaultIdx: 1 (720p)
+
+track-1080p.smsg ──┐
+track-720p.smsg  ──┼── Each is standard v3 chunked SMSG
+track-480p.smsg  ──┤   Same password decrypts ALL variants
+track-360p.smsg  ──┘
+```
+
+**ABR Manifest Format:**
+```json
+{
+  "version": "abr-v1",
+  "title": "Content Title",
+  "duration": 300,
+  "variants": [
+    {
+      "name": "360p",
+      "bandwidth": 500000,
+      "width": 640,
+      "height": 360,
+      "codecs": "avc1.640028,mp4a.40.2",
+      "url": "track-360p.smsg",
+      "chunkCount": 12,
+      "fileSize": 18750000
+    },
+    {
+      "name": "720p",
+      "bandwidth": 2500000,
+      "width": 1280,
+      "height": 720,
+      "codecs": "avc1.640028,mp4a.40.2",
+      "url": "track-720p.smsg",
+      "chunkCount": 48,
+      "fileSize": 93750000
+    }
+  ],
+  "defaultIdx": 1
+}
+```
+
+**Bandwidth Estimation Algorithm:**
+1. Measure download time for each chunk
+2. Calculate bits per second: `(bytes × 8 × 1000) / timeMs`
+3. Average last 3 samples for stability
+4. Apply 80% safety factor to prevent buffering
+
+**Variant Selection:**
+```
+Selected = highest quality where (bandwidth × 0.8) >= variant.bandwidth
+```
+
+**Key Properties:**
+- **Same password for all variants**: CEK unwrapped once, works everywhere
+- **Chunk-boundary switching**: Clean cuts, no partial chunk issues
+- **Independent variants**: No cross-file dependencies
+- **CDN-friendly**: Each variant is a standard file, cacheable separately
+
+**Creating ABR Content:**
+```bash
+# Use mkdemo-abr to create variant set from source video
+go run ./cmd/mkdemo-abr input.mp4 output-dir/ [password]
+
+# Output:
+#   output-dir/manifest.json     (ABR manifest)
+#   output-dir/track-1080p.smsg  (v3 chunked, 5 Mbps)
+#   output-dir/track-720p.smsg   (v3 chunked, 2.5 Mbps)
+#   output-dir/track-480p.smsg   (v3 chunked, 1 Mbps)
+#   output-dir/track-360p.smsg   (v3 chunked, 500 Kbps)
+```
+
+**Standard Presets:**
+
+| Name | Resolution | Bitrate | Use Case |
+|------|------------|---------|----------|
+| 1080p | 1920×1080 | 5 Mbps | High quality, fast connections |
+| 720p | 1280×720 | 2.5 Mbps | Default, most connections |
+| 480p | 854×480 | 1 Mbps | Mobile, medium connections |
+| 360p | 640×360 | 500 Kbps | Slow connections, previews |
 
 ## 4. Demo Page Architecture
 
@@ -628,6 +718,7 @@ Local playback                    Third-party hosting
 - [x] **Configurable cadence** - daily/12h/6h/1h key rotation
 - [x] **WASM v1.3.0** - `BorgSMSG.decryptV3()` for streaming
 - [x] **Chunked streaming** - Independently decryptable chunks for seek/streaming
+- [x] **Adaptive Bitrate (ABR)** - HLS-style multi-quality streaming with encrypted variants
 
 ### 8.2 Fixed Issues
 - [x] ~~Double base64 encoding bug~~ - Fixed by using binary format
@@ -635,7 +726,7 @@ Local playback                    Third-party hosting
 - [x] ~~Key wrapping for streaming~~ - Implemented in v3 format
 
 ### 8.3 Future Work
-- [ ] Multi-bitrate adaptive streaming (like HLS/DASH but encrypted)
+- [x] Multi-bitrate adaptive streaming (see Section 3.7 ABR)
 - [x] Payment integration examples (see `docs/payment-integration.md`)
 - [x] IPFS distribution guide (see `docs/ipfs-distribution.md`)
 - [x] Demo page "Streaming" tab for v3 showcase
@@ -725,10 +816,11 @@ SMSG includes version and format fields for forward compatibility:
 |---------|--------|----------|
 | 1.0 | v1 | ChaCha20-Poly1305, JSON+base64 attachments |
 | 1.0 | **v2** | Binary attachments, zstd compression (25% smaller, 3-10x faster) |
+| 1.0 | **v3** | LTHN rolling keys, CEK wrapping, chunked streaming |
+| 1.0 | **v3+ABR** | Multi-quality variants with adaptive bitrate switching |
 | 2 (future) | - | Algorithm negotiation, multiple KDFs |
-| 3 (future) | - | Streaming chunks, adaptive bitrate, key wrapping |
 
-Decoders MUST reject versions they don't understand. Encoders SHOULD use v2 format for production (smaller, faster).
+Decoders MUST reject versions they don't understand. Use v2 for download-to-own, v3 for streaming, v3+ABR for video.
 
 ### 11.2 Third-Party Implementations
 
@@ -771,6 +863,8 @@ The player is embeddable:
 - WASM Module: `pkg/wasm/stmf/`
 - Native App: `cmd/dapp-fm-app/`
 - Demo Creator Tool: `cmd/mkdemo/`
+- ABR Creator Tool: `cmd/mkdemo-abr/`
+- ABR Package: `pkg/smsg/abr.go`
 
 ## 13. License
 

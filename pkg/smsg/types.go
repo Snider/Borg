@@ -374,3 +374,43 @@ type Header struct {
 	// V3 chunked streaming (optional - enables decrypt-while-downloading)
 	Chunked *ChunkedInfo `json:"chunked,omitempty"` // chunk index for seeking/range requests
 }
+
+// ========== ADAPTIVE BITRATE STREAMING (ABR) ==========
+
+// ABRManifest represents a multi-bitrate variant playlist for adaptive streaming.
+// Similar to HLS master playlist but with encrypted SMSG variants.
+type ABRManifest struct {
+	Version    string    `json:"version"`    // "abr-v1"
+	Title      string    `json:"title"`      // Content title
+	Duration   int       `json:"duration"`   // Total duration in seconds
+	Variants   []Variant `json:"variants"`   // Quality variants (sorted by bandwidth, ascending)
+	DefaultIdx int       `json:"defaultIdx"` // Default variant index (typically 720p)
+	Password   string    `json:"-"`          // Shared password for all variants (not serialized)
+}
+
+// Variant represents a single quality level in an ABR stream.
+// Each variant is a standard v3 chunked .smsg file.
+type Variant struct {
+	Name       string `json:"name"`       // Human-readable name: "1080p", "720p", etc.
+	Bandwidth  int    `json:"bandwidth"`  // Required bandwidth in bits per second
+	Width      int    `json:"width"`      // Video width in pixels
+	Height     int    `json:"height"`     // Video height in pixels
+	Codecs     string `json:"codecs"`     // Codec string: "avc1.640028,mp4a.40.2"
+	URL        string `json:"url"`        // Relative path to .smsg file
+	ChunkCount int    `json:"chunkCount"` // Number of chunks (for progress calculation)
+	FileSize   int64  `json:"fileSize"`   // File size in bytes
+}
+
+// Standard ABR quality presets
+var ABRPresets = []struct {
+	Name    string
+	Width   int
+	Height  int
+	Bitrate string // For ffmpeg
+	BPS     int    // Bits per second
+}{
+	{"1080p", 1920, 1080, "5M", 5000000},
+	{"720p", 1280, 720, "2.5M", 2500000},
+	{"480p", 854, 480, "1M", 1000000},
+	{"360p", 640, 360, "500K", 500000},
+}
