@@ -636,9 +636,9 @@ Local playback                    Third-party hosting
 
 ### 8.3 Future Work
 - [ ] Multi-bitrate adaptive streaming (like HLS/DASH but encrypted)
-- [ ] Payment integration examples (Stripe, Gumroad)
-- [ ] IPFS distribution guide
-- [ ] Demo page "Streaming" tab for v3 showcase
+- [x] Payment integration examples (see `docs/payment-integration.md`)
+- [x] IPFS distribution guide (see `docs/ipfs-distribution.md`)
+- [x] Demo page "Streaming" tab for v3 showcase
 
 ## 9. Usage Examples
 
