@@ -65,3 +65,36 @@ func TestCollectGithubRepoCmd_Ugly(t *testing.T) {
 		}
 	})
 }
+
+func TestCollectGithubRepoCmd_Flags(t *testing.T) {
+	// Setup mock Git cloner
+	mockCloner := mocks.NewMockGitCloner(datanode.New(), nil)
+	oldCloner := GitCloner
+	GitCloner = mockCloner
+	defer func() {
+		GitCloner = oldCloner
+	}()
+
+	rootCmd := NewRootCmd()
+	rootCmd.AddCommand(GetCollectCmd())
+
+	// Execute command
+	out := filepath.Join(t.TempDir(), "out")
+	_, err := executeCommand(rootCmd, "collect", "github", "repo", "https://github.com/testuser/repo1", "--output", out, "--full-history=false", "--depth", "5", "--all-branches", "--all-tags")
+	if err != nil {
+		t.Fatalf("collect github repo command failed: %v", err)
+	}
+
+	if mockCloner.Options.FullHistory {
+		t.Error("expected FullHistory to be false, but it was true")
+	}
+	if mockCloner.Options.Depth != 5 {
+		t.Errorf("expected Depth to be 5, but it was %d", mockCloner.Options.Depth)
+	}
+	if !mockCloner.Options.AllBranches {
+		t.Error("expected AllBranches to be true, but it was false")
+	}
+	if !mockCloner.Options.AllTags {
+		t.Error("expected AllTags to be true, but it was false")
+	}
+}

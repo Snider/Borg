@@ -8,11 +8,20 @@ import (
 	"github.com/Snider/Borg/pkg/datanode"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 )
+
+// GitCloneOptions defines the options for cloning a Git repository.
+type GitCloneOptions struct {
+	Depth       int
+	AllBranches bool
+	AllTags     bool
+	FullHistory bool
+}
 
 // GitCloner is an interface for cloning Git repositories.
 type GitCloner interface {
-	CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error)
+	CloneGitRepository(repoURL string, options GitCloneOptions, progress io.Writer) (*datanode.DataNode, error)
 }
 
 // NewGitCloner creates a new GitCloner.
@@ -23,7 +32,7 @@ func NewGitCloner() GitCloner {
 type gitCloner struct{}
 
 // CloneGitRepository clones a Git repository from a URL and packages it into a DataNode.
-func (g *gitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error) {
+func (g *gitCloner) CloneGitRepository(repoURL string, options GitCloneOptions, progress io.Writer) (*datanode.DataNode, error) {
 	tempPath, err := os.MkdirTemp("", "borg-clone-*")
 	if err != nil {
 		return nil, err
@@ -37,7 +46,15 @@ func (g *gitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*dat
 		cloneOptions.Progress = progress
 	}
 
-	_, err = git.PlainClone(tempPath, false, cloneOptions)
+	if options.Depth > 0 {
+		cloneOptions.Depth = options.Depth
+	}
+
+	if options.AllTags {
+		cloneOptions.Tags = git.AllTags
+	}
+
+	repo, err := git.PlainClone(tempPath, false, cloneOptions)
 	if err != nil {
 		if err.Error() == "remote repository is empty" {
 			return datanode.New(), nil
@@ -45,13 +62,28 @@ func (g *gitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*dat
 		return nil, err
 	}
 
+	if options.AllBranches {
+		remote, err := repo.Remote("origin")
+		if err != nil {
+			return nil, err
+		}
+
+		err = remote.Fetch(&git.FetchOptions{
+			RefSpecs: []config.RefSpec{"+refs/heads/*:refs/remotes/origin/*"},
+			Progress: progress,
+		})
+		if err != nil && err != git.NoErrAlreadyUpToDate {
+			return nil, err
+		}
+	}
+
 	dn := datanode.New()
 	err = filepath.Walk(tempPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		// Skip the .git directory
-		if info.IsDir() && info.Name() == ".git" {
+		// Skip the .git directory if we are not preserving history
+		if !options.FullHistory && info.IsDir() && info.Name() == ".git" {
 			return filepath.SkipDir
 		}
 		if !info.IsDir() {

@@ -36,6 +36,14 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			fullHistory, _ := cmd.Flags().GetBool("full-history")
+			depth, _ := cmd.Flags().GetInt("depth")
+			allBranches, _ := cmd.Flags().GetBool("all-branches")
+			allTags, _ := cmd.Flags().GetBool("all-tags")
+
+			if depth > 0 {
+				fullHistory = false
+			}
 
 			if format != "datanode" && format != "tim" && format != "trix" && format != "stim" {
 				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', 'trix', or 'stim')", format)
@@ -54,7 +62,14 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 				progressWriter = ui.NewProgressWriter(bar)
 			}
 
-			dn, err := GitCloner.CloneGitRepository(repoURL, progressWriter)
+			cloneOptions := vcs.GitCloneOptions{
+				FullHistory: fullHistory,
+				Depth:       depth,
+				AllBranches: allBranches,
+				AllTags:     allTags,
+			}
+
+			dn, err := GitCloner.CloneGitRepository(repoURL, cloneOptions, progressWriter)
 			if err != nil {
 				return fmt.Errorf("error cloning repository: %w", err)
 			}
@@ -118,6 +133,12 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 	cmd.Flags().String("format", "datanode", "Output format (datanode, tim, trix, or stim)")
 	cmd.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
 	cmd.Flags().String("password", "", "Password for encryption (required for trix/stim)")
+	cmd.Flags().Bool("full-history", true, "Clone the full git history")
+	cmd.Flags().Int("depth", 0, "Depth for shallow clone")
+	cmd.Flags().Bool("all-branches", false, "Clone all branches")
+	cmd.Flags().Bool("all-tags", false, "Clone all tags")
+	cmd.Flags().Bool("lfs", false, "Clone LFS objects (not yet implemented)")
+	cmd.Flags().Bool("submodules", false, "Clone submodules (not yet implemented)")
 	return cmd
 }
 

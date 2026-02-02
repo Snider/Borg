@@ -22,7 +22,10 @@ func main() {
 
 	for _, repo := range repos {
 		log.Printf("Cloning %s...", repo)
-		dn, err := cloner.CloneGitRepository(fmt.Sprintf("https://github.com/%s", repo), nil)
+		options := vcs.GitCloneOptions{
+			FullHistory: true,
+		}
+		dn, err := cloner.CloneGitRepository(fmt.Sprintf("https://github.com/%s", repo), options, nil)
 		if err != nil {
 			log.Printf("Failed to clone %s: %v", repo, err)
 			continue

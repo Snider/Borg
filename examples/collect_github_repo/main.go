@@ -11,7 +11,10 @@ func main() {
 	log.Println("Collecting GitHub repo...")
 
 	cloner := vcs.NewGitCloner()
-	dn, err := cloner.CloneGitRepository("https://github.com/Snider/Borg", nil)
+	options := vcs.GitCloneOptions{
+		FullHistory: true,
+	}
+	dn, err := cloner.CloneGitRepository("https://github.com/Snider/Borg", options, nil)
 	if err != nil {
 		log.Fatalf("Failed to clone repository: %v", err)
 	}
