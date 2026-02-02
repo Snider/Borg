@@ -271,13 +271,8 @@ class STMF
         }
 
         $keyStream = $this->deriveKeyStream($entropy, strlen($data));
-        $result = '';
 
-        for ($i = 0; $i < strlen($data); $i++) {
-            $result .= chr(ord($data[$i]) ^ ord($keyStream[$i]));
-        }
-
-        return $result;
+        return $data ^ $keyStream;
     }
 
     /**
