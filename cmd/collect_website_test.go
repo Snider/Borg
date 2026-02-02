@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,15 +33,26 @@ func TestCollectWebsiteCmd_Good(t *testing.T) {
 	}
 }
 
+type mockDownloader struct {
+	err error
+}
+
+func (m *mockDownloader) Download(startURL string) (*datanode.DataNode, error) {
+	return nil, m.err
+}
+
+func (m *mockDownloader) SetProgressBar(bar *progressbar.ProgressBar) {
+	// do nothing
+}
+
 func TestCollectWebsiteCmd_Bad(t *testing.T) {
-	// Mock the website downloader to return an error
-	oldDownloadAndPackageWebsite := website.DownloadAndPackageWebsite
-	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
-		return nil, fmt.Errorf("website error")
+	oldNewDownloader := website.NewDownloaderWithClient
+	website.NewDownloaderWithClient = func(maxDepth int, client *http.Client) website.Downloader {
+		return &mockDownloader{err: fmt.Errorf("website error")}
 	}
-	defer func() {
-		website.DownloadAndPackageWebsite = oldDownloadAndPackageWebsite
-	}()
+	t.Cleanup(func() {
+		website.NewDownloaderWithClient = oldNewDownloader
+	})
 
 	rootCmd := NewRootCmd()
 	rootCmd.AddCommand(GetCollectCmd())
