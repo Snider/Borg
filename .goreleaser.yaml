@@ -50,6 +50,17 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 
+signs:
+  - artifacts: checksum
+    args:
+      # Keyless signing
+      - "--yes"
+      - "--fulcio-url=https://fulcio.sigstore.dev"
+      - "--oidc-issuer=https://token.actions.githubusercontent.com"
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+
 changelog:
   sort: asc
   use: github-native
