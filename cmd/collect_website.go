@@ -3,8 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/Snider/Borg/pkg/circuitbreaker"
 	"github.com/schollz/progressbar/v3"
+	"golang.org/x/exp/slog"
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
@@ -38,6 +41,11 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			noCircuitBreaker, _ := cmd.Flags().GetBool("no-circuit-breaker")
+			circuitFailures, _ := cmd.Flags().GetInt("circuit-failures")
+			circuitCooldown, _ := cmd.Flags().GetDuration("circuit-cooldown")
+			circuitSuccessThreshold, _ := cmd.Flags().GetInt("circuit-success-threshold")
+			circuitHalfOpenRequests, _ := cmd.Flags().GetInt("circuit-half-open-requests")
 
 			if format != "datanode" && format != "tim" && format != "trix" {
 				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
@@ -51,7 +59,25 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+				Level: slog.LevelInfo,
+			}))
+
+			opts := website.DownloadOptions{
+				URL:                  websiteURL,
+				MaxDepth:             depth,
+				ProgressBar:          bar,
+				EnableCircuitBreaker: !noCircuitBreaker,
+				CBSettings: circuitbreaker.Settings{
+					FailureThreshold: circuitFailures,
+					SuccessThreshold: circuitSuccessThreshold,
+					Cooldown:         circuitCooldown,
+					HalfOpenRequests: circuitHalfOpenRequests,
+					Logger:           logger,
+				},
+			}
+
+			dn, err := website.DownloadAndPackageWebsite(opts)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}
@@ -104,5 +130,10 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
+	collectWebsiteCmd.Flags().Bool("no-circuit-breaker", false, "Disable the circuit breaker")
+	collectWebsiteCmd.Flags().Int("circuit-failures", 5, "Number of failures to trip the circuit breaker")
+	collectWebsiteCmd.Flags().Duration("circuit-cooldown", 30*time.Second, "Cooldown time for the circuit breaker")
+	collectWebsiteCmd.Flags().Int("circuit-success-threshold", 2, "Number of successes to close the circuit breaker")
+	collectWebsiteCmd.Flags().Int("circuit-half-open-requests", 1, "Number of test requests in half-open state")
 	return collectWebsiteCmd
 }

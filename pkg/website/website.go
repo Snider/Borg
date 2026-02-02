@@ -6,53 +6,70 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
+	"github.com/Snider/Borg/pkg/circuitbreaker"
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/schollz/progressbar/v3"
-
 	"golang.org/x/net/html"
 )
 
 var DownloadAndPackageWebsite = downloadAndPackageWebsite
 
+// DownloadOptions configures the website downloader.
+type DownloadOptions struct {
+	URL                  string
+	MaxDepth             int
+	ProgressBar          *progressbar.ProgressBar
+	EnableCircuitBreaker bool
+	CBSettings           circuitbreaker.Settings
+}
+
 // Downloader is a recursive website downloader.
 type Downloader struct {
-	baseURL     *url.URL
-	dn          *datanode.DataNode
-	visited     map[string]bool
-	maxDepth    int
-	progressBar *progressbar.ProgressBar
-	client      *http.Client
-	errors      []error
+	baseURL         *url.URL
+	dn              *datanode.DataNode
+	visited         map[string]bool
+	maxDepth        int
+	progressBar     *progressbar.ProgressBar
+	client          *http.Client
+	errors          []error
+	cbEnabled       bool
+	cbSettings      circuitbreaker.Settings
+	circuitBreakers map[string]*circuitbreaker.CircuitBreaker
+	cbMutex         sync.Mutex
 }
 
 // NewDownloader creates a new Downloader.
-func NewDownloader(maxDepth int) *Downloader {
-	return NewDownloaderWithClient(maxDepth, http.DefaultClient)
+func NewDownloader(opts DownloadOptions) *Downloader {
+	return NewDownloaderWithClient(opts, http.DefaultClient)
 }
 
 // NewDownloaderWithClient creates a new Downloader with a custom http.Client.
-func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
+func NewDownloaderWithClient(opts DownloadOptions, client *http.Client) *Downloader {
 	return &Downloader{
-		dn:          datanode.New(),
-		visited:     make(map[string]bool),
-		maxDepth:    maxDepth,
-		client:      client,
-		errors:      make([]error, 0),
+		dn:              datanode.New(),
+		visited:         make(map[string]bool),
+		maxDepth:        opts.MaxDepth,
+		client:          client,
+		errors:          make([]error, 0),
+		cbEnabled:       opts.EnableCircuitBreaker,
+		cbSettings:      opts.CBSettings,
+		circuitBreakers: make(map[string]*circuitbreaker.CircuitBreaker),
 	}
 }
 
 // downloadAndPackageWebsite downloads a website and packages it into a DataNode.
-func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
-	baseURL, err := url.Parse(startURL)
+func downloadAndPackageWebsite(opts DownloadOptions) (*datanode.DataNode, error) {
+	baseURL, err := url.Parse(opts.URL)
 	if err != nil {
 		return nil, err
 	}
 
-	d := NewDownloader(maxDepth)
+	d := NewDownloader(opts)
 	d.baseURL = baseURL
-	d.progressBar = bar
-	d.crawl(startURL, 0)
+	d.progressBar = opts.ProgressBar
+	d.crawl(opts.URL, 0)
 
 	if len(d.errors) > 0 {
 		var errs []string
@@ -65,6 +82,57 @@ func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.P
 	return d.dn, nil
 }
 
+func (d *Downloader) getCircuitBreaker(host string) *circuitbreaker.CircuitBreaker {
+	d.cbMutex.Lock()
+	defer d.cbMutex.Unlock()
+
+	if cb, ok := d.circuitBreakers[host]; ok {
+		return cb
+	}
+
+	cb := circuitbreaker.New(host, d.cbSettings)
+	d.circuitBreakers[host] = cb
+	return cb
+}
+
+func (d *Downloader) fetchURL(pageURL string) (*http.Response, error) {
+	if !d.cbEnabled {
+		resp, err := d.client.Get(pageURL)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode >= 400 {
+			resp.Body.Close()
+			return nil, fmt.Errorf("bad status for %s: %s", pageURL, resp.Status)
+		}
+		return resp, nil
+	}
+
+	u, err := url.Parse(pageURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL: %w", err)
+	}
+
+	cb := d.getCircuitBreaker(u.Hostname())
+	result, err := cb.Execute(func() (interface{}, error) {
+		resp, err := d.client.Get(pageURL)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode >= 400 {
+			resp.Body.Close()
+			return nil, fmt.Errorf("bad status for %s: %s", pageURL, resp.Status)
+		}
+		return resp, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result.(*http.Response), nil
+}
+
 func (d *Downloader) crawl(pageURL string, depth int) {
 	if depth > d.maxDepth || d.visited[pageURL] {
 		return
@@ -74,17 +142,12 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 		d.progressBar.Add(1)
 	}
 
-	resp, err := d.client.Get(pageURL)
+	resp, err := d.fetchURL(pageURL)
 	if err != nil {
 		d.errors = append(d.errors, fmt.Errorf("Error getting %s: %w", pageURL, err))
 		return
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		d.errors = append(d.errors, fmt.Errorf("bad status for %s: %s", pageURL, resp.Status))
-		return
-	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -141,17 +204,12 @@ func (d *Downloader) downloadAsset(assetURL string) {
 		d.progressBar.Add(1)
 	}
 
-	resp, err := d.client.Get(assetURL)
+	resp, err := d.fetchURL(assetURL)
 	if err != nil {
 		d.errors = append(d.errors, fmt.Errorf("Error getting asset %s: %w", assetURL, err))
 		return
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		d.errors = append(d.errors, fmt.Errorf("bad status for asset %s: %s", assetURL, resp.Status))
-		return
-	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
