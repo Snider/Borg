@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Snider/Borg/pkg/retry"
 	"github.com/google/go-github/v39/github"
 )
 
@@ -22,12 +23,12 @@ var (
 		return http.NewRequest(method, url, body)
 	}
 	// DefaultClient is the default http client
-	DefaultClient = &http.Client{}
+	DefaultClient = retry.NewClient(retry.NewTransport())
 )
 
 // GetLatestRelease gets the latest release for a repository.
 func GetLatestRelease(owner, repo string) (*github.RepositoryRelease, error) {
-	client := NewClient(nil)
+	client := NewClient(NewAuthenticatedClient(context.Background()))
 	release, _, err := client.Repositories.GetLatestRelease(context.Background(), owner, repo)
 	if err != nil {
 		return nil, err

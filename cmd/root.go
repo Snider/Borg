@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/Snider/Borg/pkg/retry"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +17,30 @@ packaging their contents into a single file, and managing the data within.`,
 	}
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose logging")
+	rootCmd.PersistentFlags().Int("retries", 3, "Max retry attempts")
+	rootCmd.PersistentFlags().Duration("retry-backoff", 1s, "Initial backoff duration")
+	rootCmd.PersistentFlags().Duration("retry-max", 30s, "Maximum backoff duration")
+	rootCmd.PersistentFlags().Float64("retry-jitter", 0.1, "Randomization factor")
+	rootCmd.PersistentFlags().Bool("no-retry", false, "Disable retries")
+
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		// Configure retry settings
+		retries, _ := cmd.Flags().GetInt("retries")
+		retryBackoff, _ := cmd.Flags().GetDuration("retry-backoff")
+		retryMax, _ := cmd.Flags().GetDuration("retry-max")
+		retryJitter, _ := cmd.Flags().GetFloat64("retry-jitter")
+		noRetry, _ := cmd.Flags().GetBool("no-retry")
+
+		if noRetry {
+			retry.DefaultTransport.Retries = 0
+		} else {
+			retry.DefaultTransport.Retries = retries
+			retry.DefaultTransport.InitialBackoff = retryBackoff
+			retry.DefaultTransport.MaxBackoff = retryMax
+			retry.DefaultTransport.Jitter = retryJitter
+		}
+	}
+
 	return rootCmd
 }
 

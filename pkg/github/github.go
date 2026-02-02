@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Snider/Borg/pkg/retry"
 	"golang.org/x/oauth2"
 )
 
@@ -30,12 +31,19 @@ type githubClient struct{}
 // NewAuthenticatedClient creates a new authenticated http client.
 var NewAuthenticatedClient = func(ctx context.Context) *http.Client {
 	token := os.Getenv("GITHUB_TOKEN")
+
+	// Create a base client with retry transport.
+	baseClient := &http.Client{Transport: retry.NewTransport()}
+
 	if token == "" {
-		return http.DefaultClient
+		return baseClient
 	}
+
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
+
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, baseClient)
 	return oauth2.NewClient(ctx, ts)
 }
 

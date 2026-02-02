@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/retry"
 	"github.com/schollz/progressbar/v3"
 	"golang.org/x/net/html"
 )
@@ -32,7 +33,7 @@ type PWAClient interface {
 
 // NewPWAClient creates a new PWAClient.
 func NewPWAClient() PWAClient {
-	return &pwaClient{client: http.DefaultClient}
+	return &pwaClient{client: retry.NewClient(retry.NewTransport())}
 }
 
 type pwaClient struct {
