@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Snider/Borg/pkg/datanode"
 	"golang.org/x/oauth2"
 )
 
@@ -18,6 +19,8 @@ type Repo struct {
 // GithubClient is an interface for interacting with the Github API.
 type GithubClient interface {
 	GetPublicRepos(ctx context.Context, userOrOrg string) ([]string, error)
+	GetIssues(ctx context.Context, owner, repo string) (*datanode.DataNode, error)
+	GetPullRequests(ctx context.Context, owner, repo string) (*datanode.DataNode, error)
 }
 
 // NewGithubClient creates a new GithubClient.
@@ -25,7 +28,9 @@ func NewGithubClient() GithubClient {
 	return &githubClient{}
 }
 
-type githubClient struct{}
+type githubClient struct {
+	apiURL string
+}
 
 // NewAuthenticatedClient creates a new authenticated http client.
 var NewAuthenticatedClient = func(ctx context.Context) *http.Client {
