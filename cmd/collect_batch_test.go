@@ -180,20 +180,21 @@ func TestCollectBatch_Sequential(t *testing.T) {
 	// Test --continue flag
 	t.Run("Continue", func(t *testing.T) {
 		outputDir := t.TempDir()
-		cmd := NewCollectBatchCmd()
 
 		// First run
-		cmd.SetArgs([]string{urlsFile, "--output-dir", outputDir})
-		err := cmd.Execute()
+		cmd1 := NewCollectBatchCmd()
+		cmd1.SetArgs([]string{urlsFile, "--output-dir", outputDir})
+		err := cmd1.Execute()
 		if err != nil {
 			t.Fatalf("unexpected error on first run: %v", err)
 		}
 
 		// Second run with --continue
 		var out bytes.Buffer
-		cmd.SetOut(&out)
-		cmd.SetArgs([]string{urlsFile, "--output-dir", outputDir, "--continue"})
-		err = cmd.Execute()
+		cmd2 := NewCollectBatchCmd()
+		cmd2.SetOut(&out)
+		cmd2.SetArgs([]string{urlsFile, "--output-dir", outputDir, "--continue"})
+		err = cmd2.Execute()
 		if err != nil {
 			t.Fatalf("unexpected error on second run: %v", err)
 		}
