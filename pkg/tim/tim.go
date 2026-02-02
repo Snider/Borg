@@ -199,7 +199,7 @@ func (m *TerminalIsolationMatrix) ToTar() ([]byte, error) {
 // The output format is a Trix container with "STIM" magic containing:
 // - Header: {"encryption_algorithm": "chacha20poly1305", "tim": true}
 // - Payload: [config_size(4 bytes)][encrypted_config][encrypted_rootfs]
-func (m *TerminalIsolationMatrix) ToSigil(password string) ([]byte, error) {
+func (m *TerminalIsolationMatrix) ToSigil(password string, publicManifest []byte) ([]byte, error) {
 	if password == "" {
 		return nil, ErrPasswordRequired
 	}
@@ -247,6 +247,10 @@ func (m *TerminalIsolationMatrix) ToSigil(password string) ([]byte, error) {
 			"version":              "1.0",
 		},
 		Payload: payload,
+	}
+
+	if publicManifest != nil {
+		t.Header["public_manifest"] = string(publicManifest)
 	}
 
 	return trix.Encode(t, "STIM", nil)

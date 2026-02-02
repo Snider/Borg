@@ -28,7 +28,7 @@ func NewCache(dir, password string) (*Cache, error) {
 
 // Store encrypts and saves a TIM to the cache.
 func (c *Cache) Store(name string, m *TerminalIsolationMatrix) error {
-	data, err := m.ToSigil(c.Password)
+	data, err := m.ToSigil(c.Password, nil)
 	if err != nil {
 		return err
 	}

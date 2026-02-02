@@ -11,6 +11,7 @@ import (
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/manifest"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -18,7 +19,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var allCmd = NewAllCmd()
+var (
+	allCmd    = NewAllCmd()
+	allCloner = vcs.NewGitCloner()
+)
 
 func NewAllCmd() *cobra.Command {
 	allCmd := &cobra.Command{
@@ -32,6 +36,7 @@ func NewAllCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			generateManifest, _ := cmd.Flags().GetBool("manifest")
 
 			if format != "datanode" && format != "tim" && format != "trix" {
 				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
@@ -57,11 +62,10 @@ func NewAllCmd() *cobra.Command {
 				progressWriter = ui.NewProgressWriter(bar)
 			}
 
-			cloner := vcs.NewGitCloner()
 			allDataNodes := datanode.New()
 
 			for _, repoURL := range repos {
-				dn, err := cloner.CloneGitRepository(repoURL, progressWriter)
+				dn, err := allCloner.CloneGitRepository(repoURL, progressWriter)
 				if err != nil {
 					// Log the error and continue
 					fmt.Fprintln(cmd.ErrOrStderr(), "Error cloning repository:", err)
@@ -101,6 +105,18 @@ func NewAllCmd() *cobra.Command {
 					fmt.Fprintln(cmd.ErrOrStderr(), "Error walking datanode:", err)
 					continue
 				}
+			}
+
+			if generateManifest {
+				m, err := manifest.Generate(allDataNodes, url, format, password != "")
+				if err != nil {
+					return fmt.Errorf("error generating manifest: %w", err)
+				}
+				manifestData, err := m.ToJSON()
+				if err != nil {
+					return fmt.Errorf("error marshalling manifest: %w", err)
+				}
+				allDataNodes.AddData("MANIFEST.json", manifestData)
 			}
 
 			var data []byte
@@ -144,6 +160,7 @@ func NewAllCmd() *cobra.Command {
 	allCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	allCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	allCmd.PersistentFlags().String("password", "", "Password for encryption")
+	allCmd.PersistentFlags().Bool("manifest", false, "Generate a manifest.json file")
 	return allCmd
 }
 

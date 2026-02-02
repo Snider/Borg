@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Snider/Borg/pkg/manifest"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/spf13/cobra"
 )
@@ -12,6 +13,7 @@ import (
 var borgfile string
 var output string
 var encryptPassword string
+var publicManifest bool
 
 var compileCmd = NewCompileCmd()
 
@@ -55,7 +57,19 @@ func NewCompileCmd() *cobra.Command {
 
 			// If encryption is requested, output as .stim
 			if encryptPassword != "" {
-				stimData, err := m.ToSigil(encryptPassword)
+				var manifestData []byte
+				if publicManifest {
+					m, err := manifest.Generate(m.RootFS, borgfile, "stim", true)
+					if err != nil {
+						return fmt.Errorf("error generating manifest: %w", err)
+					}
+					manifestData, err = m.ToJSON()
+					if err != nil {
+						return fmt.Errorf("error marshalling manifest: %w", err)
+					}
+				}
+
+				stimData, err := m.ToSigil(encryptPassword, manifestData)
 				if err != nil {
 					return err
 				}
@@ -80,6 +94,7 @@ func NewCompileCmd() *cobra.Command {
 	compileCmd.Flags().StringVarP(&borgfile, "file", "f", "Borgfile", "Path to the Borgfile.")
 	compileCmd.Flags().StringVarP(&output, "output", "o", "a.tim", "Path to the output tim file.")
 	compileCmd.Flags().StringVarP(&encryptPassword, "encrypt", "e", "", "Encrypt with ChaCha20-Poly1305 using this password (outputs .stim)")
+	compileCmd.Flags().BoolVar(&publicManifest, "public-manifest", false, "Embed a public manifest in the .stim header")
 	return compileCmd
 }
 
