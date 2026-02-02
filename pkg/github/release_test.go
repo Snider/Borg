@@ -2,6 +2,8 @@ package github
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/Snider/Borg/pkg/mocks"
 	"github.com/google/go-github/v39/github"
+	"github.com/stretchr/testify/assert"
 )
 
 type errorRoundTripper struct{}
@@ -89,13 +92,14 @@ func TestDownloadReleaseAsset(t *testing.T) {
 		DefaultClient = oldClient
 	}()
 
-	data, err := DownloadReleaseAsset(asset)
+	buf := new(bytes.Buffer)
+	err := DownloadReleaseAsset(asset, buf)
 	if err != nil {
 		t.Fatalf("DownloadReleaseAsset failed: %v", err)
 	}
 
-	if string(data) != "asset content" {
-		t.Errorf("unexpected asset content: %s", string(data))
+	if buf.String() != "asset content" {
+		t.Errorf("unexpected asset content: %s", buf.String())
 	}
 }
 func TestDownloadReleaseAsset_BadRequest(t *testing.T) {
@@ -118,7 +122,8 @@ func TestDownloadReleaseAsset_BadRequest(t *testing.T) {
 		DefaultClient = oldClient
 	}()
 
-	_, err := DownloadReleaseAsset(asset)
+	buf := new(bytes.Buffer)
+	err := DownloadReleaseAsset(asset, buf)
 	if err == nil {
 		t.Fatalf("expected error but got nil")
 	}
@@ -141,7 +146,8 @@ func TestDownloadReleaseAsset_NewRequestError(t *testing.T) {
 		NewRequest = oldNewRequest
 	}()
 
-	_, err := DownloadReleaseAsset(asset)
+	buf := new(bytes.Buffer)
+	err := DownloadReleaseAsset(asset, buf)
 	if err == nil {
 		t.Fatalf("expected error but got nil")
 	}
@@ -191,8 +197,146 @@ func TestDownloadReleaseAsset_DoError(t *testing.T) {
 		DefaultClient = oldClient
 	}()
 
-	_, err := DownloadReleaseAsset(asset)
+	buf := new(bytes.Buffer)
+	err := DownloadReleaseAsset(asset, buf)
 	if err == nil {
 		t.Fatalf("DownloadReleaseAsset should have failed")
 	}
+}
+
+func TestListReleases(t *testing.T) {
+	oldNewClient := NewClient
+	t.Cleanup(func() { NewClient = oldNewClient })
+
+	responses := make(map[string]*http.Response)
+	responses["https://api.github.com/repos/owner/repo/releases?per_page=30"] = &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(`[{"tag_name": "v1.0.0"}, {"tag_name": "v0.9.0"}]`)),
+		Header: http.Header{
+			"Link": []string{`<https://api.github.com/repos/owner/repo/releases?page=2&per_page=30>; rel="next"`},
+		},
+	}
+	responses["https://api.github.com/repos/owner/repo/releases?page=2&per_page=30"] = &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(`[{"tag_name": "v0.8.0"}]`)),
+		Header:     http.Header{},
+	}
+
+	mockClient := mocks.NewMockClient(responses)
+	client := github.NewClient(mockClient)
+	NewClient = func(_ *http.Client) *github.Client {
+		return client
+	}
+
+	releases, err := ListReleases("owner", "repo")
+	assert.NoError(t, err)
+	assert.Len(t, releases, 3)
+	assert.Equal(t, "v1.0.0", releases[0].GetTagName())
+	assert.Equal(t, "v0.9.0", releases[1].GetTagName())
+	assert.Equal(t, "v0.8.0", releases[2].GetTagName())
+}
+
+func TestGetReleaseByTag(t *testing.T) {
+	oldNewClient := NewClient
+	t.Cleanup(func() { NewClient = oldNewClient })
+
+	mockClient := mocks.NewMockClient(map[string]*http.Response{
+		"https://api.github.com/repos/owner/repo/releases/tags/v1.0.0": {
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"tag_name": "v1.0.0"}`)),
+		},
+	})
+	client := github.NewClient(mockClient)
+	NewClient = func(_ *http.Client) *github.Client {
+		return client
+	}
+
+	release, err := GetReleaseByTag("owner", "repo", "v1.0.0")
+	assert.NoError(t, err)
+	assert.NotNil(t, release)
+	assert.Equal(t, "v1.0.0", release.GetTagName())
+}
+
+func TestDownloadReleaseAssetWithChecksum(t *testing.T) {
+	assetName := "my-asset.zip"
+	assetURL := "https://example.com/download/my-asset.zip"
+	assetContent := "this is the content of the asset"
+	hasher := sha256.New()
+	hasher.Write([]byte(assetContent))
+	correctChecksum := hex.EncodeToString(hasher.Sum(nil))
+	checksumsFileContent := fmt.Sprintf("%s  %s\n", correctChecksum, assetName)
+
+	asset := &github.ReleaseAsset{
+		Name:               &assetName,
+		BrowserDownloadURL: &assetURL,
+	}
+
+	t.Run("GoodChecksum", func(t *testing.T) {
+		mockHttpClient := mocks.NewMockClient(map[string]*http.Response{
+			assetURL: {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(assetContent)),
+			},
+		})
+		oldClient := DefaultClient
+		DefaultClient = mockHttpClient
+		t.Cleanup(func() { DefaultClient = oldClient })
+
+		buf := new(bytes.Buffer)
+		err := DownloadReleaseAssetWithChecksum(asset, []byte(checksumsFileContent), buf)
+		assert.NoError(t, err)
+		assert.Equal(t, assetContent, buf.String())
+	})
+
+	t.Run("BadChecksum", func(t *testing.T) {
+		mockHttpClient := mocks.NewMockClient(map[string]*http.Response{
+			assetURL: {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(assetContent)),
+			},
+		})
+		oldClient := DefaultClient
+		DefaultClient = mockHttpClient
+		t.Cleanup(func() { DefaultClient = oldClient })
+		badChecksumsFileContent := fmt.Sprintf("badchecksum  %s\n", assetName)
+		buf := new(bytes.Buffer)
+		err := DownloadReleaseAssetWithChecksum(asset, []byte(badChecksumsFileContent), buf)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "checksum mismatch")
+	})
+
+	t.Run("ChecksumNotFound", func(t *testing.T) {
+		mockHttpClient := mocks.NewMockClient(map[string]*http.Response{
+			assetURL: {
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewBufferString(assetContent)),
+			},
+		})
+		oldClient := DefaultClient
+		DefaultClient = mockHttpClient
+		t.Cleanup(func() { DefaultClient = oldClient })
+		missingChecksumsFileContent := fmt.Sprintf("%s  another-file.zip\n", correctChecksum)
+		buf := new(bytes.Buffer)
+		err := DownloadReleaseAssetWithChecksum(asset, []byte(missingChecksumsFileContent), buf)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "checksum not found")
+	})
+
+	t.Run("DownloadError", func(t *testing.T) {
+		mockHttpClientWithErr := mocks.NewMockClient(map[string]*http.Response{
+			assetURL: {
+				StatusCode: http.StatusNotFound,
+				Status:     "404 Not Found",
+				Body:       io.NopCloser(bytes.NewBufferString("")),
+			},
+		})
+		oldClient := DefaultClient
+		DefaultClient = mockHttpClientWithErr
+		t.Cleanup(func() { DefaultClient = oldClient })
+
+		buf := new(bytes.Buffer)
+		err := DownloadReleaseAssetWithChecksum(asset, []byte(checksumsFileContent), buf)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "bad status: 404 Not Found")
+	})
 }

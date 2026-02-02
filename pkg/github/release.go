@@ -1,8 +1,11 @@
 package github
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,30 +38,114 @@ func GetLatestRelease(owner, repo string) (*github.RepositoryRelease, error) {
 	return release, nil
 }
 
-// DownloadReleaseAsset downloads a release asset.
-func DownloadReleaseAsset(asset *github.ReleaseAsset) ([]byte, error) {
+// DownloadReleaseAssetWithChecksum downloads a release asset and verifies its checksum.
+func DownloadReleaseAssetWithChecksum(asset *github.ReleaseAsset, checksumsData []byte, w io.Writer) error {
 	req, err := NewRequest("GET", asset.GetBrowserDownloadURL(), nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	req.Header.Set("Accept", "application/octet-stream")
 
 	resp, err := DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %s", resp.Status)
+		return fmt.Errorf("bad status: %s", resp.Status)
 	}
 
-	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, resp.Body)
+	hasher := sha256.New()
+	teeReader := io.TeeReader(resp.Body, hasher)
+
+	_, err = io.Copy(w, teeReader)
+	if err != nil {
+		return err
+	}
+
+	actualChecksum := hex.EncodeToString(hasher.Sum(nil))
+
+	err = verifyChecksum(actualChecksum, asset.GetName(), checksumsData)
+	if err != nil {
+		return fmt.Errorf("checksum verification failed for %s: %w", asset.GetName(), err)
+	}
+
+	return nil
+}
+
+// verifyChecksum verifies the SHA256 checksum of a byte slice against a checksums file content.
+// The checksums file is expected to be in the format: <checksum>  <filename>
+func verifyChecksum(actualChecksum, name string, checksumsData []byte) error {
+	scanner := bufio.NewScanner(bytes.NewReader(checksumsData))
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Fields(line)
+		if len(parts) == 2 && parts[1] == name {
+			expectedChecksum := parts[0]
+			if actualChecksum != expectedChecksum {
+				return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedChecksum, actualChecksum)
+			}
+			return nil // Checksum verified
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading checksums data: %w", err)
+	}
+
+	return fmt.Errorf("checksum not found for file: %s", name)
+}
+
+// ListReleases lists all releases for a repository.
+func ListReleases(owner, repo string) ([]*github.RepositoryRelease, error) {
+	client := NewClient(nil)
+	opt := &github.ListOptions{PerPage: 30}
+	var allReleases []*github.RepositoryRelease
+	for {
+		releases, resp, err := client.Repositories.ListReleases(context.Background(), owner, repo, opt)
+		if err != nil {
+			return nil, err
+		}
+		allReleases = append(allReleases, releases...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+	return allReleases, nil
+}
+
+// GetReleaseByTag gets a release by its tag name.
+func GetReleaseByTag(owner, repo, tag string) (*github.RepositoryRelease, error) {
+	client := NewClient(nil)
+	release, _, err := client.Repositories.GetReleaseByTag(context.Background(), owner, repo, tag)
 	if err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	return release, nil
+}
+
+// DownloadReleaseAsset downloads a release asset.
+func DownloadReleaseAsset(asset *github.ReleaseAsset, w io.Writer) error {
+	req, err := NewRequest("GET", asset.GetBrowserDownloadURL(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "application/octet-stream")
+
+	resp, err := DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	_, err = io.Copy(w, resp.Body)
+	return err
 }
 
 // ParseRepoFromURL parses the owner and repository from a GitHub URL.
