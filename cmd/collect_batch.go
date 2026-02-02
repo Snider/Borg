@@ -67,7 +67,7 @@ func NewCollectBatchCmd() *cobra.Command {
 				return fmt.Errorf("error reading urls: %w", err)
 			}
 
-			if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+if err := os.MkdirAll(outputDir, 0755); err != nil {
 				return fmt.Errorf("error creating output directory: %w", err)
 			}
 
