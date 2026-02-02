@@ -1,0 +1,7 @@
+name: GitHub Organization Collection
+steps:
+  - collect: github repos {{org}}
+    output: {{org}}-repos.dat
+
+variables:
+  org: required

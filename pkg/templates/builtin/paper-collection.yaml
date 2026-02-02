@@ -1,0 +1,9 @@
+name: Academic Paper Collection
+steps:
+  - collect: arxiv {{query}}
+    output: arxiv-papers.dat
+  - collect: ieee {{query}}
+    output: ieee-papers.dat
+
+variables:
+  query: required

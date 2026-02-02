@@ -1,0 +1,20 @@
+name: CryptoNote Project Excavation
+steps:
+  - collect: github repos {{org}}
+    output: github.stim
+    encrypt: true
+
+  - collect: github releases {{org}}/{{main_repo}}
+    output: releases.stim
+
+  - collect: website {{website}}
+    depth: 3
+    output: website.stim
+
+  - collect: wayback {{website}}
+    output: wayback.stim
+
+variables:
+  org: required
+  main_repo: optional
+  website: optional

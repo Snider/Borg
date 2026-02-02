@@ -1,0 +1,11 @@
+name: Website Archive
+steps:
+  - collect: website {{url}}
+    depth: 5
+    output: {{hostname}}-website.dat
+  - collect: wayback {{url}}
+    output: {{hostname}}-wayback.dat
+
+variables:
+  url: required
+  hostname: required
