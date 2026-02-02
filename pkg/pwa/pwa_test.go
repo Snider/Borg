@@ -8,7 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Snider/Borg/pkg/hooks"
 	"github.com/schollz/progressbar/v3"
+	"github.com/stretchr/testify/require"
 )
 
 // --- Test Cases for FindManifest ---
@@ -142,8 +144,10 @@ func TestDownloadAndPackagePWA_Good(t *testing.T) {
 	defer server.Close()
 
 	client := NewPWAClient()
+	hookRunner, err := hooks.NewHookRunner("")
+	require.NoError(t, err)
 	bar := progressbar.NewOptions(1, progressbar.OptionSetWriter(io.Discard))
-	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", bar)
+	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", bar, hookRunner)
 	if err != nil {
 		t.Fatalf("DownloadAndPackagePWA failed: %v", err)
 	}
@@ -158,11 +162,14 @@ func TestDownloadAndPackagePWA_Good(t *testing.T) {
 }
 
 func TestDownloadAndPackagePWA_Bad(t *testing.T) {
+	hookRunner, err := hooks.NewHookRunner("")
+	require.NoError(t, err)
+
 	t.Run("Bad Manifest URL", func(t *testing.T) {
 		server := newPWATestServer()
 		defer server.Close()
 		client := NewPWAClient()
-		_, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/nonexistent-manifest.json", nil)
+		_, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/nonexistent-manifest.json", nil, hookRunner)
 		if err == nil {
 			t.Fatal("expected an error for bad manifest url, but got none")
 		}
@@ -179,7 +186,7 @@ func TestDownloadAndPackagePWA_Bad(t *testing.T) {
 		}))
 		defer server.Close()
 		client := NewPWAClient()
-		_, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
+		_, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil, hookRunner)
 		if err == nil {
 			t.Fatal("expected an error for asset 404, but got none")
 		}
@@ -191,6 +198,9 @@ func TestDownloadAndPackagePWA_Bad(t *testing.T) {
 }
 
 func TestDownloadAndPackagePWA_Ugly(t *testing.T) {
+	hookRunner, err := hooks.NewHookRunner("")
+	require.NoError(t, err)
+
 	t.Run("Manifest with no assets", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -199,7 +209,7 @@ func TestDownloadAndPackagePWA_Ugly(t *testing.T) {
 		defer server.Close()
 
 		client := NewPWAClient()
-		dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
+		dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil, hookRunner)
 		if err != nil {
 			t.Fatalf("unexpected error for manifest with no assets: %v", err)
 		}
@@ -376,7 +386,9 @@ func TestMockPWAClient(t *testing.T) {
 
 	t.Run("DownloadAndPackagePWA returns configured datanode", func(t *testing.T) {
 		mock := NewMockPWAClient("", nil, nil)
-		dn, err := mock.DownloadAndPackagePWA("http://example.com", "http://example.com/manifest.json", nil)
+		hookRunner, err := hooks.NewHookRunner("")
+		require.NoError(t, err)
+		dn, err := mock.DownloadAndPackagePWA("http://example.com", "http://example.com/manifest.json", nil, hookRunner)
 		if err != nil {
 			t.Fatalf("DownloadAndPackagePWA error = %v", err)
 		}
@@ -428,7 +440,9 @@ func TestDownloadAndPackagePWA_FullManifest(t *testing.T) {
 	defer server.Close()
 
 	client := NewPWAClient()
-	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
+	hookRunner, err := hooks.NewHookRunner("")
+	require.NoError(t, err)
+	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil, hookRunner)
 	if err != nil {
 		t.Fatalf("DownloadAndPackagePWA failed: %v", err)
 	}
@@ -496,7 +510,9 @@ func TestDownloadAndPackagePWA_ServiceWorker(t *testing.T) {
 	defer server.Close()
 
 	client := NewPWAClient()
-	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
+	hookRunner, err := hooks.NewHookRunner("")
+	require.NoError(t, err)
+	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil, hookRunner)
 	if err != nil {
 		t.Fatalf("DownloadAndPackagePWA failed: %v", err)
 	}

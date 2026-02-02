@@ -4,14 +4,20 @@ import (
 	"log"
 	"os"
 
+	"github.com/Snider/Borg/pkg/hooks"
 	"github.com/Snider/Borg/pkg/website"
 )
 
 func main() {
 	log.Println("Collecting website...")
 
+	hookRunner, err := hooks.NewHookRunner("")
+	if err != nil {
+		log.Fatalf("Failed to create hook runner: %v", err)
+	}
+
 	// Download and package the website.
-	dn, err := website.DownloadAndPackageWebsite("https://example.com", 2, nil)
+	dn, err := website.DownloadAndPackageWebsite("https://example.com", 2, nil, hookRunner)
 	if err != nil {
 		log.Fatalf("Failed to collect website: %v", err)
 	}

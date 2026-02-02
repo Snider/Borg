@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/hooks"
 	"github.com/Snider/Borg/pkg/pwa"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
@@ -43,8 +44,21 @@ Examples:
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			hooksFile, _ := cmd.Flags().GetString("hooks")
 
-			finalPath, err := CollectPWA(c.PWAClient, pwaURL, outputFile, format, compression, password)
+			// If hooks file is not specified, check for default
+			if hooksFile == "" {
+				if _, err := os.Stat(".borg-hooks.yaml"); err == nil {
+					hooksFile = ".borg-hooks.yaml"
+				}
+			}
+
+			hookRunner, err := hooks.NewHookRunner(hooksFile)
+			if err != nil {
+				return err
+			}
+
+			finalPath, err := CollectPWA(c.PWAClient, pwaURL, outputFile, format, compression, password, hookRunner)
 			if err != nil {
 				return err
 			}
@@ -57,13 +71,14 @@ Examples:
 	c.Flags().String("format", "datanode", "Output format (datanode, tim, trix, or stim)")
 	c.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
 	c.Flags().String("password", "", "Password for encryption (required for stim format)")
+	c.Flags().String("hooks", "", "Path to the .borg-hooks.yaml file")
 	return c
 }
 
 func init() {
 	collectCmd.AddCommand(&NewCollectPWACmd().Command)
 }
-func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format string, compression string, password string) (string, error) {
+func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format string, compression string, password string, hookRunner *hooks.HookRunner) (string, error) {
 	if pwaURL == "" {
 		return "", fmt.Errorf("url is required")
 	}
@@ -85,7 +100,7 @@ func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format s
 		return "", fmt.Errorf("error finding manifest: %w", err)
 	}
 	bar.Describe("Downloading and packaging PWA")
-	dn, err := client.DownloadAndPackagePWA(pwaURL, manifestURL, bar)
+	dn, err := client.DownloadAndPackagePWA(pwaURL, manifestURL, bar, hookRunner)
 	if err != nil {
 		return "", fmt.Errorf("error downloading and packaging PWA: %w", err)
 	}
