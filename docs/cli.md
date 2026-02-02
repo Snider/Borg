@@ -21,8 +21,10 @@ Subcommands:
 - `borg collect github repos <org-or-user> [--output <file>] [--format ...] [--compression ...]`
 - `borg collect website <url> [--depth N] [--output <file>] [--format ...] [--compression ...]`
 - `borg collect pwa --uri <url> [--output <file>] [--format ...] [--compression ...]`
+- `borg collect discord import <path/to/export.json>`
 
 Examples:
+- `borg collect discord import ./discord-export/export.json`
 - `borg collect github repo https://github.com/Snider/Borg --output borg.dat`
 - `borg collect website https://example.com --depth 1 --output site.dat`
 - `borg collect pwa --uri https://squoosh.app --output squoosh.dat`

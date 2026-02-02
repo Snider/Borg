@@ -1,0 +1,59 @@
+{
+  "guild": {
+    "id": "12345",
+    "name": "Test/Server"
+  },
+  "channels": [
+    {
+      "id": "channel1",
+      "name": "general"
+    },
+    {
+      "id": "channel2",
+      "name": "random"
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg1",
+      "channelId": "channel1",
+      "author": {
+        "id": "user1",
+        "name": "Jules",
+        "avatarUrl": ""
+      },
+      "timestamp": "2024-01-01T12:00:00Z",
+      "content": "Hello, world!",
+      "attachments": []
+    },
+    {
+      "id": "msg2",
+      "channelId": "channel2",
+      "author": {
+        "id": "user2",
+        "name": "User2",
+        "avatarUrl": ""
+      },
+      "timestamp": "2024-01-01T12:01:00Z",
+      "content": "This is a test message.",
+      "attachments": [
+        {
+          "url": "https://example.com/file.txt",
+          "fileName": "file with spaces.txt"
+        }
+      ]
+    },
+    {
+      "id": "msg3",
+      "channelId": "channel1",
+      "author": {
+        "id": "user1",
+        "name": "Jules",
+        "avatarUrl": ""
+      },
+      "timestamp": "2024-01-01T12:02:00Z",
+      "content": "Another message in general.",
+      "attachments": []
+    }
+  ]
+}
