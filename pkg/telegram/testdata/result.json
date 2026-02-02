@@ -1,0 +1,42 @@
+{
+  "name": "Test Channel",
+  "type": "public_channel",
+  "id": 123456789,
+  "messages": [
+    {
+      "id": 1,
+      "type": "message",
+      "date": "2024-01-15T12:00:00",
+      "from": "User1",
+      "text": "Hello, world!"
+    },
+    {
+      "id": 2,
+      "type": "message",
+      "date": "2024-01-15T12:01:00",
+      "from": "User2",
+      "text": [
+        {
+          "type": "bold",
+          "text": "This"
+        },
+        " is a ",
+        {
+          "type": "italic",
+          "text": "test"
+        },
+        " message with formatting."
+      ]
+    },
+    {
+      "id": 3,
+      "type": "message",
+      "date": "2024-02-10T18:30:00",
+      "from": "User1",
+      "photo": "photos/photo_1@10-02-2024_18-30-00.jpg",
+      "width": 800,
+      "height": 600,
+      "text": "Here is a photo."
+    }
+  ]
+}
