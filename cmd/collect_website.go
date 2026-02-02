@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/schollz/progressbar/v3"
+	"github.com/Snider/Borg/pkg/cache"
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
@@ -51,9 +53,30 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			noCache, _ := cmd.Flags().GetBool("no-cache")
+
+			var cacheInstance *cache.Cache
+			var err error
+			if !noCache {
+				cacheDir, err := GetCacheDir(cmd)
+				if err != nil {
+					return err
+				}
+				cacheInstance, err = cache.New(cacheDir)
+				if err != nil {
+					return fmt.Errorf("failed to create cache: %w", err)
+				}
+			}
+
+			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar, cacheInstance)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
+			}
+
+			if cacheInstance != nil {
+				if err := cacheInstance.Close(); err != nil {
+					return fmt.Errorf("failed to close cache: %w", err)
+				}
 			}
 
 			var data []byte
@@ -104,5 +127,7 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
+	collectWebsiteCmd.Flags().Bool("no-cache", false, "Skip cache, re-download everything")
+	collectWebsiteCmd.Flags().String("cache-dir", "", "Custom cache location")
 	return collectWebsiteCmd
 }
