@@ -9,6 +9,12 @@ dist: dist
 before:
   hooks:
     - go mod tidy
+    # Build WASM and console assets before the release build
+    - mkdir -p dist
+    - GOOS=js GOARCH=wasm go build -o dist/stmf.wasm ./pkg/wasm/stmf/
+    - cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" dist/ 2>/dev/null || cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/
+    - go build -o borg main.go
+    - ./borg console build -p "borg-demo" -o dist/console.stim -s js/borg-stmf
 
 builds:
   - id: borg
@@ -73,6 +79,10 @@ release:
   # By default goreleaser creates GitHub releases from tags.
   prerelease: auto
   mode: replace
+  extra_files:
+    - glob: 'dist/stmf.wasm'
+    - glob: 'dist/wasm_exec.js'
+    - glob: 'dist/console.stim'
 
 brews:
   - name: borg
