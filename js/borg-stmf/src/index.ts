@@ -306,13 +306,26 @@ export class BorgSTMF {
   }
 
   private async waitForWasm(timeout = 5000): Promise<void> {
-    const start = Date.now();
-    while (!window.BorgSTMF?.ready) {
-      if (Date.now() - start > timeout) {
-        throw new Error('Timeout waiting for WASM module to initialize');
-      }
-      await new Promise((resolve) => setTimeout(resolve, 50));
+    if (window.BorgSTMF?.ready) {
+      return;
     }
+
+    return new Promise((resolve, reject) => {
+      let timeoutId: number;
+
+      const onReady = () => {
+        window.clearTimeout(timeoutId);
+        document.removeEventListener('borgstmf:ready', onReady);
+        resolve();
+      };
+
+      timeoutId = window.setTimeout(() => {
+        document.removeEventListener('borgstmf:ready', onReady);
+        reject(new Error('Timeout waiting for WASM module to initialize'));
+      }, timeout);
+
+      document.addEventListener('borgstmf:ready', onReady, { once: true });
+    });
   }
 
   private async loadScript(src: string): Promise<void> {
