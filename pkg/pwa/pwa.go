@@ -418,14 +418,14 @@ func (p *pwaClient) extractAssetsFromHTML(baseURL string, htmlContent []byte) []
 	return assets
 }
 
+// serviceWorkerPatterns contains pre-compiled regex for detecting service workers.
+var serviceWorkerPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`navigator\.serviceWorker\.register\(['"]([^'"]+)['"]`),
+	regexp.MustCompile(`serviceWorker\.register\(['"]([^'"]+)['"]`),
+}
+
 // detectServiceWorker tries to find service worker registration in HTML/JS.
 func (p *pwaClient) detectServiceWorker(baseURL string, dn *datanode.DataNode) string {
-	// Look for common service worker registration patterns
-	patterns := []string{
-		`navigator\.serviceWorker\.register\(['"]([^'"]+)['"]`,
-		`serviceWorker\.register\(['"]([^'"]+)['"]`,
-	}
-
 	// Check all downloaded HTML and JS files
 	err := dn.Walk(".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -445,8 +445,7 @@ func (p *pwaClient) detectServiceWorker(baseURL string, dn *datanode.DataNode) s
 				return nil
 			}
 
-			for _, pattern := range patterns {
-				re := regexp.MustCompile(pattern)
+			for _, re := range serviceWorkerPatterns {
 				matches := re.FindSubmatch(content)
 				if len(matches) > 1 {
 					swPath := string(matches[1])
