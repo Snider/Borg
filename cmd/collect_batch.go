@@ -67,7 +67,7 @@ func NewCollectBatchCmd() *cobra.Command {
 				return fmt.Errorf("error reading urls: %w", err)
 			}
 
-if err := os.MkdirAll(outputDir, 0755); err != nil {
+			if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
 				return fmt.Errorf("error creating output directory: %w", err)
 			}
 
@@ -128,17 +128,12 @@ func downloadURL(cmd *cobra.Command, u, outputDir string, skipExisting bool, del
 		}
 	}
 
-	resp, err := httpClient.Get(u)
+	resp, err := http.Get(u)
 	if err != nil {
 		logMessage(cmd, fmt.Sprintf("Error downloading %s: %v", u, err), bar, outMutex)
 		return
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		logMessage(cmd, fmt.Sprintf("HTTP error %d for %s", resp.StatusCode, u), bar, outMutex)
-		return
-	}
 
 	out, err := os.Create(filePath)
 	if err != nil {
