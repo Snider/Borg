@@ -567,6 +567,58 @@ func TestTarRoundTrip_Good(t *testing.T) {
 	}
 }
 
+func TestMerge_Good(t *testing.T) {
+	dn1 := New()
+	dn1.AddData("a.txt", []byte("a"))
+	dn1.AddData("b/c.txt", []byte("c"))
+
+	dn2 := New()
+	dn2.AddData("d.txt", []byte("d"))
+	dn2.AddData("b/e.txt", []byte("e"))
+
+	dn1.Merge(dn2)
+
+	// Verify dn1 contains files from dn2
+	exists, _ := dn1.Exists("d.txt")
+	if !exists {
+		t.Error("d.txt missing after merge")
+	}
+	exists, _ = dn1.Exists("b/e.txt")
+	if !exists {
+		t.Error("b/e.txt missing after merge")
+	}
+
+	// Verify original files still exist
+	exists, _ = dn1.Exists("a.txt")
+	if !exists {
+		t.Error("a.txt missing after merge")
+	}
+}
+
+func TestMerge_Ugly(t *testing.T) {
+	// Test overwriting files
+	dn1 := New()
+	dn1.AddData("a.txt", []byte("original"))
+
+	dn2 := New()
+	dn2.AddData("a.txt", []byte("overwritten"))
+
+	dn1.Merge(dn2)
+
+	file, err := dn1.Open("a.txt")
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	content, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if string(content) != "overwritten" {
+		t.Errorf("expected a.txt to be overwritten, got %q", string(content))
+	}
+}
+
 func TestFromTar_Bad(t *testing.T) {
 	// Pass invalid data (truncated header)
 	// A valid tar header is 512 bytes.

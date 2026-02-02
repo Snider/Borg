@@ -1,27 +1,42 @@
 package mocks
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/Snider/Borg/pkg/datanode"
-	"github.com/Snider/Borg/pkg/vcs"
 )
 
 // MockGitCloner is a mock implementation of the GitCloner interface.
 type MockGitCloner struct {
-	DN  *datanode.DataNode
-	Err error
+	Responses map[string]struct {
+		DN  *datanode.DataNode
+		Err error
+	}
 }
 
 // NewMockGitCloner creates a new MockGitCloner.
-func NewMockGitCloner(dn *datanode.DataNode, err error) vcs.GitCloner {
+func NewMockGitCloner() *MockGitCloner {
 	return &MockGitCloner{
-		DN:  dn,
-		Err: err,
+		Responses: make(map[string]struct {
+			DN  *datanode.DataNode
+			Err error
+		}),
 	}
+}
+
+// AddResponse adds a mock response for a given repository URL.
+func (m *MockGitCloner) AddResponse(repoURL string, dn *datanode.DataNode, err error) {
+	m.Responses[repoURL] = struct {
+		DN  *datanode.DataNode
+		Err error
+	}{DN: dn, Err: err}
 }
 
 // CloneGitRepository mocks the cloning of a Git repository.
 func (m *MockGitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*datanode.DataNode, error) {
-	return m.DN, m.Err
+	if resp, ok := m.Responses[repoURL]; ok {
+		return resp.DN, resp.Err
+	}
+	return nil, fmt.Errorf("no mock response for %s", repoURL)
 }
