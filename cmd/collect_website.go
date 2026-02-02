@@ -3,9 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/httpclient"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -38,6 +40,11 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			maxConnections, _ := cmd.Flags().GetInt("max-connections")
+			noKeepAlive, _ := cmd.Flags().GetBool("no-keepalive")
+			http1, _ := cmd.Flags().GetBool("http1")
+			idleTimeout, _ := cmd.Flags().GetDuration("idle-timeout")
+			maxIdle, _ := cmd.Flags().GetInt("max-idle")
 
 			if format != "datanode" && format != "tim" && format != "trix" {
 				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
@@ -51,10 +58,24 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			// Create a new HTTP client with the specified options.
+			client, metrics := httpclient.New(httpclient.Options{
+				MaxPerHost:  maxConnections,
+				NoKeepAlive: noKeepAlive,
+				HTTP1:       http1,
+				IdleTimeout: idleTimeout,
+				MaxIdle:     maxIdle,
+			})
+
+			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar, client)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}
+
+			// Display the connection reuse metrics.
+			fmt.Fprintln(cmd.OutOrStdout(), "Connection Metrics:")
+			fmt.Fprintf(cmd.OutOrStdout(), "  Connections Reused: %d\n", metrics.ConnectionsReused)
+			fmt.Fprintf(cmd.OutOrStdout(), "  Connections Created: %d\n", metrics.ConnectionsCreated)
 
 			var data []byte
 			if format == "tim" {
@@ -104,5 +125,10 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
+	collectWebsiteCmd.Flags().Int("max-connections", 6, "Max connections per domain")
+	collectWebsiteCmd.Flags().Bool("no-keepalive", false, "Disable keep-alive")
+	collectWebsiteCmd.Flags().Bool("http1", false, "Force HTTP/1.1")
+	collectWebsiteCmd.Flags().Duration("idle-timeout", 90*time.Second, "Close idle connections after")
+	collectWebsiteCmd.Flags().Int("max-idle", 100, "Max idle connections total")
 	return collectWebsiteCmd
 }
