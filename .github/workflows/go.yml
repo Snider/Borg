@@ -29,6 +29,6 @@ jobs:
       run: ~/go/bin/task test
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@e25bde834954415c4b24cc50117b342b59196b86 # v4.0.0-beta.3
+      uses: codecov/codecov-action@a079530fc142d3d288ddf76321ca0b7fe5b18df5 # v4.4.1
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
