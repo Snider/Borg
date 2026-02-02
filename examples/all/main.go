@@ -13,7 +13,7 @@ import (
 func main() {
 	log.Println("Collecting all repositories for a user...")
 
-	repos, err := github.NewGithubClient().GetPublicRepos(context.Background(), "Snider")
+	repos, err := github.NewGithubClient(nil).GetPublicRepos(context.Background(), "Snider")
 	if err != nil {
 		log.Fatalf("Failed to get public repos: %v", err)
 	}
@@ -22,7 +22,7 @@ func main() {
 
 	for _, repo := range repos {
 		log.Printf("Cloning %s...", repo)
-		dn, err := cloner.CloneGitRepository(fmt.Sprintf("https://github.com/%s", repo), nil)
+		dn, err := cloner.CloneGitRepository(repo, nil)
 		if err != nil {
 			log.Printf("Failed to clone %s: %v", repo, err)
 			continue

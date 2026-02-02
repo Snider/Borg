@@ -2,15 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
+	borghttp "github.com/Snider/Borg/pkg/http"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
 	"github.com/Snider/Borg/pkg/website"
-
 	"github.com/spf13/cobra"
 )
 
@@ -38,9 +41,51 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			rateLimit, _ := cmd.Flags().GetString("rate-limit")
+			burst, _ := cmd.Flags().GetInt("burst")
+			rateConfig, _ := cmd.Flags().GetString("rate-config")
 
 			if format != "datanode" && format != "tim" && format != "trix" {
 				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
+			}
+
+			config := &borghttp.Config{
+				Defaults: borghttp.Rate{
+					RequestsPerSecond: 10, // A reasonable default
+					Burst:             10,
+				},
+				Domains: make(map[string]borghttp.Rate),
+			}
+
+			if rateConfig != "" {
+				var err error
+				config, err = borghttp.ParseConfig(rateConfig)
+				if err != nil {
+					return fmt.Errorf("error parsing rate config: %w", err)
+				}
+			}
+
+			if rateLimit != "" {
+				parts := strings.Split(rateLimit, "/")
+				if len(parts) != 2 || (parts[1] != "s" && parts[1] != "m") {
+					return fmt.Errorf("invalid rate limit format: %s (e.g., 2/s or 120/m)", rateLimit)
+				}
+				rate, err := strconv.ParseFloat(parts[0], 64)
+				if err != nil {
+					return fmt.Errorf("invalid rate: %w", err)
+				}
+				if parts[1] == "m" {
+					rate = rate / 60
+				}
+				config.Defaults.RequestsPerSecond = rate
+			}
+
+			if burst > 0 {
+				config.Defaults.Burst = burst
+			}
+
+			client := &http.Client{
+				Transport: borghttp.NewRateLimitingRoundTripper(config, http.DefaultTransport),
 			}
 
 			prompter := ui.NewNonInteractivePrompter(ui.GetWebsiteQuote)
@@ -51,7 +96,7 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar, client)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}
@@ -104,5 +149,8 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
+	collectWebsiteCmd.Flags().String("rate-limit", "", "Requests per second (e.g., 2/s) or minute (e.g., 120/m)")
+	collectWebsiteCmd.Flags().Int("burst", 0, "Burst allowance")
+	collectWebsiteCmd.Flags().String("rate-config", "", "Path to a rate limit configuration file")
 	return collectWebsiteCmd
 }

@@ -1,0 +1,21 @@
+defaults:
+  requests_per_second: 1
+  burst: 5
+
+domains:
+  api.github.com:
+    requests_per_second: 0.5  # 1 req per 2 seconds
+    burst: 1
+
+  bitcointalk.org:
+    requests_per_second: 0.2  # 1 req per 5 seconds
+    burst: 1
+    reason: "aggressive anti-scraping"
+
+  eprint.iacr.org:
+    requests_per_second: 2
+    burst: 10
+
+  "*.archive.org":
+    requests_per_second: 1
+    burst: 3
