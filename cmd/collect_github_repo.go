@@ -37,81 +37,7 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
 
-			if format != "datanode" && format != "tim" && format != "trix" && format != "stim" {
-				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', 'trix', or 'stim')", format)
-			}
-			if compression != "none" && compression != "gz" && compression != "xz" {
-				return fmt.Errorf("invalid compression: %s (must be 'none', 'gz', or 'xz')", compression)
-			}
-
-			prompter := ui.NewNonInteractivePrompter(ui.GetVCSQuote)
-			prompter.Start()
-			defer prompter.Stop()
-
-			var progressWriter io.Writer
-			if prompter.IsInteractive() {
-				bar := ui.NewProgressBar(-1, "Cloning repository")
-				progressWriter = ui.NewProgressWriter(bar)
-			}
-
-			dn, err := GitCloner.CloneGitRepository(repoURL, progressWriter)
-			if err != nil {
-				return fmt.Errorf("error cloning repository: %w", err)
-			}
-
-			var data []byte
-			if format == "tim" {
-				t, err := tim.FromDataNode(dn)
-				if err != nil {
-					return fmt.Errorf("error creating tim: %w", err)
-				}
-				data, err = t.ToTar()
-				if err != nil {
-					return fmt.Errorf("error serializing tim: %w", err)
-				}
-			} else if format == "stim" {
-				if password == "" {
-					return fmt.Errorf("password required for stim format")
-				}
-				t, err := tim.FromDataNode(dn)
-				if err != nil {
-					return fmt.Errorf("error creating tim: %w", err)
-				}
-				data, err = t.ToSigil(password)
-				if err != nil {
-					return fmt.Errorf("error encrypting stim: %w", err)
-				}
-			} else if format == "trix" {
-				data, err = trix.ToTrix(dn, password)
-				if err != nil {
-					return fmt.Errorf("error serializing trix: %w", err)
-				}
-			} else {
-				data, err = dn.ToTar()
-				if err != nil {
-					return fmt.Errorf("error serializing DataNode: %w", err)
-				}
-			}
-
-			compressedData, err := compress.Compress(data, compression)
-			if err != nil {
-				return fmt.Errorf("error compressing data: %w", err)
-			}
-
-			if outputFile == "" {
-				outputFile = "repo." + format
-				if compression != "none" {
-					outputFile += "." + compression
-				}
-			}
-
-			err = os.WriteFile(outputFile, compressedData, defaultFilePermission)
-			if err != nil {
-				return fmt.Errorf("error writing DataNode to file: %w", err)
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), "Repository saved to", outputFile)
-			return nil
+			return collectRepo(repoURL, outputFile, format, compression, password, cmd)
 		},
 	}
 	cmd.Flags().String("output", "", "Output file for the DataNode")
@@ -119,6 +45,84 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 	cmd.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
 	cmd.Flags().String("password", "", "Password for encryption (required for trix/stim)")
 	return cmd
+}
+
+func collectRepo(repoURL, outputFile, format, compression, password string, cmd *cobra.Command) error {
+	if format != "datanode" && format != "tim" && format != "trix" && format != "stim" {
+		return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', 'trix', or 'stim')", format)
+	}
+	if compression != "none" && compression != "gz" && compression != "xz" {
+		return fmt.Errorf("invalid compression: %s (must be 'none', 'gz', or 'xz')", compression)
+	}
+
+	prompter := ui.NewNonInteractivePrompter(ui.GetVCSQuote)
+	prompter.Start()
+	defer prompter.Stop()
+
+	var progressWriter io.Writer
+	if prompter.IsInteractive() {
+		bar := ui.NewProgressBar(-1, "Cloning repository")
+		progressWriter = ui.NewProgressWriter(bar)
+	}
+
+	dn, err := GitCloner.CloneGitRepository(repoURL, progressWriter)
+	if err != nil {
+		return fmt.Errorf("error cloning repository: %w", err)
+	}
+
+	var data []byte
+	if format == "tim" {
+		t, err := tim.FromDataNode(dn)
+		if err != nil {
+			return fmt.Errorf("error creating tim: %w", err)
+		}
+		data, err = t.ToTar()
+		if err != nil {
+			return fmt.Errorf("error serializing tim: %w", err)
+		}
+	} else if format == "stim" {
+		if password == "" {
+			return fmt.Errorf("password required for stim format")
+		}
+		t, err := tim.FromDataNode(dn)
+		if err != nil {
+			return fmt.Errorf("error creating tim: %w", err)
+		}
+		data, err = t.ToSigil(password)
+		if err != nil {
+			return fmt.Errorf("error encrypting stim: %w", err)
+		}
+	} else if format == "trix" {
+		data, err = trix.ToTrix(dn, password)
+		if err != nil {
+			return fmt.Errorf("error serializing trix: %w", err)
+		}
+	} else {
+		data, err = dn.ToTar()
+		if err != nil {
+			return fmt.Errorf("error serializing DataNode: %w", err)
+		}
+	}
+
+	compressedData, err := compress.Compress(data, compression)
+	if err != nil {
+		return fmt.Errorf("error compressing data: %w", err)
+	}
+
+	if outputFile == "" {
+		outputFile = "repo." + format
+		if compression != "none" {
+			outputFile += "." + compression
+		}
+	}
+
+	err = os.WriteFile(outputFile, compressedData, defaultFilePermission)
+	if err != nil {
+		return fmt.Errorf("error writing DataNode to file: %w", err)
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "Repository saved to", outputFile)
+	return nil
 }
 
 func init() {
