@@ -1,3 +1,5 @@
+// +build dappfm
+
 // dapp-fm-app is a native desktop media player for dapp.fm
 // Decryption in Go, media served via Wails asset handler (same origin, no CORS)
 package main
