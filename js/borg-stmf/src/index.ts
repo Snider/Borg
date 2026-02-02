@@ -102,30 +102,48 @@ export class BorgSTMF {
   /**
    * Encrypt a FormData object
    */
-  async encryptFormData(formData: globalThis.FormData): Promise<EncryptResult> {
+  async encryptFormData(
+    formData: globalThis.FormData,
+    metadata?: Record<string, string>,
+    serverPublicKey?: string
+  ): Promise<EncryptResult> {
     this.ensureInitialized();
 
     const fields: Record<string, string | FormField> = {};
+    const promises: Promise<void>[] = [];
 
     formData.forEach((value, key) => {
       if (value instanceof File) {
         // Handle file uploads - read as base64
         // Note: For large files, consider chunking or streaming
         this.log('File field detected:', key, value.name);
-        // For now, skip files - they need async reading
-        // TODO: Add file support with FileReader
+        const promise = readFileAsBase64(value).then((base64) => {
+          fields[key] = {
+            name: key,
+            value: base64,
+            type: 'file',
+            filename: value.name,
+            mime: value.type,
+          };
+        });
+        promises.push(promise);
       } else {
         fields[key] = value.toString();
       }
     });
 
+    await Promise.all(promises);
+
+    const meta = {
+      origin: window.location.origin,
+      timestamp: Date.now().toString(),
+      ...metadata,
+    };
+
     const payload = await this.wasm!.encryptFields(
       fields,
-      this.config.serverPublicKey,
-      {
-        origin: window.location.origin,
-        timestamp: Date.now().toString(),
-      }
+      serverPublicKey || this.config.serverPublicKey,
+      meta
     );
 
     return {
@@ -218,22 +236,16 @@ export class BorgSTMF {
 
         // Encrypt the form
         const originalFormData = new window.FormData(form);
-        const fields: Record<string, string> = {};
 
-        originalFormData.forEach((value, key) => {
-          if (!(value instanceof File)) {
-            fields[key] = value.toString();
-          }
-        });
+        const metadata: Record<string, string> = {};
+        if (form.id) {
+          metadata.formId = form.id;
+        }
 
-        const payload = await this.wasm!.encryptFields(
-          fields,
-          serverKey,
-          {
-            origin: window.location.origin,
-            timestamp: Date.now().toString(),
-            formId: form.id || undefined,
-          }
+        const { payload } = await this.encryptFormData(
+          originalFormData,
+          metadata,
+          serverKey
         );
 
         // Callback after encryption
@@ -335,6 +347,19 @@ export class BorgSTMF {
 // Export a factory function for convenience
 export function createBorgSTMF(config: BorgSTMFConfig): BorgSTMF {
   return new BorgSTMF(config);
+}
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 // Export types for the Go interface

@@ -10,3 +10,5 @@ demo-track.smsg
 
 # Dev artifacts
 .playwright-mcp/
+node_modules/
+*.log
