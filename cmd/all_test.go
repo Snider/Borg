@@ -23,7 +23,7 @@ func TestAllCmd_Good(t *testing.T) {
 		},
 	})
 	oldNewAuthenticatedClient := github.NewAuthenticatedClient
-	github.NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+	github.NewAuthenticatedClient = func(ctx context.Context, baseClient *http.Client) *http.Client {
 		return mockGithubClient
 	}
 	defer func() {
@@ -67,7 +67,7 @@ func TestAllCmd_Bad(t *testing.T) {
 		},
 	})
 	oldNewAuthenticatedClient := github.NewAuthenticatedClient
-	github.NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+	github.NewAuthenticatedClient = func(ctx context.Context, baseClient *http.Client) *http.Client {
 		return mockGithubClient
 	}
 	defer func() {
@@ -96,7 +96,7 @@ func TestAllCmd_Ugly(t *testing.T) {
 			},
 		})
 		oldNewAuthenticatedClient := github.NewAuthenticatedClient
-		github.NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+		github.NewAuthenticatedClient = func(ctx context.Context, baseClient *http.Client) *http.Client {
 			return mockGithubClient
 		}
 		defer func() {

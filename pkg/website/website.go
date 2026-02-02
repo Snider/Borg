@@ -26,13 +26,8 @@ type Downloader struct {
 	errors      []error
 }
 
-// NewDownloader creates a new Downloader.
-func NewDownloader(maxDepth int) *Downloader {
-	return NewDownloaderWithClient(maxDepth, http.DefaultClient)
-}
-
-// NewDownloaderWithClient creates a new Downloader with a custom http.Client.
-func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
+// NewDownloader creates a new Downloader with a custom http.Client.
+func NewDownloader(maxDepth int, client *http.Client) *Downloader {
 	return &Downloader{
 		dn:          datanode.New(),
 		visited:     make(map[string]bool),
@@ -43,13 +38,13 @@ func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
 }
 
 // downloadAndPackageWebsite downloads a website and packages it into a DataNode.
-func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar, client *http.Client) (*datanode.DataNode, error) {
 	baseURL, err := url.Parse(startURL)
 	if err != nil {
 		return nil, err
 	}
 
-	d := NewDownloader(maxDepth)
+	d := NewDownloader(maxDepth, client)
 	d.baseURL = baseURL
 	d.progressBar = bar
 	d.crawl(startURL, 0)

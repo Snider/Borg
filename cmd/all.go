@@ -11,6 +11,7 @@ import (
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/httpclient"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -42,7 +43,15 @@ func NewAllCmd() *cobra.Command {
 				return err
 			}
 
-			repos, err := GithubClient.GetPublicRepos(cmd.Context(), owner)
+			totalTimeout, _ := cmd.Flags().GetDuration("timeout")
+			connectTimeout, _ := cmd.Flags().GetDuration("connect-timeout")
+			tlsTimeout, _ := cmd.Flags().GetDuration("tls-timeout")
+			headerTimeout, _ := cmd.Flags().GetDuration("header-timeout")
+
+			httpClient := httpclient.NewClient(totalTimeout, connectTimeout, tlsTimeout, headerTimeout)
+			githubClient := github.NewGithubClient(httpClient)
+
+			repos, err := githubClient.GetPublicRepos(cmd.Context(), owner)
 			if err != nil {
 				return err
 			}

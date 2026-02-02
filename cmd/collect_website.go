@@ -6,6 +6,7 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/httpclient"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -51,7 +52,14 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			totalTimeout, _ := cmd.Flags().GetDuration("timeout")
+			connectTimeout, _ := cmd.Flags().GetDuration("connect-timeout")
+			tlsTimeout, _ := cmd.Flags().GetDuration("tls-timeout")
+			headerTimeout, _ := cmd.Flags().GetDuration("header-timeout")
+
+			client := httpclient.NewClient(totalTimeout, connectTimeout, tlsTimeout, headerTimeout)
+
+			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar, client)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}

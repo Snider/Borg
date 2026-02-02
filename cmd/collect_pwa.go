@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/httpclient"
 	"github.com/Snider/Borg/pkg/pwa"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
@@ -13,17 +14,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type CollectPWACmd struct {
-	cobra.Command
-	PWAClient pwa.PWAClient
-}
-
 // NewCollectPWACmd creates a new collect pwa command
-func NewCollectPWACmd() *CollectPWACmd {
-	c := &CollectPWACmd{
-		PWAClient: pwa.NewPWAClient(),
-	}
-	c.Command = cobra.Command{
+func NewCollectPWACmd() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "pwa [url]",
 		Short: "Collect a single PWA using a URI",
 		Long: `Collect a single PWA and store it in a DataNode.
@@ -44,7 +37,15 @@ Examples:
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
 
-			finalPath, err := CollectPWA(c.PWAClient, pwaURL, outputFile, format, compression, password)
+			totalTimeout, _ := cmd.Flags().GetDuration("timeout")
+			connectTimeout, _ := cmd.Flags().GetDuration("connect-timeout")
+			tlsTimeout, _ := cmd.Flags().GetDuration("tls-timeout")
+			headerTimeout, _ := cmd.Flags().GetDuration("header-timeout")
+
+			httpClient := httpclient.NewClient(totalTimeout, connectTimeout, tlsTimeout, headerTimeout)
+			pwaClient := pwa.NewPWAClient(httpClient)
+
+			finalPath, err := CollectPWA(pwaClient, pwaURL, outputFile, format, compression, password)
 			if err != nil {
 				return err
 			}
@@ -52,16 +53,16 @@ Examples:
 			return nil
 		},
 	}
-	c.Flags().String("uri", "", "The URI of the PWA to collect (can also be passed as positional arg)")
-	c.Flags().String("output", "", "Output file for the DataNode")
-	c.Flags().String("format", "datanode", "Output format (datanode, tim, trix, or stim)")
-	c.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
-	c.Flags().String("password", "", "Password for encryption (required for stim format)")
-	return c
+	cmd.Flags().String("uri", "", "The URI of the PWA to collect (can also be passed as positional arg)")
+	cmd.Flags().String("output", "", "Output file for the DataNode")
+	cmd.Flags().String("format", "datanode", "Output format (datanode, tim, trix, or stim)")
+	cmd.Flags().String("compression", "none", "Compression format (none, gz, or xz)")
+	cmd.Flags().String("password", "", "Password for encryption (required for stim format)")
+	return cmd
 }
 
 func init() {
-	collectCmd.AddCommand(&NewCollectPWACmd().Command)
+	collectCmd.AddCommand(NewCollectPWACmd())
 }
 func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format string, compression string, password string) (string, error) {
 	if pwaURL == "" {

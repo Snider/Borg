@@ -154,7 +154,7 @@ func TestFindNextURL_Ugly(t *testing.T) {
 
 func TestNewAuthenticatedClient_Good(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
-	client := NewAuthenticatedClient(context.Background())
+	client := NewAuthenticatedClient(context.Background(), http.DefaultClient)
 	if client == http.DefaultClient {
 		t.Error("expected an authenticated client, but got http.DefaultClient")
 	}
@@ -163,7 +163,7 @@ func TestNewAuthenticatedClient_Good(t *testing.T) {
 func TestNewAuthenticatedClient_Bad(t *testing.T) {
 	// Unset the variable to ensure it's not present
 	t.Setenv("GITHUB_TOKEN", "")
-	client := NewAuthenticatedClient(context.Background())
+	client := NewAuthenticatedClient(context.Background(), http.DefaultClient)
 	if client != http.DefaultClient {
 		t.Error("expected http.DefaultClient when no token is set, but got something else")
 	}
@@ -171,9 +171,9 @@ func TestNewAuthenticatedClient_Bad(t *testing.T) {
 
 // setupMockClient is a helper function to inject a mock http.Client.
 func setupMockClient(t *testing.T, mock *http.Client) *githubClient {
-	client := &githubClient{}
+	client := &githubClient{client: mock}
 	originalNewAuthenticatedClient := NewAuthenticatedClient
-	NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+	NewAuthenticatedClient = func(ctx context.Context, baseClient *http.Client) *http.Client {
 		return mock
 	}
 	// Restore the original function after the test

@@ -20,7 +20,7 @@ func TestFindManifest_Good(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewPWAClient()
+	client := NewPWAClient(http.DefaultClient)
 	expectedURL := server.URL + "/manifest.json"
 	actualURL, err := client.FindManifest(server.URL)
 	if err != nil {
@@ -43,7 +43,7 @@ func TestFindManifest_Bad(t *testing.T) {
 			}
 		}))
 		defer server.Close()
-		client := NewPWAClient()
+		client := NewPWAClient(http.DefaultClient)
 		_, err := client.FindManifest(server.URL)
 		if err == nil {
 			t.Fatal("expected an error, but got none")
@@ -55,7 +55,7 @@ func TestFindManifest_Bad(t *testing.T) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}))
 		defer server.Close()
-		client := NewPWAClient()
+		client := NewPWAClient(http.DefaultClient)
 		_, err := client.FindManifest(server.URL)
 		if err == nil {
 			t.Fatal("expected an error for server error, but got none")
@@ -70,7 +70,7 @@ func TestFindManifest_Ugly(t *testing.T) {
 			fmt.Fprint(w, `<html><head><link rel="manifest" href="first.json"><link rel="manifest" href="second.json"></head></html>`)
 		}))
 		defer server.Close()
-		client := NewPWAClient()
+		client := NewPWAClient(http.DefaultClient)
 		// Should find the first one
 		expectedURL := server.URL + "/first.json"
 		actualURL, err := client.FindManifest(server.URL)
@@ -98,7 +98,7 @@ func TestFindManifest_Ugly(t *testing.T) {
 			}
 		}))
 		defer server.Close()
-		client := NewPWAClient()
+		client := NewPWAClient(http.DefaultClient)
 		expectedURL := server.URL + "/manifest.json"
 		actualURL, err := client.FindManifest(server.URL)
 		if err != nil {
@@ -123,7 +123,7 @@ func TestFindManifest_Ugly(t *testing.T) {
 			}
 		}))
 		defer server.Close()
-		client := NewPWAClient()
+		client := NewPWAClient(http.DefaultClient)
 		expectedURL := server.URL + "/site.webmanifest"
 		actualURL, err := client.FindManifest(server.URL)
 		if err != nil {
@@ -141,7 +141,7 @@ func TestDownloadAndPackagePWA_Good(t *testing.T) {
 	server := newPWATestServer()
 	defer server.Close()
 
-	client := NewPWAClient()
+	client := NewPWAClient(http.DefaultClient)
 	bar := progressbar.NewOptions(1, progressbar.OptionSetWriter(io.Discard))
 	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", bar)
 	if err != nil {
@@ -161,7 +161,7 @@ func TestDownloadAndPackagePWA_Bad(t *testing.T) {
 	t.Run("Bad Manifest URL", func(t *testing.T) {
 		server := newPWATestServer()
 		defer server.Close()
-		client := NewPWAClient()
+		client := NewPWAClient(http.DefaultClient)
 		_, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/nonexistent-manifest.json", nil)
 		if err == nil {
 			t.Fatal("expected an error for bad manifest url, but got none")
@@ -178,7 +178,7 @@ func TestDownloadAndPackagePWA_Bad(t *testing.T) {
 			}
 		}))
 		defer server.Close()
-		client := NewPWAClient()
+		client := NewPWAClient(http.DefaultClient)
 		_, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
 		if err == nil {
 			t.Fatal("expected an error for asset 404, but got none")
@@ -198,7 +198,7 @@ func TestDownloadAndPackagePWA_Ugly(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := NewPWAClient()
+		client := NewPWAClient(http.DefaultClient)
 		dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
 		if err != nil {
 			t.Fatalf("unexpected error for manifest with no assets: %v", err)
@@ -214,7 +214,7 @@ func TestDownloadAndPackagePWA_Ugly(t *testing.T) {
 // --- Test Cases for resolveURL ---
 
 func TestResolveURL_Good(t *testing.T) {
-	client := NewPWAClient().(*pwaClient)
+	client := NewPWAClient(http.DefaultClient).(*pwaClient)
 	tests := []struct {
 		base string
 		ref  string
@@ -239,7 +239,7 @@ func TestResolveURL_Good(t *testing.T) {
 }
 
 func TestResolveURL_Bad(t *testing.T) {
-	client := NewPWAClient().(*pwaClient)
+	client := NewPWAClient(http.DefaultClient).(*pwaClient)
 	_, err := client.resolveURL("http://^invalid.com", "foo.html")
 	if err == nil {
 		t.Error("expected error for malformed base URL, but got nil")
@@ -249,7 +249,7 @@ func TestResolveURL_Bad(t *testing.T) {
 // --- Test Cases for extractAssetsFromHTML ---
 
 func TestExtractAssetsFromHTML(t *testing.T) {
-	client := NewPWAClient().(*pwaClient)
+	client := NewPWAClient(http.DefaultClient).(*pwaClient)
 
 	t.Run("extracts stylesheets", func(t *testing.T) {
 		html := []byte(`<html><head><link rel="stylesheet" href="style.css"></head></html>`)
@@ -427,7 +427,7 @@ func TestDownloadAndPackagePWA_FullManifest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewPWAClient()
+	client := NewPWAClient(http.DefaultClient)
 	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
 	if err != nil {
 		t.Fatalf("DownloadAndPackagePWA failed: %v", err)
@@ -495,7 +495,7 @@ func TestDownloadAndPackagePWA_ServiceWorker(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewPWAClient()
+	client := NewPWAClient(http.DefaultClient)
 	dn, err := client.DownloadAndPackagePWA(server.URL, server.URL+"/manifest.json", nil)
 	if err != nil {
 		t.Fatalf("DownloadAndPackagePWA failed: %v", err)
