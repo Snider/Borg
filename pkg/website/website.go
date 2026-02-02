@@ -1,6 +1,7 @@
 package website
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,8 +10,9 @@ import (
 
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/schollz/progressbar/v3"
-
 	"golang.org/x/net/html"
+	"golang.org/x/time/rate"
+	"sync"
 )
 
 var DownloadAndPackageWebsite = downloadAndPackageWebsite
@@ -21,38 +23,51 @@ type Downloader struct {
 	dn          *datanode.DataNode
 	visited     map[string]bool
 	maxDepth    int
+	parallel    int
 	progressBar *progressbar.ProgressBar
 	client      *http.Client
 	errors      []error
+	mu          sync.Mutex
+	limiter     *rate.Limiter
 }
 
 // NewDownloader creates a new Downloader.
-func NewDownloader(maxDepth int) *Downloader {
-	return NewDownloaderWithClient(maxDepth, http.DefaultClient)
+func NewDownloader(maxDepth, parallel int, rateLimit float64) *Downloader {
+	return NewDownloaderWithClient(maxDepth, parallel, rateLimit, http.DefaultClient)
 }
 
 // NewDownloaderWithClient creates a new Downloader with a custom http.Client.
-func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
+func NewDownloaderWithClient(maxDepth, parallel int, rateLimit float64, client *http.Client) *Downloader {
+	var limiter *rate.Limiter
+	if rateLimit > 0 {
+		limiter = rate.NewLimiter(rate.Limit(rateLimit), 1)
+	}
 	return &Downloader{
 		dn:          datanode.New(),
 		visited:     make(map[string]bool),
 		maxDepth:    maxDepth,
+		parallel:    parallel,
 		client:      client,
 		errors:      make([]error, 0),
+		limiter:     limiter,
 	}
 }
 
 // downloadAndPackageWebsite downloads a website and packages it into a DataNode.
-func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+func downloadAndPackageWebsite(ctx context.Context, startURL string, maxDepth, parallel int, rateLimit float64, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
 	baseURL, err := url.Parse(startURL)
 	if err != nil {
 		return nil, err
 	}
 
-	d := NewDownloader(maxDepth)
+	d := NewDownloader(maxDepth, parallel, rateLimit)
 	d.baseURL = baseURL
 	d.progressBar = bar
-	d.crawl(startURL, 0)
+	d.crawl(ctx, startURL)
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
 	if len(d.errors) > 0 {
 		var errs []string
@@ -65,102 +80,136 @@ func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.P
 	return d.dn, nil
 }
 
-func (d *Downloader) crawl(pageURL string, depth int) {
-	if depth > d.maxDepth || d.visited[pageURL] {
-		return
-	}
-	d.visited[pageURL] = true
-	if d.progressBar != nil {
-		d.progressBar.Add(1)
-	}
+type crawlJob struct {
+	url   string
+	depth int
+}
 
-	resp, err := d.client.Get(pageURL)
-	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error getting %s: %w", pageURL, err))
-		return
-	}
-	defer resp.Body.Close()
+func (d *Downloader) crawl(ctx context.Context, startURL string) {
+	var wg sync.WaitGroup
+	var jobWg sync.WaitGroup
+	jobChan := make(chan crawlJob, 100)
 
-	if resp.StatusCode >= 400 {
-		d.errors = append(d.errors, fmt.Errorf("bad status for %s: %s", pageURL, resp.Status))
-		return
+	for i := 0; i < d.parallel; i++ {
+		wg.Add(1)
+		go d.worker(ctx, &wg, &jobWg, jobChan)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error reading body of %s: %w", pageURL, err))
-		return
-	}
+	jobWg.Add(1)
+	jobChan <- crawlJob{url: startURL, depth: 0}
 
-	relPath := d.getRelativePath(pageURL)
-	d.dn.AddData(relPath, body)
+	go func() {
+		jobWg.Wait()
+		close(jobChan)
+	}()
 
-	// Don't try to parse non-html content
-	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {
-		return
-	}
+	wg.Wait()
+}
 
-	doc, err := html.Parse(strings.NewReader(string(body)))
-	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error parsing HTML of %s: %w", pageURL, err))
-		return
-	}
+func (d *Downloader) worker(ctx context.Context, wg *sync.WaitGroup, jobWg *sync.WaitGroup, jobChan chan crawlJob) {
+	defer wg.Done()
+	for job := range jobChan {
+		func() {
+			defer jobWg.Done()
 
-	var f func(*html.Node)
-	f = func(n *html.Node) {
-		if n.Type == html.ElementNode {
-			for _, a := range n.Attr {
-				if a.Key == "href" || a.Key == "src" {
-					link, err := d.resolveURL(pageURL, a.Val)
-					if err != nil {
-						continue
-					}
-					if d.isLocal(link) {
-						if isAsset(link) {
-							d.downloadAsset(link)
-						} else {
-							d.crawl(link, depth+1)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			if job.depth > d.maxDepth {
+				return
+			}
+
+			d.mu.Lock()
+			if d.visited[job.url] {
+				d.mu.Unlock()
+				return
+			}
+			d.visited[job.url] = true
+			d.mu.Unlock()
+
+			if d.progressBar != nil {
+				d.progressBar.Add(1)
+			}
+
+			if d.limiter != nil {
+				d.limiter.Wait(ctx)
+			}
+
+			req, err := http.NewRequestWithContext(ctx, "GET", job.url, nil)
+			if err != nil {
+				d.addError(fmt.Errorf("Error creating request for %s: %w", job.url, err))
+				return
+			}
+			resp, err := d.client.Do(req)
+			if err != nil {
+				d.addError(fmt.Errorf("Error getting %s: %w", job.url, err))
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode >= 400 {
+				d.addError(fmt.Errorf("bad status for %s: %s", job.url, resp.Status))
+				return
+			}
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				d.addError(fmt.Errorf("Error reading body of %s: %w", job.url, err))
+				return
+			}
+
+			relPath := d.getRelativePath(job.url)
+			d.mu.Lock()
+			d.dn.AddData(relPath, body)
+			d.mu.Unlock()
+
+			if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {
+				return
+			}
+
+			doc, err := html.Parse(strings.NewReader(string(body)))
+			if err != nil {
+				d.addError(fmt.Errorf("Error parsing HTML of %s: %w", job.url, err))
+				return
+			}
+
+			var f func(*html.Node)
+			f = func(n *html.Node) {
+				if n.Type == html.ElementNode {
+					for _, a := range n.Attr {
+						if a.Key == "href" || a.Key == "src" {
+							link, err := d.resolveURL(job.url, a.Val)
+							if err != nil {
+								continue
+							}
+							if d.isLocal(link) {
+							select {
+							case <-ctx.Done():
+								return
+							default:
+								jobWg.Add(1)
+								jobChan <- crawlJob{url: link, depth: job.depth + 1}
+							}
+							}
 						}
 					}
 				}
+				for c := n.FirstChild; c != nil; c = c.NextSibling {
+					f(c)
+				}
 			}
-		}
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			f(c)
-		}
+			f(doc)
+		}()
 	}
-	f(doc)
 }
 
-func (d *Downloader) downloadAsset(assetURL string) {
-	if d.visited[assetURL] {
-		return
-	}
-	d.visited[assetURL] = true
-	if d.progressBar != nil {
-		d.progressBar.Add(1)
-	}
-
-	resp, err := d.client.Get(assetURL)
-	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error getting asset %s: %w", assetURL, err))
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		d.errors = append(d.errors, fmt.Errorf("bad status for asset %s: %s", assetURL, resp.Status))
-		return
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error reading body of asset %s: %w", assetURL, err))
-		return
-	}
-
-	relPath := d.getRelativePath(assetURL)
-	d.dn.AddData(relPath, body)
+func (d *Downloader) addError(err error) {
+	d.mu.Lock()
+	d.errors = append(d.errors, err)
+	d.mu.Unlock()
 }
 
 func (d *Downloader) getRelativePath(pageURL string) string {

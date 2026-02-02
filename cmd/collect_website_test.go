@@ -11,10 +11,14 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
+import (
+	"context"
+)
+
 func TestCollectWebsiteCmd_Good(t *testing.T) {
 	// Mock the website downloader
 	oldDownloadAndPackageWebsite := website.DownloadAndPackageWebsite
-	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	website.DownloadAndPackageWebsite = func(ctx context.Context, startURL string, maxDepth, parallel int, rateLimit float64, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
 		return datanode.New(), nil
 	}
 	defer func() {
@@ -35,7 +39,7 @@ func TestCollectWebsiteCmd_Good(t *testing.T) {
 func TestCollectWebsiteCmd_Bad(t *testing.T) {
 	// Mock the website downloader to return an error
 	oldDownloadAndPackageWebsite := website.DownloadAndPackageWebsite
-	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	website.DownloadAndPackageWebsite = func(ctx context.Context, startURL string, maxDepth, parallel int, rateLimit float64, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
 		return nil, fmt.Errorf("website error")
 	}
 	defer func() {
