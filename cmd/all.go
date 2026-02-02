@@ -11,6 +11,7 @@ import (
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/ratelimit"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -42,7 +43,16 @@ func NewAllCmd() *cobra.Command {
 				return err
 			}
 
-			repos, err := GithubClient.GetPublicRepos(cmd.Context(), owner)
+			bandwidth, _ := cmd.Flags().GetString("bandwidth")
+			bytesPerSec, err := ratelimit.ParseBandwidth(bandwidth)
+			if err != nil {
+				return fmt.Errorf("invalid bandwidth: %w", err)
+			}
+
+			client := github.NewAuthenticatedClient(cmd.Context(), ratelimit.NewRateLimitedRoundTripper(nil, bytesPerSec))
+			githubClient := GithubClient(client)
+
+			repos, err := githubClient.GetPublicRepos(cmd.Context(), owner)
 			if err != nil {
 				return err
 			}

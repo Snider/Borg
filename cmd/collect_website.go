@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/ratelimit"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -51,7 +53,17 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			bandwidth, _ := cmd.Flags().GetString("bandwidth")
+			bytesPerSec, err := ratelimit.ParseBandwidth(bandwidth)
+			if err != nil {
+				return fmt.Errorf("invalid bandwidth: %w", err)
+			}
+
+			client := &http.Client{
+				Transport: ratelimit.NewRateLimitedRoundTripper(http.DefaultTransport, bytesPerSec),
+			}
+
+			dn, err := website.DownloadAndPackageWebsiteWithClient(websiteURL, depth, bar, client)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}

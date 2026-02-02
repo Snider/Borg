@@ -65,3 +65,26 @@ func TestCollectGithubRepoCmd_Ugly(t *testing.T) {
 		}
 	})
 }
+
+func TestCollectGithubRepoCmd_Bandwidth(t *testing.T) {
+	// Setup mock Git cloner
+	mockCloner := &mocks.MockGitCloner{
+		DN:  datanode.New(),
+		Err: nil,
+	}
+	oldCloner := GitCloner
+	GitCloner = mockCloner
+	defer func() {
+		GitCloner = oldCloner
+	}()
+
+	rootCmd := NewRootCmd()
+	rootCmd.AddCommand(GetCollectCmd())
+
+	// Execute command with a bandwidth limit
+	out := filepath.Join(t.TempDir(), "out")
+	_, err := executeCommand(rootCmd, "collect", "github", "repo", "https://github.com/testuser/repo1", "--output", out, "--bandwidth", "1KB/s")
+	if err != nil {
+		t.Fatalf("collect github repo command failed: %v", err)
+	}
+}
