@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/robots"
 	"github.com/schollz/progressbar/v3"
-
 	"golang.org/x/net/html"
+	"time"
 )
 
 var DownloadAndPackageWebsite = downloadAndPackageWebsite
@@ -24,6 +25,9 @@ type Downloader struct {
 	progressBar *progressbar.ProgressBar
 	client      *http.Client
 	errors      []error
+	robots      *robots.RobotsData
+	userAgent   string
+	minDelay    time.Duration
 }
 
 // NewDownloader creates a new Downloader.
@@ -39,11 +43,12 @@ func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
 		maxDepth:    maxDepth,
 		client:      client,
 		errors:      make([]error, 0),
+		userAgent:   "Borg/1.0",
 	}
 }
 
 // downloadAndPackageWebsite downloads a website and packages it into a DataNode.
-func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar, userAgent string, ignoreRobots bool, minDelay time.Duration) (*datanode.DataNode, error) {
 	baseURL, err := url.Parse(startURL)
 	if err != nil {
 		return nil, err
@@ -52,6 +57,23 @@ func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.P
 	d := NewDownloader(maxDepth)
 	d.baseURL = baseURL
 	d.progressBar = bar
+	d.userAgent = userAgent
+	d.minDelay = minDelay
+
+	if !ignoreRobots {
+		robotsURL, err := baseURL.Parse("/robots.txt")
+		if err == nil {
+			resp, err := d.client.Get(robotsURL.String())
+			if err == nil && resp.StatusCode == http.StatusOK {
+				body, err := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				if err == nil {
+					d.robots, _ = robots.Parse(body, d.userAgent)
+				}
+			}
+		}
+	}
+
 	d.crawl(startURL, 0)
 
 	if len(d.errors) > 0 {
@@ -69,12 +91,28 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 	if depth > d.maxDepth || d.visited[pageURL] {
 		return
 	}
+
+	u, err := url.Parse(pageURL)
+	if err != nil {
+		d.errors = append(d.errors, fmt.Errorf("invalid URL %s: %w", pageURL, err))
+		return
+	}
+
+	if d.robots != nil && !d.robots.IsAllowed(u.Path) {
+		return
+	}
+
 	d.visited[pageURL] = true
 	if d.progressBar != nil {
 		d.progressBar.Add(1)
 	}
 
-	resp, err := d.client.Get(pageURL)
+	d.delay()
+
+	req, _ := http.NewRequest("GET", pageURL, nil)
+	req.Header.Set("User-Agent", d.userAgent)
+
+	resp, err := d.client.Do(req)
 	if err != nil {
 		d.errors = append(d.errors, fmt.Errorf("Error getting %s: %w", pageURL, err))
 		return
@@ -136,12 +174,28 @@ func (d *Downloader) downloadAsset(assetURL string) {
 	if d.visited[assetURL] {
 		return
 	}
+
+	u, err := url.Parse(assetURL)
+	if err != nil {
+		d.errors = append(d.errors, fmt.Errorf("invalid URL %s: %w", assetURL, err))
+		return
+	}
+
+	if d.robots != nil && !d.robots.IsAllowed(u.Path) {
+		return
+	}
+
 	d.visited[assetURL] = true
 	if d.progressBar != nil {
 		d.progressBar.Add(1)
 	}
 
-	resp, err := d.client.Get(assetURL)
+	d.delay()
+
+	req, _ := http.NewRequest("GET", assetURL, nil)
+	req.Header.Set("User-Agent", d.userAgent)
+
+	resp, err := d.client.Do(req)
 	if err != nil {
 		d.errors = append(d.errors, fmt.Errorf("Error getting asset %s: %w", assetURL, err))
 		return
@@ -161,6 +215,19 @@ func (d *Downloader) downloadAsset(assetURL string) {
 
 	relPath := d.getRelativePath(assetURL)
 	d.dn.AddData(relPath, body)
+}
+
+func (d *Downloader) delay() {
+	var delay time.Duration
+	if d.robots != nil {
+		delay = d.robots.CrawlDelay
+	}
+	if d.minDelay > delay {
+		delay = d.minDelay
+	}
+	if delay > 0 {
+		time.Sleep(delay)
+	}
 }
 
 func (d *Downloader) getRelativePath(pageURL string) string {
