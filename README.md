@@ -104,6 +104,9 @@ borg collect github repo <url>           # Clone repository
 borg collect github repos <owner>        # Clone all repos from user/org
 borg collect website <url> --depth 2     # Crawl website
 borg collect pwa --uri <url>             # Download PWA
+borg collect npm <package>               # Collect npm package
+borg collect cargo <package>             # Collect cargo crate
+borg collect go <module>                 # Collect Go module
 
 # Compilation
 borg compile -f Borgfile -o out.tim      # Plain TIM
