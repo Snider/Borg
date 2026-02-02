@@ -8,10 +8,7 @@ import (
 // Assets embeds all frontend files for the media player
 // These are served both by Wails (memory) and HTTP (fallback)
 //
-//go:embed frontend/index.html
-//go:embed frontend/wasm_exec.js
-//go:embed frontend/stmf.wasm
-//go:embed frontend/demo-track.smsg
+//go:embed frontend
 var assets embed.FS
 
 // Assets returns the embedded filesystem with frontend/ prefix stripped
