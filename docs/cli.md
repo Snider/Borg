@@ -74,6 +74,34 @@ Examples:
 - `borg decode borg.trix --output borg.dat --password "secret"`
 - `borg decode borg.tim --output borg.dat --i-am-in-isolation`
 
+### index
+
+Build a search index for an archive to speed up searches.
+
+- `borg index <archive-file>`
+
+Example:
+- `borg index my-project.dat`
+
+This will create a `.borg-index` directory next to the archive.
+
+### search
+
+Search for a pattern within an archive. Uses a pre-built index if available.
+
+- `borg search <archive-file> <pattern>`
+
+Flags:
+- `--regex`: Treat the pattern as a regular expression.
+- `-C, --context N`: Show N lines of context before and after each match.
+- `--type <ext>`: Filter search by file extension (e.g., `go`, `md`).
+- `--max-results N`: Limit the number of results returned.
+
+Examples:
+- `borg search my-project.dat "TODO:"`
+- `borg search my-project.dat "func.*main" --regex --type go`
+- `borg search my-project.dat "important" -C 3`
+
 ## Compression
 
 All collect commands accept `--compression` with values:
