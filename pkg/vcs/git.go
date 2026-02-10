@@ -50,10 +50,6 @@ func (g *gitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*dat
 		if err != nil {
 			return err
 		}
-		// Skip the .git directory
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
-		}
 		if !info.IsDir() {
 			content, err := os.ReadFile(path)
 			if err != nil {

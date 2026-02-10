@@ -177,11 +177,14 @@ func (d *DataNode) Stat(name string) (fs.FileInfo, error) {
 	if file, ok := d.files[name]; ok {
 		return file.Stat()
 	}
-	// Check if it's a directory
-	prefix := name + "/"
+
+	// The root directory always exists.
 	if name == "." || name == "" {
-		prefix = ""
+		return &dirInfo{name: ".", modTime: time.Now()}, nil
 	}
+
+	// Check if it's an implicit directory
+	prefix := name + "/"
 	for p := range d.files {
 		if strings.HasPrefix(p, prefix) {
 			return &dirInfo{name: path.Base(name), modTime: time.Now()}, nil
