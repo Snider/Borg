@@ -11,10 +11,8 @@ import (
 
 func TestCollectGithubRepoCmd_Good(t *testing.T) {
 	// Setup mock Git cloner
-	mockCloner := &mocks.MockGitCloner{
-		DN:  datanode.New(),
-		Err: nil,
-	}
+	mockCloner := mocks.NewMockGitCloner()
+	mockCloner.AddResponse("https://github.com/testuser/repo1", datanode.New(), nil)
 	oldCloner := GitCloner
 	GitCloner = mockCloner
 	defer func() {
@@ -34,10 +32,8 @@ func TestCollectGithubRepoCmd_Good(t *testing.T) {
 
 func TestCollectGithubRepoCmd_Bad(t *testing.T) {
 	// Setup mock Git cloner to return an error
-	mockCloner := &mocks.MockGitCloner{
-		DN:  nil,
-		Err: fmt.Errorf("git clone error"),
-	}
+	mockCloner := mocks.NewMockGitCloner()
+	mockCloner.AddResponse("https://github.com/testuser/repo1", nil, fmt.Errorf("git clone error"))
 	oldCloner := GitCloner
 	GitCloner = mockCloner
 	defer func() {

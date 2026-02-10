@@ -81,6 +81,13 @@ func (d *DataNode) ToTar() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Merge combines the contents of another DataNode into the current one.
+func (d *DataNode) Merge(other *DataNode) {
+	for name, file := range other.files {
+		d.files[name] = file
+	}
+}
+
 // AddData adds a file to the DataNode.
 func (d *DataNode) AddData(name string, content []byte) {
 	name = strings.TrimPrefix(name, "/")

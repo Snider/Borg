@@ -31,10 +31,8 @@ func TestAllCmd_Good(t *testing.T) {
 	}()
 
 	// Setup mock Git cloner
-	mockCloner := &mocks.MockGitCloner{
-		DN:  datanode.New(),
-		Err: nil,
-	}
+	mockCloner := mocks.NewMockGitCloner()
+	mockCloner.AddResponse("https://github.com/testuser/repo1.git", datanode.New(), nil)
 	oldCloner := GitCloner
 	GitCloner = mockCloner
 	defer func() {

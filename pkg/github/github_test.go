@@ -7,13 +7,25 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-
-	"github.com/Snider/Borg/pkg/mocks"
 )
+
+type mockRoundTripper struct {
+	responses map[string]*http.Response
+}
+
+func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return m.responses[req.URL.String()], nil
+}
+
+func NewMockClient(responses map[string]*http.Response) *http.Client {
+	return &http.Client{
+		Transport: &mockRoundTripper{responses},
+	}
+}
 
 func TestGetPublicRepos_Good(t *testing.T) {
 	t.Run("User Repos", func(t *testing.T) {
-		mockClient := mocks.NewMockClient(map[string]*http.Response{
+		mockClient := NewMockClient(map[string]*http.Response{
 			"https://api.github.com/users/testuser/repos": {
 				StatusCode: http.StatusOK,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},
