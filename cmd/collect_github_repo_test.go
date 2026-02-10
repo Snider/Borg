@@ -7,6 +7,8 @@ import (
 
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/Snider/Borg/pkg/mocks"
+	"github.com/Snider/Borg/pkg/vcs"
+	"github.com/spf13/cobra"
 )
 
 func TestCollectGithubRepoCmd_Good(t *testing.T) {
@@ -22,7 +24,12 @@ func TestCollectGithubRepoCmd_Good(t *testing.T) {
 	}()
 
 	rootCmd := NewRootCmd()
-	rootCmd.AddCommand(GetCollectCmd())
+	collectCmd := NewCollectCmd()
+	githubCmd := GetCollectGithubCmd()
+	repoCmd := NewCollectGithubRepoCmd()
+	githubCmd.AddCommand(repoCmd)
+	collectCmd.AddCommand(githubCmd)
+	rootCmd.AddCommand(collectCmd)
 
 	// Execute command
 	out := filepath.Join(t.TempDir(), "out")
@@ -45,7 +52,12 @@ func TestCollectGithubRepoCmd_Bad(t *testing.T) {
 	}()
 
 	rootCmd := NewRootCmd()
-	rootCmd.AddCommand(GetCollectCmd())
+	collectCmd := NewCollectCmd()
+	githubCmd := GetCollectGithubCmd()
+	repoCmd := NewCollectGithubRepoCmd()
+	githubCmd.AddCommand(repoCmd)
+	collectCmd.AddCommand(githubCmd)
+	rootCmd.AddCommand(collectCmd)
 
 	// Execute command
 	out := filepath.Join(t.TempDir(), "out")
@@ -58,7 +70,19 @@ func TestCollectGithubRepoCmd_Bad(t *testing.T) {
 func TestCollectGithubRepoCmd_Ugly(t *testing.T) {
 	t.Run("Invalid repo URL", func(t *testing.T) {
 		rootCmd := NewRootCmd()
-		rootCmd.AddCommand(GetCollectCmd())
+		collectCmd := NewCollectCmd()
+		githubCmd := GetCollectGithubCmd()
+		repoCmd := NewCollectGithubRepoCmd()
+		githubCmd.AddCommand(repoCmd)
+		collectCmd.AddCommand(githubCmd)
+		rootCmd.AddCommand(collectCmd)
+
+		repoCmd.RunE = func(cmd *cobra.Command, args []string) error {
+			cloner := vcs.NewGitClonerWithClient(nil)
+			_, err := cloner.CloneGitRepository(args[0], nil)
+			return err
+		}
+
 		_, err := executeCommand(rootCmd, "collect", "github", "repo", "not-a-github-url")
 		if err == nil {
 			t.Fatal("expected an error for invalid repo URL, but got none")

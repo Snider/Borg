@@ -21,21 +21,29 @@ type GithubClient interface {
 }
 
 // NewGithubClient creates a new GithubClient.
-func NewGithubClient() GithubClient {
-	return &githubClient{}
+func NewGithubClient(client *http.Client) GithubClient {
+	return &githubClient{
+		client: client,
+	}
 }
 
-type githubClient struct{}
+type githubClient struct {
+	client *http.Client
+}
 
 // NewAuthenticatedClient creates a new authenticated http client.
-var NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+var NewAuthenticatedClient = func(ctx context.Context, baseClient *http.Client) *http.Client {
+	if baseClient == nil {
+		baseClient = http.DefaultClient
+	}
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
-		return http.DefaultClient
+		return baseClient
 	}
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, baseClient)
 	return oauth2.NewClient(ctx, ts)
 }
 
@@ -44,7 +52,7 @@ func (g *githubClient) GetPublicRepos(ctx context.Context, userOrOrg string) ([]
 }
 
 func (g *githubClient) getPublicReposWithAPIURL(ctx context.Context, apiURL, userOrOrg string) ([]string, error) {
-	client := NewAuthenticatedClient(ctx)
+	client := NewAuthenticatedClient(ctx, g.client)
 	var allCloneURLs []string
 	url := fmt.Sprintf("%s/users/%s/repos", apiURL, userOrOrg)
 	isFirstRequest := true
