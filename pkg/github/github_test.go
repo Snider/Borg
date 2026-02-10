@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Snider/Borg/pkg/mocks"
+	"github.com/Snider/Borg/pkg/retry"
 )
 
 func TestGetPublicRepos_Good(t *testing.T) {
@@ -164,8 +165,8 @@ func TestNewAuthenticatedClient_Bad(t *testing.T) {
 	// Unset the variable to ensure it's not present
 	t.Setenv("GITHUB_TOKEN", "")
 	client := NewAuthenticatedClient(context.Background())
-	if client != http.DefaultClient {
-		t.Error("expected http.DefaultClient when no token is set, but got something else")
+	if _, ok := client.Transport.(*retry.Transport); !ok {
+		t.Errorf("expected transport to be *retry.Transport, but got %T", client.Transport)
 	}
 }
 

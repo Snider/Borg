@@ -5,6 +5,7 @@ import (
 
 	"github.com/Snider/Borg/cmd"
 	"github.com/Snider/Borg/pkg/logger"
+	"github.com/Snider/Borg/pkg/retry"
 )
 
 var osExit = os.Exit

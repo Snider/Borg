@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/retry"
 	"github.com/schollz/progressbar/v3"
 
 	"golang.org/x/net/html"
@@ -28,7 +29,7 @@ type Downloader struct {
 
 // NewDownloader creates a new Downloader.
 func NewDownloader(maxDepth int) *Downloader {
-	return NewDownloaderWithClient(maxDepth, http.DefaultClient)
+	return NewDownloaderWithClient(maxDepth, retry.NewClient(retry.NewTransport()))
 }
 
 // NewDownloaderWithClient creates a new Downloader with a custom http.Client.

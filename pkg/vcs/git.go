@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Snider/Borg/pkg/datanode"
 
@@ -37,12 +38,37 @@ func (g *gitCloner) CloneGitRepository(repoURL string, progress io.Writer) (*dat
 		cloneOptions.Progress = progress
 	}
 
-	_, err = git.PlainClone(tempPath, false, cloneOptions)
-	if err != nil {
+	var lastErr error
+	retries := 3
+	backoff := 1 * time.Second
+	maxBackoff := 30 * time.Second
+
+	for i := 0; i < retries; i++ {
+		_, err = git.PlainClone(tempPath, false, cloneOptions)
+		if err == nil {
+			lastErr = nil
+			break
+		}
+
+		lastErr = err
+
+		// Handle non-retryable error
 		if err.Error() == "remote repository is empty" {
 			return datanode.New(), nil
 		}
-		return nil, err
+
+		// Don't wait on the last attempt
+		if i < retries-1 {
+			time.Sleep(backoff)
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+		}
+	}
+
+	if lastErr != nil {
+		return nil, lastErr
 	}
 
 	dn := datanode.New()
