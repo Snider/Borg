@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/Snider/Borg/pkg/hooks"
 	"github.com/Snider/Borg/pkg/pwa"
 )
 
@@ -18,7 +19,12 @@ func main() {
 		log.Fatalf("Failed to find manifest: %v", err)
 	}
 
-	dn, err := client.DownloadAndPackagePWA(pwaURL, manifestURL, nil)
+	hookRunner, err := hooks.NewHookRunner("")
+	if err != nil {
+		log.Fatalf("Failed to create hook runner: %v", err)
+	}
+
+	dn, err := client.DownloadAndPackagePWA(pwaURL, manifestURL, nil, hookRunner)
 	if err != nil {
 		log.Fatalf("Failed to download and package PWA: %v", err)
 	}

@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/hooks"
 	"github.com/schollz/progressbar/v3"
 	"golang.org/x/net/html"
 )
@@ -27,7 +28,7 @@ var manifestFallbackPaths = []string{
 // PWAClient is an interface for interacting with PWAs.
 type PWAClient interface {
 	FindManifest(pwaURL string) (string, error)
-	DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error)
+	DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar, hookRunner *hooks.HookRunner) (*datanode.DataNode, error)
 }
 
 // NewPWAClient creates a new PWAClient.
@@ -158,12 +159,22 @@ type Manifest struct {
 // DownloadAndPackagePWA downloads and packages a PWA into a DataNode.
 // It downloads the manifest, all referenced assets, and parses HTML pages
 // for additional linked resources (CSS, JS, images).
-func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar, hookRunner *hooks.HookRunner) (*datanode.DataNode, error) {
 	dn := datanode.New()
 	var wg sync.WaitGroup
 	var errs []error
 	var mu sync.Mutex
 	downloaded := make(map[string]bool)
+
+	triggerErrorHook := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		errs = append(errs, err)
+		hookRunner.Trigger(hooks.Event{
+			Event: hooks.OnError,
+			Error: err.Error(),
+		})
+	}
 
 	var downloadAndAdd func(assetURL string, parseHTML bool)
 	downloadAndAdd = func(assetURL string, parseHTML bool) {
@@ -183,33 +194,25 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 
 		resp, err := p.client.Get(assetURL)
 		if err != nil {
-			mu.Lock()
-			errs = append(errs, fmt.Errorf("failed to download %s: %w", assetURL, err))
-			mu.Unlock()
+			triggerErrorHook(fmt.Errorf("failed to download %s: %w", assetURL, err))
 			return
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			mu.Lock()
-			errs = append(errs, fmt.Errorf("failed to download %s: status code %d", assetURL, resp.StatusCode))
-			mu.Unlock()
+			triggerErrorHook(fmt.Errorf("failed to download %s: status code %d", assetURL, resp.StatusCode))
 			return
 		}
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			mu.Lock()
-			errs = append(errs, fmt.Errorf("failed to read body of %s: %w", assetURL, err))
-			mu.Unlock()
+			triggerErrorHook(fmt.Errorf("failed to read body of %s: %w", assetURL, err))
 			return
 		}
 
 		u, err := url.Parse(assetURL)
 		if err != nil {
-			mu.Lock()
-			errs = append(errs, fmt.Errorf("failed to parse asset URL %s: %w", assetURL, err))
-			mu.Unlock()
+			triggerErrorHook(fmt.Errorf("failed to parse asset URL %s: %w", assetURL, err))
 			return
 		}
 
@@ -218,11 +221,21 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 			path = "index.html"
 		}
 		dn.AddData(path, body)
+		hookRunner.Trigger(hooks.Event{
+			Event: hooks.OnFileCollected,
+			File:  path,
+			URL:   assetURL,
+			Type:  resp.Header.Get("Content-Type"),
+		})
 
 		// Parse HTML for additional assets
 		if parseHTML && isHTMLContent(resp.Header.Get("Content-Type"), body) {
 			additionalAssets := p.extractAssetsFromHTML(assetURL, body)
 			for _, asset := range additionalAssets {
+				hookRunner.Trigger(hooks.Event{
+					Event: hooks.OnURLFound,
+					URL:   asset,
+				})
 				mu.Lock()
 				if !downloaded[asset] {
 					wg.Add(1)
@@ -272,6 +285,9 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 		// If no start_url, use the PWA URL itself
 		htmlPages = append(htmlPages, pwaURL)
 	}
+	for _, page := range htmlPages {
+		hookRunner.Trigger(hooks.Event{Event: hooks.OnURLFound, URL: page})
+	}
 
 	// Icons
 	for _, icon := range manifest.Icons {
@@ -279,6 +295,7 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 			iconURL, err := p.resolveURL(manifestURL, icon.Src)
 			if err == nil {
 				assetsToDownload = append(assetsToDownload, iconURL.String())
+				hookRunner.Trigger(hooks.Event{Event: hooks.OnURLFound, URL: iconURL.String()})
 			}
 		}
 	}
@@ -289,6 +306,7 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 			screenshotURL, err := p.resolveURL(manifestURL, screenshot.Src)
 			if err == nil {
 				assetsToDownload = append(assetsToDownload, screenshotURL.String())
+				hookRunner.Trigger(hooks.Event{Event: hooks.OnURLFound, URL: screenshotURL.String()})
 			}
 		}
 	}
@@ -299,6 +317,7 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 			shortcutURL, err := p.resolveURL(manifestURL, shortcut.URL)
 			if err == nil {
 				htmlPages = append(htmlPages, shortcutURL.String())
+				hookRunner.Trigger(hooks.Event{Event: hooks.OnURLFound, URL: shortcutURL.String()})
 			}
 		}
 		for _, icon := range shortcut.Icons {
@@ -306,6 +325,7 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 				iconURL, err := p.resolveURL(manifestURL, icon.Src)
 				if err == nil {
 					assetsToDownload = append(assetsToDownload, iconURL.String())
+					hookRunner.Trigger(hooks.Event{Event: hooks.OnURLFound, URL: iconURL.String()})
 				}
 			}
 		}
@@ -316,6 +336,7 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 		swURL, err := p.resolveURL(manifestURL, manifest.ServiceWorker.Src)
 		if err == nil {
 			assetsToDownload = append(assetsToDownload, swURL.String())
+			hookRunner.Trigger(hooks.Event{Event: hooks.OnURLFound, URL: swURL.String()})
 		}
 	}
 
@@ -339,6 +360,7 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 	if manifest.ServiceWorker.Src == "" {
 		swURL := p.detectServiceWorker(pwaURL, dn)
 		if swURL != "" && !downloaded[swURL] {
+			hookRunner.Trigger(hooks.Event{Event: hooks.OnURLFound, URL: swURL})
 			wg.Add(1)
 			go downloadAndAdd(swURL, false)
 			wg.Wait()
@@ -353,6 +375,9 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 		return dn, fmt.Errorf("%s", strings.Join(errStrings, "; "))
 	}
 
+	hookRunner.Trigger(hooks.Event{
+		Event: hooks.OnCollectionComplete,
+	})
 	return dn, nil
 }
 
@@ -511,6 +536,6 @@ func (m *MockPWAClient) FindManifest(pwaURL string) (string, error) {
 }
 
 // DownloadAndPackagePWA mocks the downloading and packaging of a PWA.
-func (m *MockPWAClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+func (m *MockPWAClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progressbar.ProgressBar, hookRunner *hooks.HookRunner) (*datanode.DataNode, error) {
 	return m.DN, m.Err
 }

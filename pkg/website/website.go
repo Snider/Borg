@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/hooks"
 	"github.com/schollz/progressbar/v3"
 
 	"golang.org/x/net/html"
@@ -24,32 +25,34 @@ type Downloader struct {
 	progressBar *progressbar.ProgressBar
 	client      *http.Client
 	errors      []error
+	hookRunner  *hooks.HookRunner
 }
 
 // NewDownloader creates a new Downloader.
-func NewDownloader(maxDepth int) *Downloader {
-	return NewDownloaderWithClient(maxDepth, http.DefaultClient)
+func NewDownloader(maxDepth int, hookRunner *hooks.HookRunner) *Downloader {
+	return NewDownloaderWithClient(maxDepth, http.DefaultClient, hookRunner)
 }
 
 // NewDownloaderWithClient creates a new Downloader with a custom http.Client.
-func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
+func NewDownloaderWithClient(maxDepth int, client *http.Client, hookRunner *hooks.HookRunner) *Downloader {
 	return &Downloader{
 		dn:          datanode.New(),
 		visited:     make(map[string]bool),
 		maxDepth:    maxDepth,
 		client:      client,
 		errors:      make([]error, 0),
+		hookRunner:  hookRunner,
 	}
 }
 
 // downloadAndPackageWebsite downloads a website and packages it into a DataNode.
-func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar, hookRunner *hooks.HookRunner) (*datanode.DataNode, error) {
 	baseURL, err := url.Parse(startURL)
 	if err != nil {
 		return nil, err
 	}
 
-	d := NewDownloader(maxDepth)
+	d := NewDownloader(maxDepth, hookRunner)
 	d.baseURL = baseURL
 	d.progressBar = bar
 	d.crawl(startURL, 0)
@@ -62,6 +65,9 @@ func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.P
 		return nil, fmt.Errorf("failed to download website:\n%s", strings.Join(errs, "\n"))
 	}
 
+	d.hookRunner.Trigger(hooks.Event{
+		Event: hooks.OnCollectionComplete,
+	})
 	return d.dn, nil
 }
 
@@ -76,24 +82,30 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 
 	resp, err := d.client.Get(pageURL)
 	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error getting %s: %w", pageURL, err))
+		d.triggerErrorHook(fmt.Errorf("Error getting %s: %w", pageURL, err))
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		d.errors = append(d.errors, fmt.Errorf("bad status for %s: %s", pageURL, resp.Status))
+		d.triggerErrorHook(fmt.Errorf("bad status for %s: %s", pageURL, resp.Status))
 		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error reading body of %s: %w", pageURL, err))
+		d.triggerErrorHook(fmt.Errorf("Error reading body of %s: %w", pageURL, err))
 		return
 	}
 
 	relPath := d.getRelativePath(pageURL)
 	d.dn.AddData(relPath, body)
+	d.hookRunner.Trigger(hooks.Event{
+		Event: hooks.OnFileCollected,
+		File:  relPath,
+		URL:   pageURL,
+		Type:  resp.Header.Get("Content-Type"),
+	})
 
 	// Don't try to parse non-html content
 	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {
@@ -102,7 +114,7 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 
 	doc, err := html.Parse(strings.NewReader(string(body)))
 	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error parsing HTML of %s: %w", pageURL, err))
+		d.triggerErrorHook(fmt.Errorf("Error parsing HTML of %s: %w", pageURL, err))
 		return
 	}
 
@@ -115,6 +127,10 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 					if err != nil {
 						continue
 					}
+					d.hookRunner.Trigger(hooks.Event{
+						Event: hooks.OnURLFound,
+						URL:   link,
+					})
 					if d.isLocal(link) {
 						if isAsset(link) {
 							d.downloadAsset(link)
@@ -143,24 +159,38 @@ func (d *Downloader) downloadAsset(assetURL string) {
 
 	resp, err := d.client.Get(assetURL)
 	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error getting asset %s: %w", assetURL, err))
+		d.triggerErrorHook(fmt.Errorf("Error getting asset %s: %w", assetURL, err))
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		d.errors = append(d.errors, fmt.Errorf("bad status for asset %s: %s", assetURL, resp.Status))
+		d.triggerErrorHook(fmt.Errorf("bad status for asset %s: %s", assetURL, resp.Status))
 		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error reading body of asset %s: %w", assetURL, err))
+		d.triggerErrorHook(fmt.Errorf("Error reading body of asset %s: %w", assetURL, err))
 		return
 	}
 
 	relPath := d.getRelativePath(assetURL)
 	d.dn.AddData(relPath, body)
+	d.hookRunner.Trigger(hooks.Event{
+		Event: hooks.OnFileCollected,
+		File:  relPath,
+		URL:   assetURL,
+		Type:  resp.Header.Get("Content-Type"),
+	})
+}
+
+func (d *Downloader) triggerErrorHook(err error) {
+	d.errors = append(d.errors, err)
+	d.hookRunner.Trigger(hooks.Event{
+		Event: hooks.OnError,
+		Error: err.Error(),
+	})
 }
 
 func (d *Downloader) getRelativePath(pageURL string) string {

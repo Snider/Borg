@@ -6,6 +6,7 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/hooks"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -38,6 +39,19 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			hooksFile, _ := cmd.Flags().GetString("hooks")
+
+			// If hooks file is not specified, check for default
+			if hooksFile == "" {
+				if _, err := os.Stat(".borg-hooks.yaml"); err == nil {
+					hooksFile = ".borg-hooks.yaml"
+				}
+			}
+
+			hookRunner, err := hooks.NewHookRunner(hooksFile)
+			if err != nil {
+				return fmt.Errorf("failed to create hook runner: %w", err)
+			}
 
 			if format != "datanode" && format != "tim" && format != "trix" {
 				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
@@ -51,7 +65,7 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar, hookRunner)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}
@@ -104,5 +118,6 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
+	collectWebsiteCmd.PersistentFlags().String("hooks", "", "Path to the .borg-hooks.yaml file")
 	return collectWebsiteCmd
 }
