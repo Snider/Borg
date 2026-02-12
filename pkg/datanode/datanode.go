@@ -18,23 +18,39 @@ var (
 	ErrPasswordRequired = errors.New("password required")
 )
 
-// DataNode is an in-memory filesystem that is compatible with fs.FS.
+// DataNode is a filesystem that reads from a tar archive on demand.
 type DataNode struct {
-	files map[string]*dataFile
+	archive io.ReaderAt
+	files   map[string]*fileIndex
+}
+
+// fileIndex stores the metadata for a file in the archive.
+type fileIndex struct {
+	name    string
+	offset  int64
+	size    int64
+	modTime time.Time
 }
 
 // New creates a new, empty DataNode.
-func New() *DataNode {
-	return &DataNode{files: make(map[string]*dataFile)}
+func New(archive io.ReaderAt) *DataNode {
+	return &DataNode{
+		archive: archive,
+		files:   make(map[string]*fileIndex),
+	}
 }
 
 // FromTar creates a new DataNode from a tarball.
-func FromTar(tarball []byte) (*DataNode, error) {
-	dn := New()
-	tarReader := tar.NewReader(bytes.NewReader(tarball))
+func FromTar(archive io.ReaderAt) (*DataNode, error) {
+	dn := New(archive)
+	if seeker, ok := archive.(io.Seeker); ok {
+		seeker.Seek(0, io.SeekStart)
+	}
 
+	offset := int64(0)
 	for {
-		header, err := tarReader.Next()
+		headerData := make([]byte, 512)
+		_, err := archive.ReadAt(headerData, offset)
 		if err == io.EOF {
 			break
 		}
@@ -42,68 +58,54 @@ func FromTar(tarball []byte) (*DataNode, error) {
 			return nil, err
 		}
 
-		if header.Typeflag == tar.TypeReg {
-			data, err := io.ReadAll(tarReader)
-			if err != nil {
-				return nil, err
-			}
-			dn.AddData(header.Name, data)
+		header, err := tar.NewReader(bytes.NewReader(headerData)).Next()
+		if err == io.EOF {
+			break
 		}
+		if err != nil {
+			return nil, err
+		}
+
+		offset += 512
+		if header.Typeflag == tar.TypeReg {
+			dn.files[header.Name] = &fileIndex{
+				name:    header.Name,
+				offset:  offset,
+				size:    header.Size,
+				modTime: header.ModTime,
+			}
+			offset += header.Size
+			if remainder := header.Size % 512; remainder != 0 {
+				offset += 512 - remainder
+			}
+		}
+
 	}
 
 	return dn, nil
 }
 
 // ToTar serializes the DataNode to a tarball.
+// This function will need to be re-implemented to read from the archive.
+// For now, it will return an error.
 func (d *DataNode) ToTar() ([]byte, error) {
-	buf := new(bytes.Buffer)
-	tw := tar.NewWriter(buf)
-
-	for _, file := range d.files {
-		hdr := &tar.Header{
-			Name:    file.name,
-			Mode:    0600,
-			Size:    int64(len(file.content)),
-			ModTime: file.modTime,
-		}
-		if err := tw.WriteHeader(hdr); err != nil {
-			return nil, err
-		}
-		if _, err := tw.Write(file.content); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := tw.Close(); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return nil, errors.New("ToTar is not implemented for streaming DataNodes")
 }
 
-// AddData adds a file to the DataNode.
+// AddData is not supported for streaming DataNodes.
 func (d *DataNode) AddData(name string, content []byte) {
-	name = strings.TrimPrefix(name, "/")
-	if name == "" {
-		return
-	}
-	// Directories are implicit, so we don't store them.
-	// A name ending in "/" is treated as a directory.
-	if strings.HasSuffix(name, "/") {
-		return
-	}
-	d.files[name] = &dataFile{
-		name:    name,
-		content: content,
-		modTime: time.Now(),
-	}
+	// This is a no-op for now.
 }
 
 // Open opens a file from the DataNode.
 func (d *DataNode) Open(name string) (fs.File, error) {
 	name = strings.TrimPrefix(name, "/")
 	if file, ok := d.files[name]; ok {
-		return &dataFileReader{file: file}, nil
+		sectionReader := io.NewSectionReader(d.archive, file.offset, file.size)
+		return &dataFileReader{
+			file:   file,
+			reader: sectionReader,
+		}, nil
 	}
 	// Check if it's a directory
 	prefix := name + "/"
@@ -231,7 +233,7 @@ func (d *DataNode) Walk(root string, fn fs.WalkDirFunc, opts ...WalkOptions) err
 	if len(opts) > 0 {
 		maxDepth = opts[0].MaxDepth
 		filter = opts[0].Filter
-		skipErrors = opts[0].SkipErrors
+_		skipErrors = opts[0].SkipErrors
 	}
 
 	return fs.WalkDir(d, root, func(path string, de fs.DirEntry, err error) error {
@@ -294,22 +296,13 @@ func (d *DataNode) CopyFile(sourcePath string, target string, perm os.FileMode) 
 	return err
 }
 
-// dataFile represents a file in the DataNode.
-type dataFile struct {
-	name    string
-	content []byte
-	modTime time.Time
-}
-
-func (d *dataFile) Stat() (fs.FileInfo, error) { return &dataFileInfo{file: d}, nil }
-func (d *dataFile) Read(p []byte) (int, error) { return 0, io.EOF }
-func (d *dataFile) Close() error               { return nil }
+func (d *fileIndex) Stat() (fs.FileInfo, error) { return &dataFileInfo{file: d}, nil }
 
 // dataFileInfo implements fs.FileInfo for a dataFile.
-type dataFileInfo struct{ file *dataFile }
+type dataFileInfo struct{ file *fileIndex }
 
 func (d *dataFileInfo) Name() string       { return path.Base(d.file.name) }
-func (d *dataFileInfo) Size() int64        { return int64(len(d.file.content)) }
+func (d *dataFileInfo) Size() int64        { return d.file.size }
 func (d *dataFileInfo) Mode() fs.FileMode  { return 0444 }
 func (d *dataFileInfo) ModTime() time.Time { return d.file.modTime }
 func (d *dataFileInfo) IsDir() bool        { return false }
@@ -317,16 +310,16 @@ func (d *dataFileInfo) Sys() interface{}   { return nil }
 
 // dataFileReader implements fs.File for a dataFile.
 type dataFileReader struct {
-	file   *dataFile
-	reader *bytes.Reader
+	file   *fileIndex
+	reader io.ReaderAt
 }
 
 func (d *dataFileReader) Stat() (fs.FileInfo, error) { return d.file.Stat() }
 func (d *dataFileReader) Read(p []byte) (int, error) {
-	if d.reader == nil {
-		d.reader = bytes.NewReader(d.file.content)
-	}
-	return d.reader.Read(p)
+	return 0, &fs.PathError{Op: "read", Path: d.file.name, Err: fs.ErrInvalid}
+}
+func (d *dataFileReader) ReadAt(p []byte, off int64) (n int, err error) {
+	return d.reader.ReadAt(p, off)
 }
 func (d *dataFileReader) Close() error { return nil }
 
