@@ -35,6 +35,8 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			websiteURL := args[0]
 			outputFile, _ := cmd.Flags().GetString("output")
 			depth, _ := cmd.Flags().GetInt("depth")
+			parallel, _ := cmd.Flags().GetInt("parallel")
+			rateLimit, _ := cmd.Flags().GetFloat64("rate-limit")
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
@@ -51,7 +53,7 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			dn, err := website.DownloadAndPackageWebsite(cmd.Context(), websiteURL, depth, parallel, rateLimit, bar)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}
@@ -101,6 +103,8 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	}
 	collectWebsiteCmd.PersistentFlags().String("output", "", "Output file for the DataNode")
 	collectWebsiteCmd.PersistentFlags().Int("depth", 2, "Recursion depth for downloading")
+	collectWebsiteCmd.PersistentFlags().Int("parallel", 1, "Number of concurrent workers")
+	collectWebsiteCmd.PersistentFlags().Float64("rate-limit", 0, "Max requests per second per domain")
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
