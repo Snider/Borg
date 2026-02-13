@@ -3,9 +3,11 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 
 	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/storage"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -93,11 +95,6 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 				}
 			}
 
-			compressedData, err := compress.Compress(data, compression)
-			if err != nil {
-				return fmt.Errorf("error compressing data: %w", err)
-			}
-
 			if outputFile == "" {
 				outputFile = "repo." + format
 				if compression != "none" {
@@ -105,9 +102,48 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 				}
 			}
 
-			err = os.WriteFile(outputFile, compressedData, defaultFilePermission)
+			u, err := url.Parse(outputFile)
 			if err != nil {
-				return fmt.Errorf("error writing DataNode to file: %w", err)
+				return fmt.Errorf("invalid output URL: %w", err)
+			}
+
+			pr, pw := io.Pipe()
+
+			go func() {
+				defer pw.Close()
+				compressWriter, err := compress.NewWriter(pw, compression)
+				if err != nil {
+					pw.CloseWithError(fmt.Errorf("error creating compress writer: %w", err))
+					return
+				}
+				defer compressWriter.Close()
+				_, err = compressWriter.Write(data)
+				if err != nil {
+					pw.CloseWithError(fmt.Errorf("error writing compressed data: %w", err))
+					return
+				}
+			}()
+
+			if u.Scheme == "" || u.Scheme == "file" {
+				f, err := os.Create(outputFile)
+				if err != nil {
+					return fmt.Errorf("error creating file: %w", err)
+				}
+				defer f.Close()
+				_, err = io.Copy(f, pr)
+				if err != nil {
+					return fmt.Errorf("error writing to file: %w", err)
+				}
+			} else {
+				s, err := storage.NewStorage(u)
+				if err != nil {
+					return err
+				}
+
+				err = s.Write(u.Path, pr)
+				if err != nil {
+					return fmt.Errorf("error uploading file: %w", err)
+				}
 			}
 
 			fmt.Fprintln(cmd.OutOrStdout(), "Repository saved to", outputFile)

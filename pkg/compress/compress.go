@@ -8,22 +8,30 @@ import (
 	"github.com/ulikunitz/xz"
 )
 
+// NewWriter returns a new compression writer.
+func NewWriter(w io.Writer, format string) (io.WriteCloser, error) {
+	switch format {
+	case "gz":
+		return gzip.NewWriter(w), nil
+	case "xz":
+		return xz.NewWriter(w)
+	default:
+		return &nopCloser{w}, nil
+	}
+}
+
+type nopCloser struct {
+	io.Writer
+}
+
+func (nopCloser) Close() error { return nil }
+
 // Compress compresses data using the specified format.
 func Compress(data []byte, format string) ([]byte, error) {
 	var buf bytes.Buffer
-	var writer io.WriteCloser
-	var err error
-
-	switch format {
-	case "gz":
-		writer = gzip.NewWriter(&buf)
-	case "xz":
-		writer, err = xz.NewWriter(&buf)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return data, nil
+	writer, err := NewWriter(&buf, format)
+	if err != nil {
+		return nil, err
 	}
 
 	_, err = writer.Write(data)
