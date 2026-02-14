@@ -3,6 +3,9 @@ package datanode
 import (
 	"archive/tar"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"io/fs"
@@ -59,7 +62,18 @@ func (d *DataNode) ToTar() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 
+	manifest := make(map[string]string)
 	for _, file := range d.files {
+		if file.name == "manifest.json" {
+			continue
+		}
+		manifest[file.name] = file.checksum
+	}
+
+	for _, file := range d.files {
+		if file.name == "manifest.json" {
+			continue
+		}
 		hdr := &tar.Header{
 			Name:    file.name,
 			Mode:    0600,
@@ -72,6 +86,23 @@ func (d *DataNode) ToTar() ([]byte, error) {
 		if _, err := tw.Write(file.content); err != nil {
 			return nil, err
 		}
+	}
+
+	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	hdr := &tar.Header{
+		Name:    "manifest.json",
+		Mode:    0600,
+		Size:    int64(len(manifestBytes)),
+		ModTime: time.Now(),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return nil, err
+	}
+	if _, err := tw.Write(manifestBytes); err != nil {
+		return nil, err
 	}
 
 	if err := tw.Close(); err != nil {
@@ -92,10 +123,12 @@ func (d *DataNode) AddData(name string, content []byte) {
 	if strings.HasSuffix(name, "/") {
 		return
 	}
+	hash := sha256.Sum256(content)
 	d.files[name] = &dataFile{
-		name:    name,
-		content: content,
-		modTime: time.Now(),
+		name:     name,
+		content:  content,
+		modTime:  time.Now(),
+		checksum: hex.EncodeToString(hash[:]),
 	}
 }
 
@@ -296,14 +329,20 @@ func (d *DataNode) CopyFile(sourcePath string, target string, perm os.FileMode) 
 
 // dataFile represents a file in the DataNode.
 type dataFile struct {
-	name    string
-	content []byte
-	modTime time.Time
+	name     string
+	content  []byte
+	modTime  time.Time
+	checksum string
 }
 
 func (d *dataFile) Stat() (fs.FileInfo, error) { return &dataFileInfo{file: d}, nil }
 func (d *dataFile) Read(p []byte) (int, error) { return 0, io.EOF }
 func (d *dataFile) Close() error               { return nil }
+
+// ReplaceFile replaces a file in the DataNode with new content.
+func (d *DataNode) ReplaceFile(name string, content []byte) {
+	d.AddData(name, content)
+}
 
 // dataFileInfo implements fs.FileInfo for a dataFile.
 type dataFileInfo struct{ file *dataFile }
