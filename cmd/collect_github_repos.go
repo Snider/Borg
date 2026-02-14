@@ -30,4 +30,5 @@ var collectGithubReposCmd = &cobra.Command{
 
 func init() {
 	collectGithubCmd.AddCommand(collectGithubReposCmd)
+	collectGithubReposCmd.Flags().String("sync", "", "path to an existing archive to sync with")
 }
