@@ -16,6 +16,7 @@ packaging their contents into a single file, and managing the data within.`,
 	}
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose logging")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress non-error output")
 	return rootCmd
 }
 
