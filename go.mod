@@ -13,8 +13,9 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/ulikunitz/xz v0.5.15
 	github.com/wailsapp/wails/v2 v2.11.0
-	golang.org/x/mod v0.30.0
-	golang.org/x/net v0.47.0
+	golang.org/x/crypto v0.48.0
+	golang.org/x/mod v0.32.0
+	golang.org/x/net v0.49.0
 	golang.org/x/oauth2 v0.33.0
 )
 
@@ -60,9 +61,8 @@ require (
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/term v0.40.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )

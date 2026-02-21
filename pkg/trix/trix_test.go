@@ -1,6 +1,8 @@
 package trix
 
 import (
+	"bytes"
+	"crypto/rand"
 	"testing"
 
 	"github.com/Snider/Borg/pkg/datanode"
@@ -234,5 +236,87 @@ func TestToTrixChaChaWithLargeData(t *testing.T) {
 	_, err = restored.Open("large.bin")
 	if err != nil {
 		t.Fatalf("Failed to open large.bin: %v", err)
+	}
+}
+
+// --- Argon2id key derivation tests ---
+
+func TestDeriveKeyArgon2_Good(t *testing.T) {
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		t.Fatalf("failed to generate salt: %v", err)
+	}
+
+	key := DeriveKeyArgon2("test-password", salt)
+	if len(key) != 32 {
+		t.Fatalf("expected 32-byte key, got %d bytes", len(key))
+	}
+}
+
+func TestDeriveKeyArgon2_Deterministic_Good(t *testing.T) {
+	salt := []byte("fixed-salt-value")
+
+	key1 := DeriveKeyArgon2("same-password", salt)
+	key2 := DeriveKeyArgon2("same-password", salt)
+
+	if !bytes.Equal(key1, key2) {
+		t.Fatal("same password and salt must produce the same key")
+	}
+}
+
+func TestDeriveKeyArgon2_DifferentSalt_Good(t *testing.T) {
+	salt1 := []byte("salt-one-value!!")
+	salt2 := []byte("salt-two-value!!")
+
+	key1 := DeriveKeyArgon2("same-password", salt1)
+	key2 := DeriveKeyArgon2("same-password", salt2)
+
+	if bytes.Equal(key1, key2) {
+		t.Fatal("different salts must produce different keys")
+	}
+}
+
+func TestDeriveKeyLegacy_Good(t *testing.T) {
+	key1 := DeriveKey("backward-compat")
+	key2 := DeriveKey("backward-compat")
+
+	if len(key1) != 32 {
+		t.Fatalf("expected 32-byte key, got %d bytes", len(key1))
+	}
+	if !bytes.Equal(key1, key2) {
+		t.Fatal("legacy DeriveKey must be deterministic")
+	}
+}
+
+func TestArgon2Params_Good(t *testing.T) {
+	params := DefaultArgon2Params()
+
+	// Non-zero values
+	if params.Time == 0 {
+		t.Fatal("Time must be non-zero")
+	}
+	if params.Memory == 0 {
+		t.Fatal("Memory must be non-zero")
+	}
+	if params.Threads == 0 {
+		t.Fatal("Threads must be non-zero")
+	}
+
+	// Encode produces 12 bytes (3 x uint32 LE)
+	encoded := params.Encode()
+	if len(encoded) != 12 {
+		t.Fatalf("expected 12-byte encoding, got %d bytes", len(encoded))
+	}
+
+	// Round-trip: Decode must recover original values
+	decoded := DecodeArgon2Params(encoded)
+	if decoded.Time != params.Time {
+		t.Fatalf("Time mismatch: got %d, want %d", decoded.Time, params.Time)
+	}
+	if decoded.Memory != params.Memory {
+		t.Fatalf("Memory mismatch: got %d, want %d", decoded.Memory, params.Memory)
+	}
+	if decoded.Threads != params.Threads {
+		t.Fatalf("Threads mismatch: got %d, want %d", decoded.Threads, params.Threads)
 	}
 }
