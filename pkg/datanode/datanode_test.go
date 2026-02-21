@@ -710,6 +710,143 @@ func TestAddSymlink_Bad(t *testing.T) {
 	}
 }
 
+func TestToTarWriter_Good(t *testing.T) {
+	dn := New()
+	dn.AddData("foo.txt", []byte("hello"))
+	dn.AddData("bar/baz.txt", []byte("world"))
+
+	var buf bytes.Buffer
+	if err := dn.ToTarWriter(&buf); err != nil {
+		t.Fatalf("ToTarWriter failed: %v", err)
+	}
+
+	// Round-trip through FromTar to verify contents survived.
+	dn2, err := FromTar(buf.Bytes())
+	if err != nil {
+		t.Fatalf("FromTar failed: %v", err)
+	}
+
+	// Verify foo.txt
+	f1, ok := dn2.files["foo.txt"]
+	if !ok {
+		t.Fatal("foo.txt missing after round-trip")
+	}
+	if string(f1.content) != "hello" {
+		t.Errorf("expected foo.txt content 'hello', got %q", f1.content)
+	}
+
+	// Verify bar/baz.txt
+	f2, ok := dn2.files["bar/baz.txt"]
+	if !ok {
+		t.Fatal("bar/baz.txt missing after round-trip")
+	}
+	if string(f2.content) != "world" {
+		t.Errorf("expected bar/baz.txt content 'world', got %q", f2.content)
+	}
+
+	// Verify deterministic ordering: bar/baz.txt should come before foo.txt.
+	tr := tar.NewReader(bytes.NewReader(buf.Bytes()))
+	header1, err := tr.Next()
+	if err != nil {
+		t.Fatalf("tar.Next failed: %v", err)
+	}
+	header2, err := tr.Next()
+	if err != nil {
+		t.Fatalf("tar.Next failed: %v", err)
+	}
+	if header1.Name != "bar/baz.txt" || header2.Name != "foo.txt" {
+		t.Errorf("expected sorted order [bar/baz.txt, foo.txt], got [%s, %s]",
+			header1.Name, header2.Name)
+	}
+}
+
+func TestToTarWriter_Symlinks_Good(t *testing.T) {
+	dn := New()
+	dn.AddData("real.txt", []byte("real content"))
+	dn.AddSymlink("link.txt", "real.txt")
+
+	var buf bytes.Buffer
+	if err := dn.ToTarWriter(&buf); err != nil {
+		t.Fatalf("ToTarWriter failed: %v", err)
+	}
+
+	// Round-trip through FromTar.
+	dn2, err := FromTar(buf.Bytes())
+	if err != nil {
+		t.Fatalf("FromTar failed: %v", err)
+	}
+
+	// Verify regular file survived.
+	realFile, ok := dn2.files["real.txt"]
+	if !ok {
+		t.Fatal("real.txt missing after round-trip")
+	}
+	if string(realFile.content) != "real content" {
+		t.Errorf("expected 'real content', got %q", realFile.content)
+	}
+
+	// Verify symlink survived.
+	linkFile, ok := dn2.files["link.txt"]
+	if !ok {
+		t.Fatal("link.txt missing after round-trip")
+	}
+	if !linkFile.isSymlink() {
+		t.Error("expected link.txt to be a symlink")
+	}
+	if linkFile.symlink != "real.txt" {
+		t.Errorf("expected symlink target 'real.txt', got %q", linkFile.symlink)
+	}
+
+	// Also verify the raw tar entries have correct types and modes.
+	tr := tar.NewReader(bytes.NewReader(buf.Bytes()))
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("tar.Next failed: %v", err)
+		}
+		switch header.Name {
+		case "link.txt":
+			if header.Typeflag != tar.TypeSymlink {
+				t.Errorf("expected TypeSymlink for link.txt, got %d", header.Typeflag)
+			}
+			if header.Linkname != "real.txt" {
+				t.Errorf("expected Linkname 'real.txt', got %q", header.Linkname)
+			}
+			if header.Mode != 0777 {
+				t.Errorf("expected mode 0777 for symlink, got %o", header.Mode)
+			}
+		case "real.txt":
+			if header.Typeflag != tar.TypeReg {
+				t.Errorf("expected TypeReg for real.txt, got %d", header.Typeflag)
+			}
+			if header.Mode != 0600 {
+				t.Errorf("expected mode 0600 for regular file, got %o", header.Mode)
+			}
+		}
+	}
+}
+
+func TestToTarWriter_Empty_Good(t *testing.T) {
+	dn := New()
+
+	var buf bytes.Buffer
+	if err := dn.ToTarWriter(&buf); err != nil {
+		t.Fatalf("ToTarWriter on empty DataNode should not error, got: %v", err)
+	}
+
+	// The buffer should contain a valid (empty) tar archive.
+	dn2, err := FromTar(buf.Bytes())
+	if err != nil {
+		t.Fatalf("FromTar on empty tar failed: %v", err)
+	}
+	if len(dn2.files) != 0 {
+		t.Errorf("expected 0 files in empty round-trip, got %d", len(dn2.files))
+	}
+}
+
 func toSortedNames(entries []fs.DirEntry) []string {
 	var names []string
 	for _, e := range entries {

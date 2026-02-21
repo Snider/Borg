@@ -98,6 +98,51 @@ func (d *DataNode) ToTar() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// ToTarWriter streams the DataNode contents to a tar writer.
+// File keys are sorted for deterministic output.
+func (d *DataNode) ToTarWriter(w io.Writer) error {
+	tw := tar.NewWriter(w)
+	defer tw.Close()
+
+	// Sort keys for deterministic output.
+	keys := make([]string, 0, len(d.files))
+	for k := range d.files {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		file := d.files[k]
+		var hdr *tar.Header
+		if file.isSymlink() {
+			hdr = &tar.Header{
+				Typeflag: tar.TypeSymlink,
+				Name:     file.name,
+				Linkname: file.symlink,
+				Mode:     0777,
+				ModTime:  file.modTime,
+			}
+		} else {
+			hdr = &tar.Header{
+				Name:    file.name,
+				Mode:    0600,
+				Size:    int64(len(file.content)),
+				ModTime: file.modTime,
+			}
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		if !file.isSymlink() {
+			if _, err := tw.Write(file.content); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // AddData adds a file to the DataNode.
 func (d *DataNode) AddData(name string, content []byte) {
 	name = strings.TrimPrefix(name, "/")
