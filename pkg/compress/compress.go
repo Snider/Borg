@@ -3,10 +3,33 @@ package compress
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 
 	"github.com/ulikunitz/xz"
 )
+
+// nopCloser wraps an io.Writer with a no-op Close method.
+type nopCloser struct{ io.Writer }
+
+func (n *nopCloser) Close() error { return nil }
+
+// NewCompressWriter returns a streaming io.WriteCloser that compresses data
+// written to it into the underlying writer w using the specified format.
+// Supported formats: "gz" (gzip), "xz", "none" or "" (passthrough).
+// Unknown formats return an error.
+func NewCompressWriter(w io.Writer, format string) (io.WriteCloser, error) {
+	switch format {
+	case "gz":
+		return gzip.NewWriter(w), nil
+	case "xz":
+		return xz.NewWriter(w)
+	case "none", "":
+		return &nopCloser{w}, nil
+	default:
+		return nil, fmt.Errorf("unsupported compression format: %q", format)
+	}
+}
 
 // Compress compresses data using the specified format.
 func Compress(data []byte, format string) ([]byte, error) {
