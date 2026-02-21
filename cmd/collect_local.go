@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"archive/tar"
+	"bytes"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/Snider/Borg/pkg/compress"
 	"github.com/Snider/Borg/pkg/datanode"
@@ -98,6 +102,21 @@ func CollectLocal(directory string, outputFile string, format string, compressio
 	}
 	if !info.IsDir() {
 		return "", fmt.Errorf("not a directory: %s", absDir)
+	}
+
+	// Use streaming pipeline for STIM v2 format
+	if format == "stim" {
+		if outputFile == "" {
+			baseName := filepath.Base(absDir)
+			if baseName == "." || baseName == "/" {
+				baseName = "local"
+			}
+			outputFile = baseName + ".stim"
+		}
+		if err := CollectLocalStreaming(absDir, outputFile, compression, password); err != nil {
+			return "", err
+		}
+		return outputFile, nil
 	}
 
 	// Load gitignore patterns if enabled
@@ -330,4 +349,231 @@ func matchesExclude(path string, excludes []string) bool {
 		}
 	}
 	return false
+}
+
+// CollectLocalStreaming collects files from a local directory using a streaming
+// pipeline: walk -> tar -> compress -> encrypt -> file.
+// The encryption runs in a goroutine, consuming from an io.Pipe that the
+// tar/compress writes feed into synchronously.
+func CollectLocalStreaming(dir, output, compression, password string) error {
+	// Resolve to absolute path
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return fmt.Errorf("error resolving directory path: %w", err)
+	}
+
+	// Validate directory exists
+	info, err := os.Stat(absDir)
+	if err != nil {
+		return fmt.Errorf("error accessing directory: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory: %s", absDir)
+	}
+
+	// Create output file
+	outFile, err := os.Create(output)
+	if err != nil {
+		return fmt.Errorf("error creating output file: %w", err)
+	}
+
+	// cleanup removes partial output on error
+	cleanup := func() {
+		outFile.Close()
+		os.Remove(output)
+	}
+
+	// Build streaming pipeline:
+	//   tar.Writer -> compressWriter -> pipeWriter -> pipeReader -> StreamEncrypt -> outFile
+	pr, pw := io.Pipe()
+
+	// Start encryption goroutine
+	var encErr error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		encErr = tim.StreamEncrypt(pr, outFile, password)
+	}()
+
+	// Create compression writer wrapping the pipe writer
+	compWriter, err := compress.NewCompressWriter(pw, compression)
+	if err != nil {
+		pw.Close()
+		wg.Wait()
+		cleanup()
+		return fmt.Errorf("error creating compression writer: %w", err)
+	}
+
+	// Create tar writer wrapping the compression writer
+	tw := tar.NewWriter(compWriter)
+
+	// Walk directory and write tar entries
+	walkErr := filepath.WalkDir(absDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Get relative path
+		relPath, err := filepath.Rel(absDir, path)
+		if err != nil {
+			return err
+		}
+
+		// Skip root
+		if relPath == "." {
+			return nil
+		}
+
+		// Normalize to forward slashes for tar
+		relPath = filepath.ToSlash(relPath)
+
+		// Check if entry is a symlink using Lstat
+		linfo, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		isSymlink := linfo.Mode()&fs.ModeSymlink != 0
+
+		if isSymlink {
+			// Read symlink target
+			linkTarget, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+
+			// Resolve to check if target exists
+			absTarget := linkTarget
+			if !filepath.IsAbs(absTarget) {
+				absTarget = filepath.Join(filepath.Dir(path), linkTarget)
+			}
+			_, statErr := os.Stat(absTarget)
+			if statErr != nil {
+				// Broken symlink - skip silently
+				return nil
+			}
+
+			// Write valid symlink as tar entry
+			hdr := &tar.Header{
+				Typeflag: tar.TypeSymlink,
+				Name:     relPath,
+				Linkname: linkTarget,
+				Mode:     0777,
+			}
+			return tw.WriteHeader(hdr)
+		}
+
+		if d.IsDir() {
+			// Write directory header
+			hdr := &tar.Header{
+				Typeflag: tar.TypeDir,
+				Name:     relPath + "/",
+				Mode:     0755,
+			}
+			return tw.WriteHeader(hdr)
+		}
+
+		// Regular file: write header + content
+		finfo, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		hdr := &tar.Header{
+			Name: relPath,
+			Mode: 0644,
+			Size: finfo.Size(),
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("error opening %s: %w", relPath, err)
+		}
+		defer f.Close()
+
+		if _, err := io.Copy(tw, f); err != nil {
+			return fmt.Errorf("error streaming %s: %w", relPath, err)
+		}
+
+		return nil
+	})
+
+	// Close pipeline layers in order: tar -> compress -> pipe
+	// We must close even on error to unblock the encryption goroutine.
+	twCloseErr := tw.Close()
+	compCloseErr := compWriter.Close()
+
+	if walkErr != nil {
+		pw.CloseWithError(walkErr)
+		wg.Wait()
+		cleanup()
+		return fmt.Errorf("error walking directory: %w", walkErr)
+	}
+
+	if twCloseErr != nil {
+		pw.CloseWithError(twCloseErr)
+		wg.Wait()
+		cleanup()
+		return fmt.Errorf("error closing tar writer: %w", twCloseErr)
+	}
+
+	if compCloseErr != nil {
+		pw.CloseWithError(compCloseErr)
+		wg.Wait()
+		cleanup()
+		return fmt.Errorf("error closing compression writer: %w", compCloseErr)
+	}
+
+	// Signal EOF to encryption goroutine
+	pw.Close()
+
+	// Wait for encryption to finish
+	wg.Wait()
+
+	if encErr != nil {
+		cleanup()
+		return fmt.Errorf("error encrypting data: %w", encErr)
+	}
+
+	// Close output file
+	if err := outFile.Close(); err != nil {
+		os.Remove(output)
+		return fmt.Errorf("error closing output file: %w", err)
+	}
+
+	return nil
+}
+
+// DecryptStimV2 decrypts a STIM v2 file back into a DataNode.
+// It opens the file, runs StreamDecrypt, decompresses the result,
+// and parses the tar archive into a DataNode.
+func DecryptStimV2(path, password string) (*datanode.DataNode, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("error opening file: %w", err)
+	}
+	defer f.Close()
+
+	// Decrypt
+	var decrypted bytes.Buffer
+	if err := tim.StreamDecrypt(f, &decrypted, password); err != nil {
+		return nil, fmt.Errorf("error decrypting: %w", err)
+	}
+
+	// Decompress
+	decompressed, err := compress.Decompress(decrypted.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("error decompressing: %w", err)
+	}
+
+	// Parse tar into DataNode
+	dn, err := datanode.FromTar(decompressed)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing tar: %w", err)
+	}
+
+	return dn, nil
 }
