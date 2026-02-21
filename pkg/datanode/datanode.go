@@ -42,12 +42,15 @@ func FromTar(tarball []byte) (*DataNode, error) {
 			return nil, err
 		}
 
-		if header.Typeflag == tar.TypeReg {
+		switch header.Typeflag {
+		case tar.TypeReg:
 			data, err := io.ReadAll(tarReader)
 			if err != nil {
 				return nil, err
 			}
 			dn.AddData(header.Name, data)
+		case tar.TypeSymlink:
+			dn.AddSymlink(header.Name, header.Linkname)
 		}
 	}
 
@@ -60,17 +63,30 @@ func (d *DataNode) ToTar() ([]byte, error) {
 	tw := tar.NewWriter(buf)
 
 	for _, file := range d.files {
-		hdr := &tar.Header{
-			Name:    file.name,
-			Mode:    0600,
-			Size:    int64(len(file.content)),
-			ModTime: file.modTime,
+		var hdr *tar.Header
+		if file.isSymlink() {
+			hdr = &tar.Header{
+				Typeflag: tar.TypeSymlink,
+				Name:     file.name,
+				Linkname: file.symlink,
+				Mode:     0777,
+				ModTime:  file.modTime,
+			}
+		} else {
+			hdr = &tar.Header{
+				Name:    file.name,
+				Mode:    0600,
+				Size:    int64(len(file.content)),
+				ModTime: file.modTime,
+			}
 		}
 		if err := tw.WriteHeader(hdr); err != nil {
 			return nil, err
 		}
-		if _, err := tw.Write(file.content); err != nil {
-			return nil, err
+		if !file.isSymlink() {
+			if _, err := tw.Write(file.content); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -95,6 +111,22 @@ func (d *DataNode) AddData(name string, content []byte) {
 	d.files[name] = &dataFile{
 		name:    name,
 		content: content,
+		modTime: time.Now(),
+	}
+}
+
+// AddSymlink adds a symlink entry to the DataNode.
+func (d *DataNode) AddSymlink(name, target string) {
+	name = strings.TrimPrefix(name, "/")
+	if name == "" {
+		return
+	}
+	if strings.HasSuffix(name, "/") {
+		return
+	}
+	d.files[name] = &dataFile{
+		name:    name,
+		symlink: target,
 		modTime: time.Now(),
 	}
 }
@@ -299,7 +331,10 @@ type dataFile struct {
 	name    string
 	content []byte
 	modTime time.Time
+	symlink string
 }
+
+func (d *dataFile) isSymlink() bool { return d.symlink != "" }
 
 func (d *dataFile) Stat() (fs.FileInfo, error) { return &dataFileInfo{file: d}, nil }
 func (d *dataFile) Read(p []byte) (int, error) { return 0, io.EOF }
@@ -310,7 +345,12 @@ type dataFileInfo struct{ file *dataFile }
 
 func (d *dataFileInfo) Name() string       { return path.Base(d.file.name) }
 func (d *dataFileInfo) Size() int64        { return int64(len(d.file.content)) }
-func (d *dataFileInfo) Mode() fs.FileMode  { return 0444 }
+func (d *dataFileInfo) Mode() fs.FileMode {
+	if d.file.isSymlink() {
+		return os.ModeSymlink | 0777
+	}
+	return 0444
+}
 func (d *dataFileInfo) ModTime() time.Time { return d.file.modTime }
 func (d *dataFileInfo) IsDir() bool        { return false }
 func (d *dataFileInfo) Sys() interface{}   { return nil }

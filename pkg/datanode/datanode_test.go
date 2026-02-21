@@ -580,6 +580,136 @@ func TestFromTar_Bad(t *testing.T) {
 	}
 }
 
+func TestAddSymlink_Good(t *testing.T) {
+	dn := New()
+	dn.AddSymlink("link.txt", "target.txt")
+
+	file, ok := dn.files["link.txt"]
+	if !ok {
+		t.Fatal("symlink not found in datanode")
+	}
+	if file.symlink != "target.txt" {
+		t.Errorf("expected symlink target 'target.txt', got %q", file.symlink)
+	}
+	if !file.isSymlink() {
+		t.Error("expected isSymlink() to return true")
+	}
+
+	// Stat should return ModeSymlink
+	info, err := dn.Stat("link.txt")
+	if err != nil {
+		t.Fatalf("Stat failed: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Error("expected ModeSymlink to be set in file mode")
+	}
+}
+
+func TestSymlinkTarRoundTrip_Good(t *testing.T) {
+	dn1 := New()
+	dn1.AddData("real.txt", []byte("real content"))
+	dn1.AddSymlink("link.txt", "real.txt")
+
+	tarball, err := dn1.ToTar()
+	if err != nil {
+		t.Fatalf("ToTar failed: %v", err)
+	}
+
+	// Verify the tar contains a symlink entry
+	tr := tar.NewReader(bytes.NewReader(tarball))
+	foundSymlink := false
+	foundFile := false
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("tar.Next failed: %v", err)
+		}
+		switch header.Name {
+		case "link.txt":
+			foundSymlink = true
+			if header.Typeflag != tar.TypeSymlink {
+				t.Errorf("expected TypeSymlink, got %d", header.Typeflag)
+			}
+			if header.Linkname != "real.txt" {
+				t.Errorf("expected Linkname 'real.txt', got %q", header.Linkname)
+			}
+			if header.Mode != 0777 {
+				t.Errorf("expected mode 0777, got %o", header.Mode)
+			}
+		case "real.txt":
+			foundFile = true
+			if header.Typeflag != tar.TypeReg {
+				t.Errorf("expected TypeReg for real.txt, got %d", header.Typeflag)
+			}
+		}
+	}
+	if !foundSymlink {
+		t.Error("symlink entry not found in tarball")
+	}
+	if !foundFile {
+		t.Error("regular file entry not found in tarball")
+	}
+
+	// Round-trip: FromTar should restore the symlink
+	dn2, err := FromTar(tarball)
+	if err != nil {
+		t.Fatalf("FromTar failed: %v", err)
+	}
+
+	// Verify the regular file survived
+	exists, _ := dn2.Exists("real.txt")
+	if !exists {
+		t.Error("real.txt missing after round-trip")
+	}
+
+	// Verify the symlink survived
+	linkFile, ok := dn2.files["link.txt"]
+	if !ok {
+		t.Fatal("link.txt missing after round-trip")
+	}
+	if !linkFile.isSymlink() {
+		t.Error("expected link.txt to be a symlink after round-trip")
+	}
+	if linkFile.symlink != "real.txt" {
+		t.Errorf("expected symlink target 'real.txt', got %q", linkFile.symlink)
+	}
+
+	// Stat should still report ModeSymlink
+	info, err := dn2.Stat("link.txt")
+	if err != nil {
+		t.Fatalf("Stat failed: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Error("expected ModeSymlink after round-trip")
+	}
+}
+
+func TestAddSymlink_Bad(t *testing.T) {
+	dn := New()
+
+	// Empty name should be ignored
+	dn.AddSymlink("", "target.txt")
+	if len(dn.files) != 0 {
+		t.Error("expected empty name to be ignored")
+	}
+
+	// Leading slash should be stripped
+	dn.AddSymlink("/link.txt", "target.txt")
+	if _, ok := dn.files["link.txt"]; !ok {
+		t.Error("expected leading slash to be stripped")
+	}
+
+	// Directory-like name (trailing slash) should be ignored
+	dn2 := New()
+	dn2.AddSymlink("dir/", "target")
+	if len(dn2.files) != 0 {
+		t.Error("expected directory-like name to be ignored")
+	}
+}
+
 func toSortedNames(entries []fs.DirEntry) []string {
 	var names []string
 	for _, e := range entries {
