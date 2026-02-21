@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -129,6 +130,103 @@ func (d *DataNode) AddSymlink(name, target string) {
 		symlink: target,
 		modTime: time.Now(),
 	}
+}
+
+// AddPathOptions configures the behaviour of AddPath.
+type AddPathOptions struct {
+	SkipBrokenSymlinks bool     // skip broken symlinks instead of erroring
+	FollowSymlinks     bool     // follow symlinks and store target content (default false = store as symlinks)
+	ExcludePatterns    []string // glob patterns to exclude (matched against basename)
+}
+
+// AddPath walks a real directory and adds its files to the DataNode.
+// Paths are stored relative to dir, normalized with forward slashes.
+// Directories are implicit and not stored.
+func (d *DataNode) AddPath(dir string, opts AddPathOptions) error {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+
+	return filepath.WalkDir(absDir, func(p string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip the root directory itself.
+		if p == absDir {
+			return nil
+		}
+
+		// Compute relative path and normalize to forward slashes.
+		rel, err := filepath.Rel(absDir, p)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+
+		// Skip directories — they are implicit in DataNode.
+		isSymlink := entry.Type()&fs.ModeSymlink != 0
+		if entry.IsDir() {
+			return nil
+		}
+
+		// Apply exclude patterns against basename.
+		base := filepath.Base(p)
+		for _, pattern := range opts.ExcludePatterns {
+			matched, matchErr := filepath.Match(pattern, base)
+			if matchErr != nil {
+				return matchErr
+			}
+			if matched {
+				return nil
+			}
+		}
+
+		// Handle symlinks.
+		if isSymlink {
+			linkTarget, err := os.Readlink(p)
+			if err != nil {
+				return err
+			}
+
+			// Resolve the symlink target to check if it exists.
+			absTarget := linkTarget
+			if !filepath.IsAbs(absTarget) {
+				absTarget = filepath.Join(filepath.Dir(p), linkTarget)
+			}
+
+			_, statErr := os.Stat(absTarget)
+			if statErr != nil {
+				// Broken symlink.
+				if opts.SkipBrokenSymlinks {
+					return nil
+				}
+				return statErr
+			}
+
+			if opts.FollowSymlinks {
+				// Read the target content and store as regular file.
+				content, err := os.ReadFile(absTarget)
+				if err != nil {
+					return err
+				}
+				d.AddData(rel, content)
+			} else {
+				// Store as symlink.
+				d.AddSymlink(rel, linkTarget)
+			}
+			return nil
+		}
+
+		// Regular file: read content and add.
+		content, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		d.AddData(rel, content)
+		return nil
+	})
 }
 
 // Open opens a file from the DataNode.
