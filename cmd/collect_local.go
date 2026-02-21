@@ -30,9 +30,11 @@ func NewCollectLocalCmd() *CollectLocalCmd {
 	c.Command = cobra.Command{
 		Use:   "local [directory]",
 		Short: "Collect files from a local directory",
-		Long: `Collect files from a local directory and store them in a DataNode.
+		Long: `Collect local files into a portable container.
 
-If no directory is specified, the current working directory is used.
+For STIM format, uses streaming I/O — memory usage is constant
+(~2 MiB) regardless of input directory size. Other formats
+(datanode, tim, trix) load files into memory.
 
 Examples:
   borg collect local
@@ -55,7 +57,8 @@ Examples:
 			includeHidden, _ := cmd.Flags().GetBool("hidden")
 			respectGitignore, _ := cmd.Flags().GetBool("gitignore")
 
-			finalPath, err := CollectLocal(directory, outputFile, format, compression, password, excludes, includeHidden, respectGitignore)
+			progress := ProgressFromCmd(cmd)
+			finalPath, err := CollectLocal(directory, outputFile, format, compression, password, excludes, includeHidden, respectGitignore, progress)
 			if err != nil {
 				return err
 			}
@@ -78,7 +81,7 @@ func init() {
 }
 
 // CollectLocal collects files from a local directory into a DataNode
-func CollectLocal(directory string, outputFile string, format string, compression string, password string, excludes []string, includeHidden bool, respectGitignore bool) (string, error) {
+func CollectLocal(directory string, outputFile string, format string, compression string, password string, excludes []string, includeHidden bool, respectGitignore bool, progress ui.Progress) (string, error) {
 	// Validate format
 	if format != "datanode" && format != "tim" && format != "trix" && format != "stim" {
 		return "", fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', 'trix', or 'stim')", format)
@@ -129,8 +132,7 @@ func CollectLocal(directory string, outputFile string, format string, compressio
 	dn := datanode.New()
 	var fileCount int
 
-	bar := ui.NewProgressBar(-1, "Scanning files")
-	defer bar.Finish()
+	progress.Start("collecting " + directory)
 
 	err = filepath.WalkDir(absDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -186,7 +188,7 @@ func CollectLocal(directory string, outputFile string, format string, compressio
 		// Add to DataNode with forward slashes (tar convention)
 		dn.AddData(filepath.ToSlash(relPath), content)
 		fileCount++
-		bar.Describe(fmt.Sprintf("Collected %d files", fileCount))
+		progress.Update(int64(fileCount), 0)
 
 		return nil
 	})
@@ -199,7 +201,7 @@ func CollectLocal(directory string, outputFile string, format string, compressio
 		return "", fmt.Errorf("no files found in %s", directory)
 	}
 
-	bar.Describe(fmt.Sprintf("Packaging %d files", fileCount))
+	progress.Finish(fmt.Sprintf("collected %d files", fileCount))
 
 	// Convert to output format
 	var data []byte
