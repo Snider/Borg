@@ -217,7 +217,9 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 		if path == "" {
 			path = "index.html"
 		}
+		mu.Lock()
 		dn.AddData(path, body)
+		mu.Unlock()
 
 		// Parse HTML for additional assets
 		if parseHTML && isHTMLContent(resp.Header.Get("Content-Type"), body) {
