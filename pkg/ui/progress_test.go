@@ -38,3 +38,26 @@ func TestQuietProgress_Update_Ugly(t *testing.T) {
 	p.Update(0, 0)
 	p.Update(5, 0)
 }
+
+func TestInteractiveProgress_StartFinish_Good(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewInteractiveProgress(&buf)
+	p.Start("collecting")
+	p.Finish("done")
+	out := buf.String()
+	if !strings.Contains(out, "collecting") {
+		t.Fatalf("expected 'collecting', got: %s", out)
+	}
+	if !strings.Contains(out, "done") {
+		t.Fatalf("expected 'done', got: %s", out)
+	}
+}
+
+func TestInteractiveProgress_Update_Good(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewInteractiveProgress(&buf)
+	p.Update(50, 100)
+	if !strings.Contains(buf.String(), "50%") {
+		t.Fatalf("expected '50%%', got: %s", buf.String())
+	}
+}

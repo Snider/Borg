@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"golang.org/x/term"
+	"github.com/mattn/go-isatty"
 )
 
 // Progress abstracts output for both interactive and scripted use.
@@ -80,13 +80,13 @@ func (p *InteractiveProgress) Log(level, msg string, args ...any) {
 }
 
 // IsTTY returns true if the given file descriptor is a terminal.
-func IsTTY(fd int) bool {
-	return term.IsTerminal(fd)
+func IsTTY(fd uintptr) bool {
+	return isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd)
 }
 
 // DefaultProgress returns InteractiveProgress for TTYs, QuietProgress otherwise.
 func DefaultProgress() Progress {
-	if IsTTY(int(os.Stdout.Fd())) {
+	if IsTTY(os.Stdout.Fd()) {
 		return NewInteractiveProgress(os.Stdout)
 	}
 	return NewQuietProgress(os.Stdout)
