@@ -5,11 +5,11 @@ import (
 	"os"
 
 	"github.com/schollz/progressbar/v3"
-	"github.com/Snider/Borg/pkg/compress"
-	"github.com/Snider/Borg/pkg/tim"
-	"github.com/Snider/Borg/pkg/trix"
-	"github.com/Snider/Borg/pkg/ui"
-	"github.com/Snider/Borg/pkg/website"
+	"forge.lthn.ai/Snider/Borg/pkg/compress"
+	"forge.lthn.ai/Snider/Borg/pkg/tim"
+	"forge.lthn.ai/Snider/Borg/pkg/trix"
+	"forge.lthn.ai/Snider/Borg/pkg/ui"
+	"forge.lthn.ai/Snider/Borg/pkg/website"
 
 	"github.com/spf13/cobra"
 )

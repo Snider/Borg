@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/Snider/Borg/pkg/website"
+	"forge.lthn.ai/Snider/Borg/pkg/website"
 )
 
 func main() {

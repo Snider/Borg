@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/Snider/Borg/pkg/stmf"
+	"forge.lthn.ai/Snider/Borg/pkg/stmf"
 )
 
 // contextKey is a custom type for context keys to avoid collisions

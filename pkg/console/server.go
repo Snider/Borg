@@ -8,8 +8,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Snider/Borg/pkg/datanode"
-	"github.com/Snider/Borg/pkg/tim"
+	"forge.lthn.ai/Snider/Borg/pkg/datanode"
+	"forge.lthn.ai/Snider/Borg/pkg/tim"
 )
 
 //go:embed unlock.html

@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Snider/Borg/pkg/datanode"
+	"forge.lthn.ai/Snider/Borg/pkg/datanode"
 	"github.com/schollz/progressbar/v3"
 
 	"golang.org/x/net/html"

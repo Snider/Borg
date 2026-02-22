@@ -11,9 +11,9 @@ import (
 	"encoding/json"
 	"syscall/js"
 
-	"github.com/Snider/Borg/pkg/smsg"
-	"github.com/Snider/Borg/pkg/stmf"
-	"github.com/Snider/Enchantrix/pkg/enchantrix"
+	"forge.lthn.ai/Snider/Borg/pkg/smsg"
+	"forge.lthn.ai/Snider/Borg/pkg/stmf"
+	"forge.lthn.ai/Snider/Enchantrix/pkg/enchantrix"
 )
 
 // Version of the WASM module

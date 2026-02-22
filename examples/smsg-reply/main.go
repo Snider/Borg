@@ -19,8 +19,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Snider/Borg/pkg/smsg"
-	"github.com/Snider/Borg/pkg/stmf"
+	"forge.lthn.ai/Snider/Borg/pkg/smsg"
+	"forge.lthn.ai/Snider/Borg/pkg/stmf"
 )
 
 func main() {

@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Snider/Borg/pkg/player"
-	"github.com/Snider/Borg/pkg/smsg"
+	"forge.lthn.ai/Snider/Borg/pkg/player"
+	"forge.lthn.ai/Snider/Borg/pkg/smsg"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"

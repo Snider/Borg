@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Snider/Borg/pkg/trix"
+	"forge.lthn.ai/Snider/Borg/pkg/trix"
 )
 
 func TestToFromSigil(t *testing.T) {

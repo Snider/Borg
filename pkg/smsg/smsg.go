@@ -16,7 +16,7 @@ package smsg
 // This means wrapped keys, encrypted payloads, etc. are self-contained.
 // You only need the correct key to decrypt - no nonce management required.
 //
-// See: github.com/Snider/Enchantrix/pkg/enchantrix/crypto_sigil.go
+// See: forge.lthn.ai/Snider/Enchantrix/pkg/enchantrix/crypto_sigil.go
 
 import (
 	"bytes"
@@ -29,8 +29,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/Snider/Enchantrix/pkg/enchantrix"
-	"github.com/Snider/Enchantrix/pkg/trix"
+	"forge.lthn.ai/Snider/Enchantrix/pkg/enchantrix"
+	"forge.lthn.ai/Snider/Enchantrix/pkg/trix"
 	"github.com/klauspost/compress/zstd"
 )
 

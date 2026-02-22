@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Snider/Enchantrix/pkg/enchantrix"
-	"github.com/Snider/Enchantrix/pkg/trix"
+	"forge.lthn.ai/Snider/Enchantrix/pkg/enchantrix"
+	"forge.lthn.ai/Snider/Enchantrix/pkg/trix"
 )
 
 // Decrypt decrypts a STMF payload using the server's private key.

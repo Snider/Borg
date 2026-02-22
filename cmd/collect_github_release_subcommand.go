@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Snider/Borg/pkg/datanode"
-	borg_github "github.com/Snider/Borg/pkg/github"
+	"forge.lthn.ai/Snider/Borg/pkg/datanode"
+	borg_github "forge.lthn.ai/Snider/Borg/pkg/github"
 	"github.com/google/go-github/v39/github"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Snider/Borg/pkg/tim"
+	"forge.lthn.ai/Snider/Borg/pkg/tim"
 )
 
 func TestRunCmd_Good(t *testing.T) {

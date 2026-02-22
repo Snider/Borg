@@ -1,9 +1,9 @@
-module github.com/Snider/Borg
+module forge.lthn.ai/Snider/Borg
 
 go 1.25.0
 
 require (
-	github.com/Snider/Enchantrix v0.0.2
+	forge.lthn.ai/Snider/Enchantrix v0.0.4
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-git/v5 v5.16.3
 	github.com/google/go-github/v39 v39.2.0

@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/Snider/Borg/pkg/github"
-	"github.com/Snider/Borg/pkg/vcs"
+	"forge.lthn.ai/Snider/Borg/pkg/github"
+	"forge.lthn.ai/Snider/Borg/pkg/vcs"
 )
 
 func main() {

@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Snider/Borg/pkg/smsg"
+	"forge.lthn.ai/Snider/Borg/pkg/smsg"
 )
 
 // Preset defines a quality level for transcoding

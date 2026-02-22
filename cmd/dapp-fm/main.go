@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Snider/Borg/pkg/player"
+	"forge.lthn.ai/Snider/Borg/pkg/player"
 	"github.com/spf13/cobra"
 )
 

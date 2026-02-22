@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Snider/Borg/pkg/console"
-	"github.com/Snider/Borg/pkg/tim"
+	"forge.lthn.ai/Snider/Borg/pkg/console"
+	"forge.lthn.ai/Snider/Borg/pkg/tim"
 	"github.com/spf13/cobra"
 )
 

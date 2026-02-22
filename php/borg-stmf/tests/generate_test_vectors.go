@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Snider/Borg/pkg/stmf"
+	"forge.lthn.ai/Snider/Borg/pkg/stmf"
 )
 
 type TestVector struct {

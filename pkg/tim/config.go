@@ -1,6 +1,6 @@
 package tim
 
-import "github.com/Snider/Enchantrix/pkg/trix"
+import "forge.lthn.ai/Snider/Enchantrix/pkg/trix"
 
 // DefaultSpec returns a default runc spec.
 func defaultConfig() (*trix.Trix, error) {

@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Snider/Borg/pkg/smsg"
+	"forge.lthn.ai/Snider/Borg/pkg/smsg"
 )
 
 func main() {

@@ -3,7 +3,7 @@ package cmd
 import (
 	"os"
 
-	"github.com/Snider/Borg/pkg/ui"
+	"forge.lthn.ai/Snider/Borg/pkg/ui"
 	"github.com/spf13/cobra"
 )
 

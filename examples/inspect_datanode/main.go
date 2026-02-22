@@ -5,8 +5,8 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/Snider/Borg/pkg/compress"
-	"github.com/Snider/Borg/pkg/datanode"
+	"forge.lthn.ai/Snider/Borg/pkg/compress"
+	"forge.lthn.ai/Snider/Borg/pkg/datanode"
 )
 
 func main() {

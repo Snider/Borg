@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Snider/Borg/pkg/compress"
-	"github.com/Snider/Borg/pkg/tarfs"
+	"forge.lthn.ai/Snider/Borg/pkg/compress"
+	"forge.lthn.ai/Snider/Borg/pkg/tarfs"
 )
 
 func main() {
