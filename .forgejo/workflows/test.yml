@@ -1,0 +1,14 @@
+name: Test
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    uses: core/go-devops/.forgejo/workflows/go-test.yml@main
+    with:
+      race: true
+      coverage: true

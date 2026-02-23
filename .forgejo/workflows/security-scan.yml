@@ -1,0 +1,12 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, dev, 'feat/*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  security:
+    uses: core/go-devops/.forgejo/workflows/security-scan.yml@main
+    secrets: inherit
