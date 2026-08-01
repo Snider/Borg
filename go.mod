@@ -3,7 +3,7 @@ module github.com/Snider/Borg
 go 1.25.0
 
 require (
-	github.com/Snider/Enchantrix v0.0.4
+	github.com/Snider/Enchantrix v0.2.0
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/google/go-github/v39 v39.2.0
