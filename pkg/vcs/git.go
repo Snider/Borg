@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/datanode"
 
 	"github.com/go-git/go-git/v5"
 )

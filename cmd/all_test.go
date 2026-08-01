@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
-	"forge.lthn.ai/Snider/Borg/pkg/github"
-	"forge.lthn.ai/Snider/Borg/pkg/mocks"
+	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/mocks"
 )
 
 func TestAllCmd_Good(t *testing.T) {

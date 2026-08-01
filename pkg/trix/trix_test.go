@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/datanode"
 )
 
 func TestDeriveKey(t *testing.T) {

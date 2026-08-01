@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/chacha20poly1305"
 
-	borgtrix "forge.lthn.ai/Snider/Borg/pkg/trix"
+	borgtrix "github.com/Snider/Borg/pkg/trix"
 )
 
 const (

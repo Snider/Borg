@@ -4,14 +4,14 @@ import (
 	"log"
 	"os"
 
-	"forge.lthn.ai/Snider/Borg/pkg/vcs"
+	"github.com/Snider/Borg/pkg/vcs"
 )
 
 func main() {
 	log.Println("Collecting GitHub repo...")
 
 	cloner := vcs.NewGitCloner()
-	dn, err := cloner.CloneGitRepository("https://forge.lthn.ai/Snider/Borg", nil)
+	dn, err := cloner.CloneGitRepository("https://github.com/Snider/Borg", nil)
 	if err != nil {
 		log.Fatalf("Failed to clone repository: %v", err)
 	}

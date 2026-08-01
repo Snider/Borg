@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"forge.lthn.ai/Snider/Borg/pkg/tim"
+	"github.com/Snider/Borg/pkg/tim"
 	"github.com/spf13/cobra"
 )
 

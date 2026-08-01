@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"forge.lthn.ai/Snider/Borg/pkg/stmf"
+	"github.com/Snider/Borg/pkg/stmf"
 )
 
 func TestMiddleware(t *testing.T) {

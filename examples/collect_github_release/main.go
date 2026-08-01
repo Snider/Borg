@@ -4,13 +4,13 @@ import (
 	"log"
 	"os"
 
-	"forge.lthn.ai/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/github"
 )
 
 func main() {
 	log.Println("Collecting GitHub release...")
 
-	owner, repo, err := github.ParseRepoFromURL("https://forge.lthn.ai/Snider/Borg")
+	owner, repo, err := github.ParseRepoFromURL("https://github.com/Snider/Borg")
 	if err != nil {
 		log.Fatalf("Failed to parse repo from URL: %v", err)
 	}

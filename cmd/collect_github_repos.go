@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"forge.lthn.ai/Snider/Borg/pkg/github"
+	"github.com/Snider/Borg/pkg/github"
 	"github.com/spf13/cobra"
 )
 

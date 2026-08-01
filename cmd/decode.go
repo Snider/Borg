@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"forge.lthn.ai/Snider/Borg/pkg/tim"
-	"forge.lthn.ai/Snider/Borg/pkg/trix"
-	trixsdk "forge.lthn.ai/Snider/Enchantrix/pkg/trix"
+	"github.com/Snider/Borg/pkg/tim"
+	"github.com/Snider/Borg/pkg/trix"
+	trixsdk "github.com/Snider/Enchantrix/pkg/trix"
 	"github.com/spf13/cobra"
 )
 

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
-	"forge.lthn.ai/Snider/Borg/pkg/mocks"
+	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/mocks"
 )
 
 func TestCollectGithubRepoCmd_Good(t *testing.T) {

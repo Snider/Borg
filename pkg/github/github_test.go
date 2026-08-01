@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"forge.lthn.ai/Snider/Borg/pkg/mocks"
+	"github.com/Snider/Borg/pkg/mocks"
 )
 
 func TestGetPublicRepos_Good(t *testing.T) {

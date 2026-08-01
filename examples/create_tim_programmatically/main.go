@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
-	"forge.lthn.ai/Snider/Borg/pkg/tim"
+	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/tim"
 )
 
 func main() {

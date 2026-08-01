@@ -3,8 +3,8 @@ package mocks
 import (
 	"io"
 
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
-	"forge.lthn.ai/Snider/Borg/pkg/vcs"
+	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/vcs"
 )
 
 // MockGitCloner is a mock implementation of the GitCloner interface.

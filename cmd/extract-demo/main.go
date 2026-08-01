@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"forge.lthn.ai/Snider/Borg/pkg/smsg"
+	"github.com/Snider/Borg/pkg/smsg"
 )
 
 func main() {

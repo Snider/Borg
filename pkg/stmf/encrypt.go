@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"forge.lthn.ai/Snider/Enchantrix/pkg/enchantrix"
-	"forge.lthn.ai/Snider/Enchantrix/pkg/trix"
+	"github.com/Snider/Enchantrix/pkg/enchantrix"
+	"github.com/Snider/Enchantrix/pkg/trix"
 )
 
 // Encrypt encrypts form data using the server's public key.

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	trixsdk "forge.lthn.ai/Snider/Enchantrix/pkg/trix"
+	trixsdk "github.com/Snider/Enchantrix/pkg/trix"
 	"github.com/spf13/cobra"
 )
 

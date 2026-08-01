@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"forge.lthn.ai/Snider/Borg/cmd"
-	"forge.lthn.ai/Snider/Borg/pkg/logger"
+	"github.com/Snider/Borg/cmd"
+	"github.com/Snider/Borg/pkg/logger"
 )
 
 var osExit = os.Exit

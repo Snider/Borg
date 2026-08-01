@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"forge.lthn.ai/Snider/Borg/pkg/pwa"
+	"github.com/Snider/Borg/pkg/pwa"
 )
 
 func main() {

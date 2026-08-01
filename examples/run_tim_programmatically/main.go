@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"forge.lthn.ai/Snider/Borg/pkg/tim"
+	"github.com/Snider/Borg/pkg/tim"
 )
 
 func main() {

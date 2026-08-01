@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"forge.lthn.ai/Snider/Borg/pkg/compress"
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
-	"forge.lthn.ai/Snider/Borg/pkg/tarfs"
+	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/tarfs"
 
 	"github.com/spf13/cobra"
 )

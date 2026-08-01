@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/datanode"
 )
 
 func TestNew(t *testing.T) {

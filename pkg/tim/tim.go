@@ -11,10 +11,10 @@ import (
 	"io/fs"
 	"strings"
 
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
-	borgtrix "forge.lthn.ai/Snider/Borg/pkg/trix"
-	"forge.lthn.ai/Snider/Enchantrix/pkg/enchantrix"
-	"forge.lthn.ai/Snider/Enchantrix/pkg/trix"
+	"github.com/Snider/Borg/pkg/datanode"
+	borgtrix "github.com/Snider/Borg/pkg/trix"
+	"github.com/Snider/Enchantrix/pkg/enchantrix"
+	"github.com/Snider/Enchantrix/pkg/trix"
 )
 
 var (

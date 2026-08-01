@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 
-	"forge.lthn.ai/Snider/Borg/pkg/smsg"
+	"github.com/Snider/Borg/pkg/smsg"
 )
 
 // trackList allows multiple -track flags

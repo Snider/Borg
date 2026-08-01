@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"forge.lthn.ai/Snider/Borg/pkg/datanode"
+	"github.com/Snider/Borg/pkg/datanode"
 )
 
 func TestMain(m *testing.M) {

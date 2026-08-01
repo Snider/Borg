@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"forge.lthn.ai/Snider/Borg/pkg/compress"
-	"forge.lthn.ai/Snider/Borg/pkg/pwa"
-	"forge.lthn.ai/Snider/Borg/pkg/tim"
-	"forge.lthn.ai/Snider/Borg/pkg/trix"
-	"forge.lthn.ai/Snider/Borg/pkg/ui"
+	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/pwa"
+	"github.com/Snider/Borg/pkg/tim"
+	"github.com/Snider/Borg/pkg/trix"
+	"github.com/Snider/Borg/pkg/ui"
 
 	"github.com/spf13/cobra"
 )

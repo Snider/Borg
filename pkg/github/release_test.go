@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"testing"
 
-	"forge.lthn.ai/Snider/Borg/pkg/mocks"
+	"github.com/Snider/Borg/pkg/mocks"
 	"github.com/google/go-github/v39/github"
 )
 

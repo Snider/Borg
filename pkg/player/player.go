@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"forge.lthn.ai/Snider/Borg/pkg/smsg"
+	"github.com/Snider/Borg/pkg/smsg"
 )
 
 // Player provides media decryption and playback services
