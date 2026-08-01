@@ -1,0 +1,2371 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="CLI and library for collecting repositories, websites, and PWAs into portable data artifacts.">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Borg Production Backup Upgrade — Implementation Plan - Borg Data Collector</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#borg-production-backup-upgrade-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Borg Data Collector" class="md-header__button md-logo" aria-label="Borg Data Collector" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Borg Data Collector
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Borg Production Backup Upgrade — Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Snider/Borg" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Overview
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../installation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../cli/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  CLI Usage
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../library/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Library Usage
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../development/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Development
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../releasing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Releasing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Borg Data Collector" class="md-nav__button md-logo" aria-label="Borg Data Collector" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Borg Data Collector
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Snider/Borg" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releasing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releasing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="borg-production-backup-upgrade-implementation-plan">Borg Production Backup Upgrade — Implementation Plan</h1>
+<blockquote>
+<p><strong>For Claude:</strong> REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.</p>
+</blockquote>
+<p><strong>Goal:</strong> Make Borg's <code>collect local</code> work reliably on large directories with streaming I/O, proper symlink handling, quiet mode, and hardened encryption.</p>
+<p><strong>Architecture:</strong> Bottom-up refactor — build new primitives (Progress interface, streaming DataNode output, chunked AEAD, Argon2id), then rewire <code>collect local</code> to use them as a streaming pipeline: <code>walk → tar → compress → encrypt → file</code>. DataNode remains the core sandbox abstraction; streaming bypasses it only for the large-directory collection path.</p>
+<p><strong>Tech Stack:</strong> Go, Enchantrix (ChaCha20-Poly1305), Argon2id (<code>golang.org/x/crypto/argon2</code>), <code>golang.org/x/term</code> (TTY detection), <code>archive/tar</code>, <code>compress/gzip</code>, <code>github.com/ulikunitz/xz</code></p>
+<hr />
+<h2 id="background-for-implementers">Background for Implementers</h2>
+<h3 id="repository-layout">Repository Layout</h3>
+<pre><code>/home/claude/Code/Borg/
+├── cmd/                    # Cobra CLI commands
+│   ├── root.go             # Root command + --verbose flag
+│   ├── collect_local.go    # collect local command (MAIN TARGET)
+│   └── ...                 # Other collect commands
+├── pkg/
+│   ├── datanode/           # In-memory fs.FS (THE core sandbox)
+│   │   └── datanode.go     # DataNode struct, AddData, ToTar, FromTar
+│   ├── tim/                # TIM container + STIM encryption
+│   │   ├── tim.go          # TerminalIsolationMatrix, ToSigil, FromSigil
+│   │   ├── run.go          # Container execution via runc
+│   │   └── cache.go        # Encrypted TIM cache
+│   ├── trix/               # Trix format wrapper
+│   │   └── trix.go         # DeriveKey (SHA-256), ToTrix, FromTrix
+│   ├── compress/           # gzip/xz compression
+│   │   └── compress.go     # Compress(data, format), Decompress(data)
+│   └── ui/                 # Progress bars + prompter
+│       ├── progressbar.go  # NewProgressBar wrapper
+│       ├── progress_writer.go  # io.Writer → progressbar adapter
+│       └── non_interactive_prompter.go  # Quote-rotating prompter
+├── go.mod
+└── main.go
+</code></pre>
+<h3 id="key-patterns">Key Patterns</h3>
+<ul>
+<li><strong>Test naming:</strong> <code>TestXxx_Good</code> (happy path), <code>TestXxx_Bad</code> (expected errors), <code>TestXxx_Ugly</code> (edge cases)</li>
+<li><strong>Testing framework:</strong> <code>testing</code> stdlib + <code>assert</code>/<code>require</code> from testify where already used, but most tests use plain <code>t.Fatal</code>/<code>t.Errorf</code></li>
+<li><strong>DataNode files:</strong> Stored as <code>map[string]*dataFile</code> with normalized paths (no leading <code>/</code>)</li>
+<li><strong>Encryption chain:</strong> <code>password → DeriveKey (SHA-256) → 32-byte key → NewChaChaPolySigil → sigil.In(data)/sigil.Out(data)</code></li>
+<li><strong>STIM format:</strong> <code>trix.Encode(Trix{Header, Payload}, "STIM", nil)</code> where Payload = <code>[4-byte config size][encrypted config][encrypted rootfs]</code></li>
+</ul>
+<h3 id="build-test-commands">Build &amp; Test Commands</h3>
+<pre><code class="language-bash">go build -o borg ./           # Build binary
+go test ./...                 # All tests
+go test -run TestName ./...   # Single test
+go test -v ./pkg/datanode/    # Verbose, one package
+go test -race ./...           # Race detector
+go test -cover ./pkg/tim/     # Coverage for package
+</code></pre>
+<hr />
+<h2 id="task-1-progress-interface">Task 1: Progress Interface</h2>
+<p>Create a <code>Progress</code> interface that replaces direct spinner/progressbar writes. Two implementations: interactive (TTY) and quiet (cron/pipes).</p>
+<p><strong>Files:</strong>
+- Create: <code>pkg/ui/progress.go</code>
+- Create: <code>pkg/ui/progress_test.go</code></p>
+<p><strong>Step 1: Write the failing test</strong></p>
+<p>Create <code>pkg/ui/progress_test.go</code>:</p>
+<pre><code class="language-go">package ui
+
+import (
+    &quot;bytes&quot;
+    &quot;strings&quot;
+    &quot;testing&quot;
+)
+
+func TestQuietProgress_Log_Good(t *testing.T) {
+    var buf bytes.Buffer
+    p := NewQuietProgress(&amp;buf)
+    p.Log(&quot;info&quot;, &quot;test message&quot;, &quot;key&quot;, &quot;val&quot;)
+    out := buf.String()
+    if !strings.Contains(out, &quot;test message&quot;) {
+        t.Fatalf(&quot;expected log output to contain 'test message', got: %s&quot;, out)
+    }
+}
+
+func TestQuietProgress_StartFinish_Good(t *testing.T) {
+    var buf bytes.Buffer
+    p := NewQuietProgress(&amp;buf)
+    p.Start(&quot;collecting&quot;)
+    p.Update(50, 100)
+    p.Finish(&quot;done&quot;)
+    out := buf.String()
+    if !strings.Contains(out, &quot;collecting&quot;) {
+        t.Fatalf(&quot;expected 'collecting' in output, got: %s&quot;, out)
+    }
+    if !strings.Contains(out, &quot;done&quot;) {
+        t.Fatalf(&quot;expected 'done' in output, got: %s&quot;, out)
+    }
+}
+
+func TestQuietProgress_Update_Ugly(t *testing.T) {
+    var buf bytes.Buffer
+    p := NewQuietProgress(&amp;buf)
+    // Should not panic with zero total
+    p.Update(0, 0)
+    p.Update(5, 0)
+}
+</code></pre>
+<p><strong>Step 2: Run test to verify it fails</strong></p>
+<p>Run: <code>go test -run TestQuietProgress -v ./pkg/ui/</code>
+Expected: FAIL — <code>NewQuietProgress</code> undefined</p>
+<p><strong>Step 3: Write the Progress interface and QuietProgress implementation</strong></p>
+<p>Create <code>pkg/ui/progress.go</code>:</p>
+<pre><code class="language-go">package ui
+
+import (
+    &quot;fmt&quot;
+    &quot;io&quot;
+    &quot;os&quot;
+
+    &quot;golang.org/x/term&quot;
+)
+
+// Progress abstracts output for both interactive and scripted use.
+type Progress interface {
+    Start(label string)
+    Update(current, total int64)
+    Finish(label string)
+    Log(level, msg string, args ...any)
+}
+
+// QuietProgress writes structured log lines. For cron, pipes, --quiet.
+type QuietProgress struct {
+    w io.Writer
+}
+
+func NewQuietProgress(w io.Writer) *QuietProgress {
+    return &amp;QuietProgress{w: w}
+}
+
+func (q *QuietProgress) Start(label string) {
+    fmt.Fprintf(q.w, &quot;[START] %s\n&quot;, label)
+}
+
+func (q *QuietProgress) Update(current, total int64) {
+    if total &gt; 0 {
+        fmt.Fprintf(q.w, &quot;[PROGRESS] %d/%d\n&quot;, current, total)
+    }
+}
+
+func (q *QuietProgress) Finish(label string) {
+    fmt.Fprintf(q.w, &quot;[DONE] %s\n&quot;, label)
+}
+
+func (q *QuietProgress) Log(level, msg string, args ...any) {
+    fmt.Fprintf(q.w, &quot;[%s] %s&quot;, level, msg)
+    for i := 0; i+1 &lt; len(args); i += 2 {
+        fmt.Fprintf(q.w, &quot; %v=%v&quot;, args[i], args[i+1])
+    }
+    fmt.Fprintln(q.w)
+}
+
+// InteractiveProgress uses a progress bar for TTY output.
+type InteractiveProgress struct {
+    bar *ProgressBarWrapper
+    w   io.Writer
+}
+
+// ProgressBarWrapper wraps schollz/progressbar for the Progress interface.
+type ProgressBarWrapper struct {
+    total   int
+    current int
+    desc    string
+}
+
+func NewInteractiveProgress(w io.Writer) *InteractiveProgress {
+    return &amp;InteractiveProgress{w: w}
+}
+
+func (p *InteractiveProgress) Start(label string) {
+    fmt.Fprintf(p.w, &quot;→ %s\n&quot;, label)
+}
+
+func (p *InteractiveProgress) Update(current, total int64) {
+    // Interactive progress bar updates handled by existing progressbar lib
+    // when integrated — for now, simple percentage
+    if total &gt; 0 {
+        pct := current * 100 / total
+        fmt.Fprintf(p.w, &quot;\r  %d%%&quot;, pct)
+    }
+}
+
+func (p *InteractiveProgress) Finish(label string) {
+    fmt.Fprintf(p.w, &quot;\r✓ %s\n&quot;, label)
+}
+
+func (p *InteractiveProgress) Log(level, msg string, args ...any) {
+    fmt.Fprintf(p.w, &quot;  %s&quot;, msg)
+    for i := 0; i+1 &lt; len(args); i += 2 {
+        fmt.Fprintf(p.w, &quot; %v=%v&quot;, args[i], args[i+1])
+    }
+    fmt.Fprintln(p.w)
+}
+
+// IsTTY returns true if the given file descriptor is a terminal.
+func IsTTY(fd int) bool {
+    return term.IsTerminal(fd)
+}
+
+// DefaultProgress returns InteractiveProgress for TTYs, QuietProgress otherwise.
+func DefaultProgress() Progress {
+    if IsTTY(int(os.Stdout.Fd())) {
+        return NewInteractiveProgress(os.Stdout)
+    }
+    return NewQuietProgress(os.Stdout)
+}
+</code></pre>
+<p><strong>Step 4: Add <code>golang.org/x/term</code> dependency</strong></p>
+<p>Run: <code>go get golang.org/x/term</code></p>
+<p><strong>Step 5: Run tests to verify they pass</strong></p>
+<p>Run: <code>go test -run TestQuietProgress -v ./pkg/ui/</code>
+Expected: PASS (all 3 tests)</p>
+<p><strong>Step 6: Commit</strong></p>
+<pre><code class="language-bash">git add pkg/ui/progress.go pkg/ui/progress_test.go go.mod go.sum
+git commit -m &quot;feat(ui): add Progress interface with Quiet and Interactive implementations&quot;
+</code></pre>
+<hr />
+<h2 id="task-2-wire-quiet-flag-into-cli">Task 2: Wire --quiet Flag into CLI</h2>
+<p>Add <code>--quiet/-q</code> global flag and pass Progress through command context.</p>
+<p><strong>Files:</strong>
+- Modify: <code>cmd/root.go</code>
+- Create: <code>cmd/context.go</code>
+- Create: <code>cmd/context_test.go</code></p>
+<p><strong>Step 1: Write the failing test</strong></p>
+<p>Create <code>cmd/context_test.go</code>:</p>
+<pre><code class="language-go">package cmd
+
+import (
+    &quot;testing&quot;
+
+    &quot;github.com/spf13/cobra&quot;
+)
+
+func TestProgressFromCmd_Good(t *testing.T) {
+    cmd := &amp;cobra.Command{}
+    cmd.PersistentFlags().BoolP(&quot;quiet&quot;, &quot;q&quot;, false, &quot;&quot;)
+
+    p := ProgressFromCmd(cmd)
+    if p == nil {
+        t.Fatal(&quot;expected non-nil Progress&quot;)
+    }
+}
+
+func TestProgressFromCmd_Quiet_Good(t *testing.T) {
+    cmd := &amp;cobra.Command{}
+    cmd.PersistentFlags().BoolP(&quot;quiet&quot;, &quot;q&quot;, true, &quot;&quot;)
+    _ = cmd.PersistentFlags().Set(&quot;quiet&quot;, &quot;true&quot;)
+
+    p := ProgressFromCmd(cmd)
+    if p == nil {
+        t.Fatal(&quot;expected non-nil Progress&quot;)
+    }
+    // QuietProgress should be returned when --quiet is set
+}
+</code></pre>
+<p><strong>Step 2: Run test to verify it fails</strong></p>
+<p>Run: <code>go test -run TestProgressFromCmd -v ./cmd/</code>
+Expected: FAIL — <code>ProgressFromCmd</code> undefined</p>
+<p><strong>Step 3: Implement context helper</strong></p>
+<p>Create <code>cmd/context.go</code>:</p>
+<pre><code class="language-go">package cmd
+
+import (
+    &quot;os&quot;
+
+    &quot;github.com/Snider/Borg/pkg/ui&quot;
+    &quot;github.com/spf13/cobra&quot;
+)
+
+// ProgressFromCmd returns a Progress based on --quiet flag and TTY detection.
+func ProgressFromCmd(cmd *cobra.Command) ui.Progress {
+    quiet, _ := cmd.Flags().GetBool(&quot;quiet&quot;)
+    if quiet {
+        return ui.NewQuietProgress(os.Stderr)
+    }
+    return ui.DefaultProgress()
+}
+</code></pre>
+<p><strong>Step 4: Add --quiet flag to root command</strong></p>
+<p>In <code>cmd/root.go</code>, add after the <code>--verbose</code> flag line:</p>
+<pre><code class="language-go">rootCmd.PersistentFlags().BoolP(&quot;quiet&quot;, &quot;q&quot;, false, &quot;Suppress non-error output&quot;)
+</code></pre>
+<p><strong>Step 5: Run tests</strong></p>
+<p>Run: <code>go test -run TestProgressFromCmd -v ./cmd/</code>
+Expected: PASS</p>
+<p><strong>Step 6: Commit</strong></p>
+<pre><code class="language-bash">git add cmd/context.go cmd/context_test.go cmd/root.go
+git commit -m &quot;feat(cli): add --quiet flag and ProgressFromCmd helper&quot;
+</code></pre>
+<hr />
+<h2 id="task-3-datanode-symlink-support">Task 3: DataNode Symlink Support</h2>
+<p>Add symlink storage to DataNode — store symlink entries in the files map with a target path, and handle them in ToTar/FromTar.</p>
+<p><strong>Files:</strong>
+- Modify: <code>pkg/datanode/datanode.go</code>
+- Modify: <code>pkg/datanode/datanode_test.go</code></p>
+<p><strong>Step 1: Write the failing tests</strong></p>
+<p>Add to <code>pkg/datanode/datanode_test.go</code>:</p>
+<pre><code class="language-go">func TestAddSymlink_Good(t *testing.T) {
+    dn := New()
+    dn.AddSymlink(&quot;link.txt&quot;, &quot;target.txt&quot;)
+
+    info, err := dn.Stat(&quot;link.txt&quot;)
+    if err != nil {
+        t.Fatalf(&quot;Stat failed: %v&quot;, err)
+    }
+    if info.Mode()&amp;os.ModeSymlink == 0 {
+        t.Fatal(&quot;expected symlink mode&quot;)
+    }
+}
+
+func TestSymlinkTarRoundTrip_Good(t *testing.T) {
+    dn := New()
+    dn.AddData(&quot;real.txt&quot;, []byte(&quot;content&quot;))
+    dn.AddSymlink(&quot;link.txt&quot;, &quot;real.txt&quot;)
+
+    tarData, err := dn.ToTar()
+    if err != nil {
+        t.Fatalf(&quot;ToTar failed: %v&quot;, err)
+    }
+
+    restored, err := FromTar(tarData)
+    if err != nil {
+        t.Fatalf(&quot;FromTar failed: %v&quot;, err)
+    }
+
+    info, err := restored.Stat(&quot;link.txt&quot;)
+    if err != nil {
+        t.Fatalf(&quot;Stat link failed: %v&quot;, err)
+    }
+    if info.Mode()&amp;os.ModeSymlink == 0 {
+        t.Fatal(&quot;expected symlink mode after round-trip&quot;)
+    }
+}
+
+func TestAddSymlink_Bad(t *testing.T) {
+    dn := New()
+    // Empty name should be ignored (same as AddData behaviour)
+    dn.AddSymlink(&quot;&quot;, &quot;target&quot;)
+
+    _, err := dn.Stat(&quot;&quot;)
+    if err == nil {
+        t.Fatal(&quot;expected error for empty name&quot;)
+    }
+}
+</code></pre>
+<p><strong>Step 2: Run tests to verify they fail</strong></p>
+<p>Run: <code>go test -run "TestAddSymlink|TestSymlinkTarRoundTrip" -v ./pkg/datanode/</code>
+Expected: FAIL — <code>AddSymlink</code> undefined</p>
+<p><strong>Step 3: Add symlink support to DataNode</strong></p>
+<p>In <code>pkg/datanode/datanode.go</code>, modify the <code>dataFile</code> struct to add a symlink target field, add <code>AddSymlink</code> method, update <code>ToTar</code> to write symlink entries, and update <code>FromTar</code> to read symlink entries:</p>
+<ol>
+<li>Add <code>symlink string</code> field to <code>dataFile</code> struct (around line 13-18)</li>
+<li>Add <code>isSymlink()</code> method on <code>dataFile</code> that returns <code>d.symlink != ""</code></li>
+<li>Add <code>AddSymlink(name, target string)</code> method on <code>DataNode</code></li>
+<li>In <code>ToTar()</code> (around line 58-82): check <code>f.isSymlink()</code> — if true, write tar header with <code>Typeflag: tar.TypeSymlink</code> and <code>Linkname: f.symlink</code></li>
+<li>In <code>FromTar()</code> (around line 32-55): handle <code>tar.TypeSymlink</code> case — call <code>dn.AddSymlink(header.Name, header.Linkname)</code></li>
+<li>In <code>Stat()</code>: return mode with <code>os.ModeSymlink</code> for symlink files</li>
+<li>Update <code>dataFileInfo.Mode()</code> to check if the underlying file is a symlink</li>
+</ol>
+<p><strong>Step 4: Run all datanode tests</strong></p>
+<p>Run: <code>go test -v ./pkg/datanode/</code>
+Expected: ALL PASS (new + existing)</p>
+<p><strong>Step 5: Commit</strong></p>
+<pre><code class="language-bash">git add pkg/datanode/datanode.go pkg/datanode/datanode_test.go
+git commit -m &quot;feat(datanode): add symlink support with tar round-trip&quot;
+</code></pre>
+<hr />
+<h2 id="task-4-datanode-addpath-add-files-from-filesystem">Task 4: DataNode AddPath — Add Files from Filesystem</h2>
+<p>Add <code>AddPath</code> method that walks a real directory and adds files to DataNode, with configurable symlink and exclusion behaviour.</p>
+<p><strong>Files:</strong>
+- Modify: <code>pkg/datanode/datanode.go</code>
+- Create: <code>pkg/datanode/addpath_test.go</code></p>
+<p><strong>Step 1: Write the failing tests</strong></p>
+<p>Create <code>pkg/datanode/addpath_test.go</code>:</p>
+<pre><code class="language-go">package datanode
+
+import (
+    &quot;os&quot;
+    &quot;path/filepath&quot;
+    &quot;testing&quot;
+)
+
+func TestAddPath_Good(t *testing.T) {
+    // Create temp directory with files
+    dir := t.TempDir()
+    os.WriteFile(filepath.Join(dir, &quot;hello.txt&quot;), []byte(&quot;hello&quot;), 0644)
+    os.MkdirAll(filepath.Join(dir, &quot;sub&quot;), 0755)
+    os.WriteFile(filepath.Join(dir, &quot;sub&quot;, &quot;nested.txt&quot;), []byte(&quot;nested&quot;), 0644)
+
+    dn := New()
+    err := dn.AddPath(dir, AddPathOptions{})
+    if err != nil {
+        t.Fatalf(&quot;AddPath failed: %v&quot;, err)
+    }
+
+    // Check files exist
+    if _, err := dn.Stat(&quot;hello.txt&quot;); err != nil {
+        t.Fatalf(&quot;hello.txt not found: %v&quot;, err)
+    }
+    if _, err := dn.Stat(&quot;sub/nested.txt&quot;); err != nil {
+        t.Fatalf(&quot;sub/nested.txt not found: %v&quot;, err)
+    }
+}
+
+func TestAddPath_SkipBrokenSymlinks_Good(t *testing.T) {
+    dir := t.TempDir()
+    os.WriteFile(filepath.Join(dir, &quot;real.txt&quot;), []byte(&quot;real&quot;), 0644)
+    os.Symlink(&quot;/nonexistent/target&quot;, filepath.Join(dir, &quot;broken&quot;))
+
+    dn := New()
+    err := dn.AddPath(dir, AddPathOptions{SkipBrokenSymlinks: true})
+    if err != nil {
+        t.Fatalf(&quot;AddPath failed: %v&quot;, err)
+    }
+
+    if _, err := dn.Stat(&quot;real.txt&quot;); err != nil {
+        t.Fatalf(&quot;real.txt not found: %v&quot;, err)
+    }
+    // Broken symlink should be skipped
+    if _, err := dn.Stat(&quot;broken&quot;); err == nil {
+        t.Fatal(&quot;expected broken symlink to be skipped&quot;)
+    }
+}
+
+func TestAddPath_ExcludePatterns_Good(t *testing.T) {
+    dir := t.TempDir()
+    os.WriteFile(filepath.Join(dir, &quot;keep.txt&quot;), []byte(&quot;keep&quot;), 0644)
+    os.WriteFile(filepath.Join(dir, &quot;skip.log&quot;), []byte(&quot;skip&quot;), 0644)
+
+    dn := New()
+    err := dn.AddPath(dir, AddPathOptions{
+        ExcludePatterns: []string{&quot;*.log&quot;},
+    })
+    if err != nil {
+        t.Fatalf(&quot;AddPath failed: %v&quot;, err)
+    }
+
+    if _, err := dn.Stat(&quot;keep.txt&quot;); err != nil {
+        t.Fatalf(&quot;keep.txt not found: %v&quot;, err)
+    }
+    if _, err := dn.Stat(&quot;skip.log&quot;); err == nil {
+        t.Fatal(&quot;expected *.log to be excluded&quot;)
+    }
+}
+
+func TestAddPath_Bad(t *testing.T) {
+    dn := New()
+    err := dn.AddPath(&quot;/nonexistent/dir&quot;, AddPathOptions{})
+    if err == nil {
+        t.Fatal(&quot;expected error for nonexistent directory&quot;)
+    }
+}
+
+func TestAddPath_ValidSymlink_Good(t *testing.T) {
+    dir := t.TempDir()
+    os.WriteFile(filepath.Join(dir, &quot;real.txt&quot;), []byte(&quot;real&quot;), 0644)
+    os.Symlink(filepath.Join(dir, &quot;real.txt&quot;), filepath.Join(dir, &quot;valid_link&quot;))
+
+    dn := New()
+    err := dn.AddPath(dir, AddPathOptions{SkipBrokenSymlinks: true})
+    if err != nil {
+        t.Fatalf(&quot;AddPath failed: %v&quot;, err)
+    }
+
+    // Valid symlink inside root should be stored as symlink
+    if _, err := dn.Stat(&quot;valid_link&quot;); err != nil {
+        t.Fatalf(&quot;valid_link not found: %v&quot;, err)
+    }
+}
+</code></pre>
+<p><strong>Step 2: Run tests to verify they fail</strong></p>
+<p>Run: <code>go test -run TestAddPath -v ./pkg/datanode/</code>
+Expected: FAIL — <code>AddPathOptions</code> and <code>AddPath</code> undefined</p>
+<p><strong>Step 3: Implement AddPath</strong></p>
+<p>Add to <code>pkg/datanode/datanode.go</code>:</p>
+<pre><code class="language-go">// AddPathOptions configures AddPath behaviour.
+type AddPathOptions struct {
+    SkipBrokenSymlinks bool     // Skip broken symlinks instead of erroring (default: false)
+    FollowSymlinks     bool     // Follow symlinks and store target content (default: false = store as symlinks)
+    ExcludePatterns    []string // Glob patterns to exclude
+}
+
+// AddPath walks a filesystem directory and adds all files to the DataNode.
+// Paths are stored relative to dir.
+func (dn *DataNode) AddPath(dir string, opts AddPathOptions) error {
+    dir, err := filepath.Abs(dir)
+    if err != nil {
+        return err
+    }
+
+    return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+        if err != nil {
+            return err
+        }
+
+        rel, err := filepath.Rel(dir, path)
+        if err != nil {
+            return err
+        }
+        if rel == &quot;.&quot; {
+            return nil
+        }
+        rel = filepath.ToSlash(rel)
+
+        // Check exclude patterns
+        for _, pat := range opts.ExcludePatterns {
+            if matched, _ := filepath.Match(pat, filepath.Base(path)); matched {
+                if d.IsDir() {
+                    return filepath.SkipDir
+                }
+                return nil
+            }
+        }
+
+        // Handle symlinks
+        info, err := d.Info()
+        if err != nil {
+            return err
+        }
+        if info.Mode()&amp;os.ModeSymlink != 0 {
+            target, err := os.Readlink(path)
+            if err != nil {
+                if opts.SkipBrokenSymlinks {
+                    return nil
+                }
+                return err
+            }
+            // Check if target exists
+            absTarget := target
+            if !filepath.IsAbs(absTarget) {
+                absTarget = filepath.Join(filepath.Dir(path), target)
+            }
+            if _, err := os.Stat(absTarget); err != nil {
+                if opts.SkipBrokenSymlinks {
+                    return nil
+                }
+                return fmt.Errorf(&quot;broken symlink %s -&gt; %s: %w&quot;, rel, target, err)
+            }
+            if opts.FollowSymlinks {
+                content, err := os.ReadFile(absTarget)
+                if err != nil {
+                    return err
+                }
+                dn.AddData(rel, content)
+            } else {
+                dn.AddSymlink(rel, target)
+            }
+            return nil
+        }
+
+        if d.IsDir() {
+            return nil
+        }
+
+        content, err := os.ReadFile(path)
+        if err != nil {
+            return err
+        }
+        dn.AddData(rel, content)
+        return nil
+    })
+}
+</code></pre>
+<p><strong>Important:</strong> <code>filepath.WalkDir</code> does NOT follow symlinks by default and reports them as <code>d.Type()&amp;fs.ModeSymlink != 0</code>. However, <code>d.Info()</code> may fail for broken symlinks. The implementation needs to use <code>os.Lstat</code> to detect symlinks since <code>WalkDir</code> may not report the symlink type. Check the actual behaviour and adjust — you may need to call <code>os.Lstat(path)</code> directly instead of relying on <code>d.Info()</code>.</p>
+<p><strong>Step 4: Run tests</strong></p>
+<p>Run: <code>go test -run TestAddPath -v ./pkg/datanode/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 5: Run full datanode test suite</strong></p>
+<p>Run: <code>go test -v ./pkg/datanode/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 6: Commit</strong></p>
+<pre><code class="language-bash">git add pkg/datanode/datanode.go pkg/datanode/addpath_test.go
+git commit -m &quot;feat(datanode): add AddPath for filesystem directory collection&quot;
+</code></pre>
+<hr />
+<h2 id="task-5-datanode-totarwriter-streaming-tar-output">Task 5: DataNode ToTarWriter — Streaming Tar Output</h2>
+<p>Add <code>ToTarWriter(w io.Writer) error</code> method so DataNode contents can be streamed to a tar writer without buffering the entire archive in memory.</p>
+<p><strong>Files:</strong>
+- Modify: <code>pkg/datanode/datanode.go</code>
+- Modify: <code>pkg/datanode/datanode_test.go</code></p>
+<p><strong>Step 1: Write the failing test</strong></p>
+<p>Add to <code>pkg/datanode/datanode_test.go</code>:</p>
+<pre><code class="language-go">func TestToTarWriter_Good(t *testing.T) {
+    dn := New()
+    dn.AddData(&quot;a.txt&quot;, []byte(&quot;aaa&quot;))
+    dn.AddData(&quot;b.txt&quot;, []byte(&quot;bbb&quot;))
+
+    var buf bytes.Buffer
+    err := dn.ToTarWriter(&amp;buf)
+    if err != nil {
+        t.Fatalf(&quot;ToTarWriter failed: %v&quot;, err)
+    }
+
+    // Should be valid tar — parse it back
+    restored, err := FromTar(buf.Bytes())
+    if err != nil {
+        t.Fatalf(&quot;FromTar failed: %v&quot;, err)
+    }
+
+    f, err := restored.Open(&quot;a.txt&quot;)
+    if err != nil {
+        t.Fatalf(&quot;a.txt not found: %v&quot;, err)
+    }
+    content, _ := io.ReadAll(f)
+    if string(content) != &quot;aaa&quot; {
+        t.Fatalf(&quot;expected 'aaa', got '%s'&quot;, content)
+    }
+}
+
+func TestToTarWriter_Symlinks_Good(t *testing.T) {
+    dn := New()
+    dn.AddData(&quot;real.txt&quot;, []byte(&quot;content&quot;))
+    dn.AddSymlink(&quot;link.txt&quot;, &quot;real.txt&quot;)
+
+    var buf bytes.Buffer
+    err := dn.ToTarWriter(&amp;buf)
+    if err != nil {
+        t.Fatalf(&quot;ToTarWriter failed: %v&quot;, err)
+    }
+
+    restored, err := FromTar(buf.Bytes())
+    if err != nil {
+        t.Fatalf(&quot;FromTar failed: %v&quot;, err)
+    }
+
+    info, err := restored.Stat(&quot;link.txt&quot;)
+    if err != nil {
+        t.Fatalf(&quot;link.txt not found: %v&quot;, err)
+    }
+    if info.Mode()&amp;os.ModeSymlink == 0 {
+        t.Fatal(&quot;expected symlink after round-trip through ToTarWriter&quot;)
+    }
+}
+
+func TestToTarWriter_Empty_Good(t *testing.T) {
+    dn := New()
+    var buf bytes.Buffer
+    err := dn.ToTarWriter(&amp;buf)
+    if err != nil {
+        t.Fatalf(&quot;ToTarWriter failed on empty DataNode: %v&quot;, err)
+    }
+}
+</code></pre>
+<p><strong>Step 2: Run tests to verify they fail</strong></p>
+<p>Run: <code>go test -run TestToTarWriter -v ./pkg/datanode/</code>
+Expected: FAIL — <code>ToTarWriter</code> undefined</p>
+<p><strong>Step 3: Implement ToTarWriter</strong></p>
+<p>Add to <code>pkg/datanode/datanode.go</code>:</p>
+<pre><code class="language-go">// ToTarWriter writes the DataNode contents as a tar stream to w.
+// Unlike ToTar(), this does not buffer the entire archive in memory.
+func (dn *DataNode) ToTarWriter(w io.Writer) error {
+    tw := tar.NewWriter(w)
+    defer tw.Close()
+
+    // Sort keys for deterministic output
+    names := make([]string, 0, len(dn.files))
+    for name := range dn.files {
+        names = append(names, name)
+    }
+    sort.Strings(names)
+
+    for _, name := range names {
+        f := dn.files[name]
+        if f.isSymlink() {
+            hdr := &amp;tar.Header{
+                Name:     name,
+                Typeflag: tar.TypeSymlink,
+                Linkname: f.symlink,
+                ModTime:  f.modTime,
+                Mode:     0777,
+            }
+            if err := tw.WriteHeader(hdr); err != nil {
+                return err
+            }
+        } else {
+            hdr := &amp;tar.Header{
+                Name:     name,
+                Size:     int64(len(f.content)),
+                Mode:     0600,
+                ModTime:  f.modTime,
+                Typeflag: tar.TypeReg,
+            }
+            if err := tw.WriteHeader(hdr); err != nil {
+                return err
+            }
+            if _, err := tw.Write(f.content); err != nil {
+                return err
+            }
+        }
+    }
+    return nil
+}
+</code></pre>
+<p>Also add <code>import "sort"</code> if not already present.</p>
+<p><strong>Step 4: Run tests</strong></p>
+<p>Run: <code>go test -run TestToTarWriter -v ./pkg/datanode/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 5: Run full test suite</strong></p>
+<p>Run: <code>go test -v ./pkg/datanode/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 6: Commit</strong></p>
+<pre><code class="language-bash">git add pkg/datanode/datanode.go pkg/datanode/datanode_test.go
+git commit -m &quot;feat(datanode): add ToTarWriter for streaming tar output&quot;
+</code></pre>
+<hr />
+<h2 id="task-6-argon2id-key-derivation">Task 6: Argon2id Key Derivation</h2>
+<p>Replace bare SHA-256 key derivation with Argon2id. Keep backward compatibility by detecting old format.</p>
+<p><strong>Files:</strong>
+- Modify: <code>pkg/trix/trix.go</code>
+- Create: <code>pkg/trix/trix_test.go</code> (if not exists, or modify existing)</p>
+<p><strong>Step 1: Write the failing tests</strong></p>
+<p>Create/add to <code>pkg/trix/trix_test.go</code>:</p>
+<pre><code class="language-go">package trix
+
+import (
+    &quot;bytes&quot;
+    &quot;testing&quot;
+)
+
+func TestDeriveKeyArgon2_Good(t *testing.T) {
+    salt := make([]byte, 16)
+    key := DeriveKeyArgon2(&quot;password&quot;, salt)
+    if len(key) != 32 {
+        t.Fatalf(&quot;expected 32-byte key, got %d&quot;, len(key))
+    }
+}
+
+func TestDeriveKeyArgon2_Deterministic_Good(t *testing.T) {
+    salt := []byte(&quot;0123456789abcdef&quot;)
+    key1 := DeriveKeyArgon2(&quot;password&quot;, salt)
+    key2 := DeriveKeyArgon2(&quot;password&quot;, salt)
+    if !bytes.Equal(key1, key2) {
+        t.Fatal(&quot;same password+salt should produce same key&quot;)
+    }
+}
+
+func TestDeriveKeyArgon2_DifferentSalt_Good(t *testing.T) {
+    salt1 := []byte(&quot;0123456789abcdef&quot;)
+    salt2 := []byte(&quot;fedcba9876543210&quot;)
+    key1 := DeriveKeyArgon2(&quot;password&quot;, salt1)
+    key2 := DeriveKeyArgon2(&quot;password&quot;, salt2)
+    if bytes.Equal(key1, key2) {
+        t.Fatal(&quot;different salts should produce different keys&quot;)
+    }
+}
+
+func TestDeriveKeyLegacy_Good(t *testing.T) {
+    // Existing DeriveKey should still work (backward compat)
+    key := DeriveKey(&quot;password&quot;)
+    if len(key) != 32 {
+        t.Fatalf(&quot;expected 32-byte key, got %d&quot;, len(key))
+    }
+}
+
+func TestArgon2Params_Good(t *testing.T) {
+    p := DefaultArgon2Params()
+    if p.Time == 0 || p.Memory == 0 || p.Threads == 0 {
+        t.Fatal(&quot;params should have non-zero values&quot;)
+    }
+    encoded := p.Encode()
+    if len(encoded) != 12 {
+        t.Fatalf(&quot;expected 12-byte encoded params, got %d&quot;, len(encoded))
+    }
+    decoded := DecodeArgon2Params(encoded)
+    if decoded.Time != p.Time || decoded.Memory != p.Memory || decoded.Threads != p.Threads {
+        t.Fatal(&quot;round-trip params mismatch&quot;)
+    }
+}
+</code></pre>
+<p><strong>Step 2: Run tests to verify they fail</strong></p>
+<p>Run: <code>go test -run "TestDeriveKeyArgon2|TestArgon2Params" -v ./pkg/trix/</code>
+Expected: FAIL — <code>DeriveKeyArgon2</code>, <code>DefaultArgon2Params</code>, etc. undefined</p>
+<p><strong>Step 3: Add Argon2id dependency</strong></p>
+<p>Run: <code>go get golang.org/x/crypto/argon2</code></p>
+<p><strong>Step 4: Implement Argon2id key derivation</strong></p>
+<p>Add to <code>pkg/trix/trix.go</code> (keep existing <code>DeriveKey</code> for backward compat):</p>
+<pre><code class="language-go">import (
+    &quot;encoding/binary&quot;
+
+    &quot;golang.org/x/crypto/argon2&quot;
+)
+
+// Argon2Params holds Argon2id parameters stored in STIM headers.
+type Argon2Params struct {
+    Time    uint32
+    Memory  uint32 // in KiB
+    Threads uint32
+}
+
+// DefaultArgon2Params returns recommended Argon2id parameters.
+func DefaultArgon2Params() Argon2Params {
+    return Argon2Params{
+        Time:    3,
+        Memory:  64 * 1024, // 64 MiB
+        Threads: 4,
+    }
+}
+
+// Encode serialises params as 12 bytes (3 x uint32 LE).
+func (p Argon2Params) Encode() []byte {
+    buf := make([]byte, 12)
+    binary.LittleEndian.PutUint32(buf[0:4], p.Time)
+    binary.LittleEndian.PutUint32(buf[4:8], p.Memory)
+    binary.LittleEndian.PutUint32(buf[8:12], p.Threads)
+    return buf
+}
+
+// DecodeArgon2Params reads 12 bytes into Argon2Params.
+func DecodeArgon2Params(data []byte) Argon2Params {
+    return Argon2Params{
+        Time:    binary.LittleEndian.Uint32(data[0:4]),
+        Memory:  binary.LittleEndian.Uint32(data[4:8]),
+        Threads: binary.LittleEndian.Uint32(data[8:12]),
+    }
+}
+
+// DeriveKeyArgon2 derives a 32-byte key using Argon2id.
+func DeriveKeyArgon2(password string, salt []byte) []byte {
+    p := DefaultArgon2Params()
+    return argon2.IDKey([]byte(password), salt, p.Time, p.Memory, uint8(p.Threads), 32)
+}
+</code></pre>
+<p><strong>Step 5: Run tests</strong></p>
+<p>Run: <code>go test -v ./pkg/trix/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 6: Commit</strong></p>
+<pre><code class="language-bash">git add pkg/trix/trix.go pkg/trix/trix_test.go go.mod go.sum
+git commit -m &quot;feat(trix): add Argon2id key derivation alongside legacy SHA-256&quot;
+</code></pre>
+<hr />
+<h2 id="task-7-chunked-aead-streaming-encryption">Task 7: Chunked AEAD Streaming Encryption</h2>
+<p>Implement streaming encrypt/decrypt using 1 MiB blocks, each with its own ChaCha20-Poly1305 nonce and tag. New STIM v2 format with magic header, salt, and Argon2 params.</p>
+<p><strong>Files:</strong>
+- Create: <code>pkg/tim/stream.go</code>
+- Create: <code>pkg/tim/stream_test.go</code></p>
+<p><strong>Step 1: Write the failing tests</strong></p>
+<p>Create <code>pkg/tim/stream_test.go</code>:</p>
+<pre><code class="language-go">package tim
+
+import (
+    &quot;bytes&quot;
+    &quot;crypto/rand&quot;
+    &quot;io&quot;
+    &quot;testing&quot;
+)
+
+func TestStreamRoundTrip_Good(t *testing.T) {
+    plaintext := []byte(&quot;hello, streaming encryption!&quot;)
+    password := &quot;test-password-123&quot;
+
+    var encrypted bytes.Buffer
+    err := StreamEncrypt(bytes.NewReader(plaintext), &amp;encrypted, password)
+    if err != nil {
+        t.Fatalf(&quot;StreamEncrypt failed: %v&quot;, err)
+    }
+
+    var decrypted bytes.Buffer
+    err = StreamDecrypt(bytes.NewReader(encrypted.Bytes()), &amp;decrypted, password)
+    if err != nil {
+        t.Fatalf(&quot;StreamDecrypt failed: %v&quot;, err)
+    }
+
+    if !bytes.Equal(decrypted.Bytes(), plaintext) {
+        t.Fatalf(&quot;round-trip mismatch: got %q, want %q&quot;, decrypted.Bytes(), plaintext)
+    }
+}
+
+func TestStreamRoundTrip_Large_Good(t *testing.T) {
+    // 3 MiB — spans multiple 1 MiB blocks
+    plaintext := make([]byte, 3*1024*1024)
+    rand.Read(plaintext)
+    password := &quot;large-test&quot;
+
+    var encrypted bytes.Buffer
+    err := StreamEncrypt(bytes.NewReader(plaintext), &amp;encrypted, password)
+    if err != nil {
+        t.Fatalf(&quot;StreamEncrypt failed: %v&quot;, err)
+    }
+
+    var decrypted bytes.Buffer
+    err = StreamDecrypt(bytes.NewReader(encrypted.Bytes()), &amp;decrypted, password)
+    if err != nil {
+        t.Fatalf(&quot;StreamDecrypt failed: %v&quot;, err)
+    }
+
+    if !bytes.Equal(decrypted.Bytes(), plaintext) {
+        t.Fatal(&quot;large round-trip mismatch&quot;)
+    }
+}
+
+func TestStreamEncrypt_Empty_Good(t *testing.T) {
+    var encrypted bytes.Buffer
+    err := StreamEncrypt(bytes.NewReader(nil), &amp;encrypted, &quot;pass&quot;)
+    if err != nil {
+        t.Fatalf(&quot;StreamEncrypt failed on empty input: %v&quot;, err)
+    }
+
+    var decrypted bytes.Buffer
+    err = StreamDecrypt(bytes.NewReader(encrypted.Bytes()), &amp;decrypted, &quot;pass&quot;)
+    if err != nil {
+        t.Fatalf(&quot;StreamDecrypt failed on empty: %v&quot;, err)
+    }
+    if decrypted.Len() != 0 {
+        t.Fatalf(&quot;expected empty output, got %d bytes&quot;, decrypted.Len())
+    }
+}
+
+func TestStreamDecrypt_WrongPassword_Bad(t *testing.T) {
+    plaintext := []byte(&quot;secret data&quot;)
+    var encrypted bytes.Buffer
+    StreamEncrypt(bytes.NewReader(plaintext), &amp;encrypted, &quot;correct&quot;)
+
+    var decrypted bytes.Buffer
+    err := StreamDecrypt(bytes.NewReader(encrypted.Bytes()), &amp;decrypted, &quot;wrong&quot;)
+    if err == nil {
+        t.Fatal(&quot;expected error with wrong password&quot;)
+    }
+}
+
+func TestStreamDecrypt_Truncated_Bad(t *testing.T) {
+    plaintext := []byte(&quot;some data here&quot;)
+    var encrypted bytes.Buffer
+    StreamEncrypt(bytes.NewReader(plaintext), &amp;encrypted, &quot;pass&quot;)
+
+    // Truncate the encrypted data
+    truncated := encrypted.Bytes()[:encrypted.Len()/2]
+    var decrypted bytes.Buffer
+    err := StreamDecrypt(bytes.NewReader(truncated), &amp;decrypted, &quot;pass&quot;)
+    if err == nil || err == io.EOF {
+        // Should be an actual error, not silent success
+        t.Fatal(&quot;expected error on truncated data&quot;)
+    }
+}
+</code></pre>
+<p><strong>Step 2: Run tests to verify they fail</strong></p>
+<p>Run: <code>go test -run TestStream -v ./pkg/tim/</code>
+Expected: FAIL — <code>StreamEncrypt</code>, <code>StreamDecrypt</code> undefined</p>
+<p><strong>Step 3: Implement streaming encryption</strong></p>
+<p>Create <code>pkg/tim/stream.go</code>:</p>
+<pre><code class="language-go">package tim
+
+import (
+    &quot;crypto/cipher&quot;
+    &quot;crypto/rand&quot;
+    &quot;encoding/binary&quot;
+    &quot;errors&quot;
+    &quot;fmt&quot;
+    &quot;io&quot;
+
+    borgtrix &quot;github.com/Snider/Borg/pkg/trix&quot;
+    &quot;golang.org/x/crypto/chacha20poly1305&quot;
+)
+
+// STIM v2 streaming format constants.
+const (
+    stimMagic      = &quot;STIM&quot;
+    stimVersion    = 2
+    blockSize      = 1024 * 1024 // 1 MiB plaintext per block
+    saltSize       = 16
+    argon2ParamLen = 12
+    nonceSize      = chacha20poly1305.NonceSize // 12 bytes
+    lengthSize     = 4                          // uint32 LE for ciphertext length
+    tagSize        = chacha20poly1305.Overhead  // 16 bytes (Poly1305 tag)
+)
+
+// headerSize is magic(4) + version(1) + salt(16) + argon2params(12) = 33 bytes.
+const headerSize = 4 + 1 + saltSize + argon2ParamLen
+
+// StreamEncrypt reads plaintext from r and writes chunked-AEAD encrypted data to w.
+//
+// Format:
+//
+//  [magic: 4 bytes &quot;STIM&quot;]
+//  [version: 1 byte = 2]
+//  [salt: 16 bytes]
+//  [argon2 params: 12 bytes]
+//  Per block:
+//    [nonce: 12 bytes]
+//    [length: 4 bytes LE] — ciphertext length (plaintext + 16-byte tag)
+//    [ciphertext: length bytes]
+//  EOF block:
+//    [nonce: 12 bytes]
+//    [length: 4 bytes LE = 0]
+func StreamEncrypt(r io.Reader, w io.Writer, password string) error {
+    // Generate salt
+    salt := make([]byte, saltSize)
+    if _, err := rand.Read(salt); err != nil {
+        return fmt.Errorf(&quot;generating salt: %w&quot;, err)
+    }
+
+    // Derive key
+    params := borgtrix.DefaultArgon2Params()
+    key := borgtrix.DeriveKeyArgon2(password, salt)
+
+    // Create AEAD cipher
+    aead, err := chacha20poly1305.New(key)
+    if err != nil {
+        return fmt.Errorf(&quot;creating cipher: %w&quot;, err)
+    }
+
+    // Write header
+    header := make([]byte, headerSize)
+    copy(header[0:4], stimMagic)
+    header[4] = stimVersion
+    copy(header[5:21], salt)
+    copy(header[21:33], params.Encode())
+    if _, err := w.Write(header); err != nil {
+        return fmt.Errorf(&quot;writing header: %w&quot;, err)
+    }
+
+    // Encrypt blocks
+    plainBuf := make([]byte, blockSize)
+    nonce := make([]byte, nonceSize)
+    lenBuf := make([]byte, lengthSize)
+
+    for {
+        n, readErr := io.ReadFull(r, plainBuf)
+        if n &gt; 0 {
+            // Generate random nonce
+            if _, err := rand.Read(nonce); err != nil {
+                return fmt.Errorf(&quot;generating nonce: %w&quot;, err)
+            }
+
+            // Encrypt block
+            ciphertext := aead.Seal(nil, nonce, plainBuf[:n], nil)
+
+            // Write nonce + length + ciphertext
+            if _, err := w.Write(nonce); err != nil {
+                return err
+            }
+            binary.LittleEndian.PutUint32(lenBuf, uint32(len(ciphertext)))
+            if _, err := w.Write(lenBuf); err != nil {
+                return err
+            }
+            if _, err := w.Write(ciphertext); err != nil {
+                return err
+            }
+        }
+
+        if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+            break
+        }
+        if readErr != nil {
+            return fmt.Errorf(&quot;reading plaintext: %w&quot;, readErr)
+        }
+    }
+
+    // Write EOF marker: nonce + length=0
+    if _, err := rand.Read(nonce); err != nil {
+        return err
+    }
+    if _, err := w.Write(nonce); err != nil {
+        return err
+    }
+    binary.LittleEndian.PutUint32(lenBuf, 0)
+    _, err = w.Write(lenBuf)
+    return err
+}
+
+// StreamDecrypt reads chunked-AEAD encrypted data from r and writes plaintext to w.
+func StreamDecrypt(r io.Reader, w io.Writer, password string) error {
+    // Read and validate header
+    header := make([]byte, headerSize)
+    if _, err := io.ReadFull(r, header); err != nil {
+        return fmt.Errorf(&quot;reading header: %w&quot;, err)
+    }
+
+    if string(header[0:4]) != stimMagic {
+        return errors.New(&quot;not a STIM v2 file (bad magic)&quot;)
+    }
+    if header[4] != stimVersion {
+        return fmt.Errorf(&quot;unsupported STIM version: %d&quot;, header[4])
+    }
+
+    salt := header[5:21]
+    params := borgtrix.DecodeArgon2Params(header[21:33])
+
+    // Derive key with stored params
+    key := deriveKeyWithParams(password, salt, params)
+
+    // Create AEAD cipher
+    aead, err := chacha20poly1305.New(key)
+    if err != nil {
+        return fmt.Errorf(&quot;creating cipher: %w&quot;, err)
+    }
+
+    // Decrypt blocks
+    nonce := make([]byte, nonceSize)
+    lenBuf := make([]byte, lengthSize)
+
+    for {
+        // Read nonce
+        if _, err := io.ReadFull(r, nonce); err != nil {
+            return fmt.Errorf(&quot;reading block nonce: %w&quot;, err)
+        }
+
+        // Read ciphertext length
+        if _, err := io.ReadFull(r, lenBuf); err != nil {
+            return fmt.Errorf(&quot;reading block length: %w&quot;, err)
+        }
+        ctLen := binary.LittleEndian.Uint32(lenBuf)
+
+        // EOF marker
+        if ctLen == 0 {
+            return nil
+        }
+
+        // Read ciphertext
+        ciphertext := make([]byte, ctLen)
+        if _, err := io.ReadFull(r, ciphertext); err != nil {
+            return fmt.Errorf(&quot;reading block ciphertext: %w&quot;, err)
+        }
+
+        // Decrypt
+        plaintext, err := aead.Open(nil, nonce, ciphertext, nil)
+        if err != nil {
+            return fmt.Errorf(&quot;decrypting block: %w&quot;, err)
+        }
+
+        if _, err := w.Write(plaintext); err != nil {
+            return err
+        }
+    }
+}
+
+// deriveKeyWithParams uses specific Argon2id params (from STIM header).
+func deriveKeyWithParams(password string, salt []byte, params borgtrix.Argon2Params) []byte {
+    return argon2idKey([]byte(password), salt, params.Time, params.Memory, uint8(params.Threads), 32)
+}
+</code></pre>
+<p><strong>Note:</strong> You'll need to import <code>golang.org/x/crypto/argon2</code> and create the <code>argon2idKey</code> wrapper, or call <code>argon2.IDKey</code> directly. The simplest approach:</p>
+<pre><code class="language-go">import &quot;golang.org/x/crypto/argon2&quot;
+
+func argon2idKey(password, salt []byte, time, memory uint32, threads uint8, keyLen uint32) []byte {
+    return argon2.IDKey(password, salt, time, memory, threads, keyLen)
+}
+</code></pre>
+<p><strong>Step 4: Run tests</strong></p>
+<p>Run: <code>go test -run TestStream -v ./pkg/tim/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 5: Run full tim test suite</strong></p>
+<p>Run: <code>go test -v ./pkg/tim/</code>
+Expected: ALL PASS (new + existing)</p>
+<p><strong>Step 6: Commit</strong></p>
+<pre><code class="language-bash">git add pkg/tim/stream.go pkg/tim/stream_test.go
+git commit -m &quot;feat(tim): add chunked AEAD streaming encryption (STIM v2)&quot;
+</code></pre>
+<hr />
+<h2 id="task-8-streaming-compression-wrappers">Task 8: Streaming Compression Wrappers</h2>
+<p>Add streaming compress/decompress that work with <code>io.Writer</code>/<code>io.Reader</code> instead of <code>[]byte</code>.</p>
+<p><strong>Files:</strong>
+- Modify: <code>pkg/compress/compress.go</code>
+- Modify: <code>pkg/compress/compress_test.go</code></p>
+<p><strong>Step 1: Write the failing tests</strong></p>
+<p>Add to <code>pkg/compress/compress_test.go</code>:</p>
+<pre><code class="language-go">func TestNewCompressWriter_Gzip_Good(t *testing.T) {
+    var buf bytes.Buffer
+    wc, err := NewCompressWriter(&amp;buf, &quot;gz&quot;)
+    if err != nil {
+        t.Fatalf(&quot;NewCompressWriter failed: %v&quot;, err)
+    }
+    wc.Write([]byte(&quot;hello gzip stream&quot;))
+    wc.Close()
+
+    // Decompress and verify
+    result, err := Decompress(buf.Bytes())
+    if err != nil {
+        t.Fatalf(&quot;Decompress failed: %v&quot;, err)
+    }
+    if string(result) != &quot;hello gzip stream&quot; {
+        t.Fatalf(&quot;expected 'hello gzip stream', got '%s'&quot;, result)
+    }
+}
+
+func TestNewCompressWriter_Xz_Good(t *testing.T) {
+    var buf bytes.Buffer
+    wc, err := NewCompressWriter(&amp;buf, &quot;xz&quot;)
+    if err != nil {
+        t.Fatalf(&quot;NewCompressWriter failed: %v&quot;, err)
+    }
+    wc.Write([]byte(&quot;hello xz stream&quot;))
+    wc.Close()
+
+    result, err := Decompress(buf.Bytes())
+    if err != nil {
+        t.Fatalf(&quot;Decompress failed: %v&quot;, err)
+    }
+    if string(result) != &quot;hello xz stream&quot; {
+        t.Fatalf(&quot;expected 'hello xz stream', got '%s'&quot;, result)
+    }
+}
+
+func TestNewCompressWriter_None_Good(t *testing.T) {
+    var buf bytes.Buffer
+    wc, err := NewCompressWriter(&amp;buf, &quot;none&quot;)
+    if err != nil {
+        t.Fatalf(&quot;NewCompressWriter failed: %v&quot;, err)
+    }
+    wc.Write([]byte(&quot;passthrough&quot;))
+    wc.Close()
+
+    if buf.String() != &quot;passthrough&quot; {
+        t.Fatalf(&quot;expected passthrough, got '%s'&quot;, buf.String())
+    }
+}
+</code></pre>
+<p><strong>Step 2: Run tests to verify they fail</strong></p>
+<p>Run: <code>go test -run TestNewCompressWriter -v ./pkg/compress/</code>
+Expected: FAIL — <code>NewCompressWriter</code> undefined</p>
+<p><strong>Step 3: Implement streaming compress writer</strong></p>
+<p>Add to <code>pkg/compress/compress.go</code>:</p>
+<pre><code class="language-go">// NewCompressWriter returns a WriteCloser that compresses to w.
+// Caller MUST call Close() to flush and finalise the stream.
+// format: &quot;gz&quot;, &quot;xz&quot;, or &quot;none&quot; (passthrough).
+func NewCompressWriter(w io.Writer, format string) (io.WriteCloser, error) {
+    switch format {
+    case &quot;gz&quot;:
+        return gzip.NewWriter(w), nil
+    case &quot;xz&quot;:
+        xw, err := xz.NewWriter(w)
+        if err != nil {
+            return nil, err
+        }
+        return xw, nil
+    case &quot;none&quot;, &quot;&quot;:
+        return &amp;nopCloser{w}, nil
+    default:
+        return nil, fmt.Errorf(&quot;unsupported compression format: %s&quot;, format)
+    }
+}
+
+// nopCloser wraps an io.Writer with a no-op Close.
+type nopCloser struct {
+    io.Writer
+}
+
+func (n *nopCloser) Close() error { return nil }
+</code></pre>
+<p>Add <code>import "fmt"</code> if not already present.</p>
+<p><strong>Step 4: Run tests</strong></p>
+<p>Run: <code>go test -run TestNewCompressWriter -v ./pkg/compress/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 5: Run full compress test suite</strong></p>
+<p>Run: <code>go test -v ./pkg/compress/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 6: Commit</strong></p>
+<pre><code class="language-bash">git add pkg/compress/compress.go pkg/compress/compress_test.go
+git commit -m &quot;feat(compress): add NewCompressWriter for streaming compression&quot;
+</code></pre>
+<hr />
+<h2 id="task-9-rewrite-collect-local-streaming-pipeline">Task 9: Rewrite Collect Local — Streaming Pipeline</h2>
+<p>Rewrite <code>collect local</code> to use the streaming pipeline: <code>walk → tar → compress → encrypt → file</code>. Falls back to DataNode for non-stim formats (datanode, tim, trix).</p>
+<p><strong>Files:</strong>
+- Modify: <code>cmd/collect_local.go</code>
+- Create: <code>cmd/collect_local_test.go</code></p>
+<p><strong>Step 1: Write the failing test</strong></p>
+<p>Create <code>cmd/collect_local_test.go</code>:</p>
+<pre><code class="language-go">package cmd
+
+import (
+    &quot;os&quot;
+    &quot;path/filepath&quot;
+    &quot;testing&quot;
+
+    &quot;github.com/Snider/Borg/pkg/tim&quot;
+)
+
+func TestCollectLocalStreaming_Good(t *testing.T) {
+    // Create temp source directory
+    srcDir := t.TempDir()
+    os.WriteFile(filepath.Join(srcDir, &quot;a.txt&quot;), []byte(&quot;aaa&quot;), 0644)
+    os.MkdirAll(filepath.Join(srcDir, &quot;sub&quot;), 0755)
+    os.WriteFile(filepath.Join(srcDir, &quot;sub&quot;, &quot;b.txt&quot;), []byte(&quot;bbb&quot;), 0644)
+
+    // Create temp output file
+    outDir := t.TempDir()
+    outFile := filepath.Join(outDir, &quot;test.stim&quot;)
+
+    err := CollectLocalStreaming(srcDir, outFile, &quot;xz&quot;, &quot;test-password&quot;)
+    if err != nil {
+        t.Fatalf(&quot;CollectLocalStreaming failed: %v&quot;, err)
+    }
+
+    // Verify output file exists and is non-empty
+    info, err := os.Stat(outFile)
+    if err != nil {
+        t.Fatalf(&quot;output file not found: %v&quot;, err)
+    }
+    if info.Size() == 0 {
+        t.Fatal(&quot;output file is empty&quot;)
+    }
+}
+
+func TestCollectLocalStreaming_Decrypt_Good(t *testing.T) {
+    srcDir := t.TempDir()
+    os.WriteFile(filepath.Join(srcDir, &quot;secret.txt&quot;), []byte(&quot;secret data&quot;), 0644)
+
+    outDir := t.TempDir()
+    outFile := filepath.Join(outDir, &quot;test.stim&quot;)
+    password := &quot;round-trip-test&quot;
+
+    err := CollectLocalStreaming(srcDir, outFile, &quot;gz&quot;, password)
+    if err != nil {
+        t.Fatalf(&quot;encrypt failed: %v&quot;, err)
+    }
+
+    // Decrypt and verify contents
+    decrypted, err := DecryptStimV2(outFile, password)
+    if err != nil {
+        t.Fatalf(&quot;decrypt failed: %v&quot;, err)
+    }
+
+    if _, err := decrypted.Stat(&quot;secret.txt&quot;); err != nil {
+        t.Fatalf(&quot;secret.txt not found after decrypt: %v&quot;, err)
+    }
+}
+
+func TestCollectLocalStreaming_BrokenSymlink_Good(t *testing.T) {
+    srcDir := t.TempDir()
+    os.WriteFile(filepath.Join(srcDir, &quot;real.txt&quot;), []byte(&quot;real&quot;), 0644)
+    os.Symlink(&quot;/nonexistent&quot;, filepath.Join(srcDir, &quot;broken&quot;))
+
+    outDir := t.TempDir()
+    outFile := filepath.Join(outDir, &quot;test.stim&quot;)
+
+    // Should succeed, skipping broken symlink
+    err := CollectLocalStreaming(srcDir, outFile, &quot;none&quot;, &quot;pass&quot;)
+    if err != nil {
+        t.Fatalf(&quot;expected success with broken symlink skip, got: %v&quot;, err)
+    }
+}
+
+func TestCollectLocalStreaming_Bad(t *testing.T) {
+    err := CollectLocalStreaming(&quot;/nonexistent&quot;, &quot;/tmp/out.stim&quot;, &quot;none&quot;, &quot;pass&quot;)
+    if err == nil {
+        t.Fatal(&quot;expected error for nonexistent directory&quot;)
+    }
+}
+</code></pre>
+<p><strong>Step 2: Run tests to verify they fail</strong></p>
+<p>Run: <code>go test -run TestCollectLocalStreaming -v ./cmd/</code>
+Expected: FAIL — <code>CollectLocalStreaming</code>, <code>DecryptStimV2</code> undefined</p>
+<p><strong>Step 3: Implement streaming collection pipeline</strong></p>
+<p>Add a new function in <code>cmd/collect_local.go</code> (keep existing <code>CollectLocal</code> for non-streaming formats):</p>
+<pre><code class="language-go">// CollectLocalStreaming collects a directory into an encrypted STIM v2 file
+// using streaming I/O. Memory usage is constant (~2 MiB) regardless of input size.
+//
+// Pipeline: walk → tar → compress → encrypt → file
+func CollectLocalStreaming(dir, output, compression, password string) error {
+    dir, err := filepath.Abs(dir)
+    if err != nil {
+        return fmt.Errorf(&quot;resolving directory: %w&quot;, err)
+    }
+
+    if _, err := os.Stat(dir); err != nil {
+        return fmt.Errorf(&quot;source directory: %w&quot;, err)
+    }
+
+    // Create output file
+    outFile, err := os.Create(output)
+    if err != nil {
+        return fmt.Errorf(&quot;creating output: %w&quot;, err)
+    }
+    defer func() {
+        outFile.Close()
+        // Clean up partial file on error
+        if err != nil {
+            os.Remove(output)
+        }
+    }()
+
+    // Build pipeline: tar → compress → encrypt → file
+    // We build it in reverse order (outermost writer first)
+
+    // Encryption layer (outermost)
+    pr, pw := io.Pipe()
+
+    // Start encryption in a goroutine (reads from pipe, writes to file)
+    encErrCh := make(chan error, 1)
+    go func() {
+        encErrCh &lt;- tim.StreamEncrypt(pr, outFile, password)
+    }()
+
+    // Compression layer
+    compWriter, err := compress.NewCompressWriter(pw, compression)
+    if err != nil {
+        pw.Close()
+        return fmt.Errorf(&quot;creating compressor: %w&quot;, err)
+    }
+
+    // Tar layer (innermost)
+    tw := tar.NewWriter(compWriter)
+
+    // Walk directory and write to tar
+    walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+        if err != nil {
+            return err
+        }
+
+        rel, err := filepath.Rel(dir, path)
+        if err != nil {
+            return err
+        }
+        if rel == &quot;.&quot; {
+            return nil
+        }
+
+        // Check for symlinks
+        info, err := os.Lstat(path)
+        if err != nil {
+            return err
+        }
+
+        if info.Mode()&amp;os.ModeSymlink != 0 {
+            target, err := os.Readlink(path)
+            if err != nil {
+                return nil // skip broken
+            }
+            absTarget := target
+            if !filepath.IsAbs(absTarget) {
+                absTarget = filepath.Join(filepath.Dir(path), target)
+            }
+            if _, err := os.Stat(absTarget); err != nil {
+                return nil // skip broken symlink
+            }
+            hdr := &amp;tar.Header{
+                Name:     filepath.ToSlash(rel),
+                Typeflag: tar.TypeSymlink,
+                Linkname: target,
+                ModTime:  info.ModTime(),
+                Mode:     0777,
+            }
+            return tw.WriteHeader(hdr)
+        }
+
+        if d.IsDir() {
+            hdr := &amp;tar.Header{
+                Name:     filepath.ToSlash(rel) + &quot;/&quot;,
+                Typeflag: tar.TypeDir,
+                Mode:     0755,
+                ModTime:  info.ModTime(),
+            }
+            return tw.WriteHeader(hdr)
+        }
+
+        // Regular file — stream content
+        hdr := &amp;tar.Header{
+            Name:     filepath.ToSlash(rel),
+            Size:     info.Size(),
+            Mode:     int64(info.Mode().Perm()),
+            ModTime:  info.ModTime(),
+            Typeflag: tar.TypeReg,
+        }
+        if err := tw.WriteHeader(hdr); err != nil {
+            return err
+        }
+
+        f, err := os.Open(path)
+        if err != nil {
+            return err
+        }
+        defer f.Close()
+
+        _, err = io.Copy(tw, f)
+        return err
+    })
+
+    // Close pipeline layers in order
+    tw.Close()
+    compWriter.Close()
+    pw.Close()
+
+    // Wait for encryption to complete
+    encErr := &lt;-encErrCh
+
+    if walkErr != nil {
+        return fmt.Errorf(&quot;walking directory: %w&quot;, walkErr)
+    }
+    if encErr != nil {
+        return fmt.Errorf(&quot;encrypting: %w&quot;, encErr)
+    }
+
+    return nil
+}
+
+// DecryptStimV2 decrypts a STIM v2 file back to a DataNode.
+func DecryptStimV2(path, password string) (*datanode.DataNode, error) {
+    f, err := os.Open(path)
+    if err != nil {
+        return nil, err
+    }
+    defer f.Close()
+
+    // Decrypt stream
+    var tarBuf bytes.Buffer
+    if err := tim.StreamDecrypt(f, &amp;tarBuf, password); err != nil {
+        return nil, fmt.Errorf(&quot;decrypting: %w&quot;, err)
+    }
+
+    // Decompress
+    decompressed, err := compress.Decompress(tarBuf.Bytes())
+    if err != nil {
+        return nil, fmt.Errorf(&quot;decompressing: %w&quot;, err)
+    }
+
+    // Parse tar into DataNode
+    return datanode.FromTar(decompressed)
+}
+</code></pre>
+<p>You'll need these imports at the top of <code>collect_local.go</code>:</p>
+<pre><code class="language-go">import (
+    &quot;archive/tar&quot;
+    &quot;bytes&quot;
+    &quot;io&quot;
+    &quot;io/fs&quot;
+
+    &quot;github.com/Snider/Borg/pkg/compress&quot;
+    &quot;github.com/Snider/Borg/pkg/datanode&quot;
+    &quot;github.com/Snider/Borg/pkg/tim&quot;
+)
+</code></pre>
+<p><strong>Step 4: Wire streaming into the collect local command</strong></p>
+<p>In the existing <code>CollectLocal</code> function, add a check: if format is "stim", use the streaming path instead:</p>
+<pre><code class="language-go">// At the beginning of CollectLocal, after validation:
+if format == &quot;stim&quot; {
+    return CollectLocalStreaming(dir, output, compression, password)
+}
+</code></pre>
+<p>The rest of the function continues to handle datanode/tim/trix formats via DataNode (existing path).</p>
+<p><strong>Step 5: Run tests</strong></p>
+<p>Run: <code>go test -run TestCollectLocalStreaming -v ./cmd/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 6: Run full test suite</strong></p>
+<p>Run: <code>go test -race ./...</code>
+Expected: ALL PASS</p>
+<p><strong>Step 7: Commit</strong></p>
+<pre><code class="language-bash">git add cmd/collect_local.go cmd/collect_local_test.go
+git commit -m &quot;feat(collect): add streaming pipeline for STIM v2 output&quot;
+</code></pre>
+<hr />
+<h2 id="task-10-integration-test-full-pipeline-end-to-end">Task 10: Integration Test — Full Pipeline End-to-End</h2>
+<p>Create a comprehensive integration test that exercises the entire pipeline with realistic data.</p>
+<p><strong>Files:</strong>
+- Create: <code>cmd/integration_test.go</code></p>
+<p><strong>Step 1: Write the integration test</strong></p>
+<p>Create <code>cmd/integration_test.go</code>:</p>
+<pre><code class="language-go">package cmd
+
+import (
+    &quot;os&quot;
+    &quot;path/filepath&quot;
+    &quot;strings&quot;
+    &quot;testing&quot;
+)
+
+func TestFullPipeline_Good(t *testing.T) {
+    if testing.Short() {
+        t.Skip(&quot;skipping integration test in short mode&quot;)
+    }
+
+    // Create a realistic directory structure
+    srcDir := t.TempDir()
+    password := &quot;integration-test-2026&quot;
+
+    // Regular files
+    os.WriteFile(filepath.Join(srcDir, &quot;readme.md&quot;), []byte(&quot;# Hello&quot;), 0644)
+    os.WriteFile(filepath.Join(srcDir, &quot;config.json&quot;), []byte(`{&quot;key&quot;:&quot;value&quot;}`), 0644)
+
+    // Nested directories
+    os.MkdirAll(filepath.Join(srcDir, &quot;src&quot;, &quot;pkg&quot;), 0755)
+    os.WriteFile(filepath.Join(srcDir, &quot;src&quot;, &quot;main.go&quot;), []byte(&quot;package main&quot;), 0644)
+    os.WriteFile(filepath.Join(srcDir, &quot;src&quot;, &quot;pkg&quot;, &quot;lib.go&quot;), []byte(&quot;package pkg&quot;), 0644)
+
+    // Large-ish file (1 MiB + 1 byte to cross block boundary)
+    largeData := []byte(strings.Repeat(&quot;x&quot;, 1024*1024+1))
+    os.WriteFile(filepath.Join(srcDir, &quot;large.bin&quot;), largeData, 0644)
+
+    // Valid symlink
+    os.Symlink(filepath.Join(srcDir, &quot;readme.md&quot;), filepath.Join(srcDir, &quot;link-to-readme&quot;))
+
+    // Broken symlink (should be skipped)
+    os.Symlink(&quot;/nonexistent/target&quot;, filepath.Join(srcDir, &quot;broken-link&quot;))
+
+    // Hidden file (should be included with --hidden, excluded without)
+    os.WriteFile(filepath.Join(srcDir, &quot;.hidden&quot;), []byte(&quot;hidden&quot;), 0644)
+
+    outDir := t.TempDir()
+
+    // Test each compression mode
+    for _, comp := range []string{&quot;none&quot;, &quot;gz&quot;, &quot;xz&quot;} {
+        t.Run(&quot;compression_&quot;+comp, func(t *testing.T) {
+            outFile := filepath.Join(outDir, &quot;test-&quot;+comp+&quot;.stim&quot;)
+
+            err := CollectLocalStreaming(srcDir, outFile, comp, password)
+            if err != nil {
+                t.Fatalf(&quot;CollectLocalStreaming(%s) failed: %v&quot;, comp, err)
+            }
+
+            // Verify output exists
+            info, err := os.Stat(outFile)
+            if err != nil {
+                t.Fatalf(&quot;output not found: %v&quot;, err)
+            }
+            if info.Size() == 0 {
+                t.Fatal(&quot;output is empty&quot;)
+            }
+
+            // Decrypt and verify
+            dn, err := DecryptStimV2(outFile, password)
+            if err != nil {
+                t.Fatalf(&quot;decrypt failed: %v&quot;, err)
+            }
+
+            // Check files exist
+            for _, name := range []string{&quot;readme.md&quot;, &quot;config.json&quot;, &quot;src/main.go&quot;, &quot;src/pkg/lib.go&quot;, &quot;large.bin&quot;} {
+                if _, err := dn.Stat(name); err != nil {
+                    t.Errorf(&quot;file %s not found after round-trip: %v&quot;, name, err)
+                }
+            }
+
+            // Check large file content
+            f, err := dn.Open(&quot;large.bin&quot;)
+            if err != nil {
+                t.Fatalf(&quot;open large.bin: %v&quot;, err)
+            }
+            content := make([]byte, 100)
+            n, _ := f.Read(content)
+            if n == 0 || content[0] != 'x' {
+                t.Fatal(&quot;large.bin content mismatch&quot;)
+            }
+
+            // Check broken symlink was skipped (no error during collection)
+            if _, err := dn.Stat(&quot;broken-link&quot;); err == nil {
+                t.Error(&quot;broken symlink should have been skipped&quot;)
+            }
+        })
+    }
+}
+
+func TestFullPipeline_WrongPassword_Bad(t *testing.T) {
+    srcDir := t.TempDir()
+    os.WriteFile(filepath.Join(srcDir, &quot;secret.txt&quot;), []byte(&quot;secret&quot;), 0644)
+
+    outDir := t.TempDir()
+    outFile := filepath.Join(outDir, &quot;encrypted.stim&quot;)
+
+    CollectLocalStreaming(srcDir, outFile, &quot;none&quot;, &quot;correct-password&quot;)
+
+    _, err := DecryptStimV2(outFile, &quot;wrong-password&quot;)
+    if err == nil {
+        t.Fatal(&quot;expected error with wrong password&quot;)
+    }
+}
+</code></pre>
+<p><strong>Step 2: Run integration tests</strong></p>
+<p>Run: <code>go test -run TestFullPipeline -v ./cmd/</code>
+Expected: ALL PASS</p>
+<p><strong>Step 3: Run entire test suite with race detector</strong></p>
+<p>Run: <code>go test -race ./...</code>
+Expected: ALL PASS</p>
+<p><strong>Step 4: Commit</strong></p>
+<pre><code class="language-bash">git add cmd/integration_test.go
+git commit -m &quot;test: add full pipeline integration tests for streaming collect&quot;
+</code></pre>
+<hr />
+<h2 id="task-11-update-existing-command-to-use-streaming-docs">Task 11: Update Existing Command to Use Streaming + Docs</h2>
+<p>Wire the streaming path into the Cobra command, update documentation.</p>
+<p><strong>Files:</strong>
+- Modify: <code>cmd/collect_local.go</code>
+- Modify: <code>docs/plans/2026-02-21-borg-upgrade-design.md</code> (mark completed)</p>
+<p><strong>Step 1: Update the collect local command runner</strong></p>
+<p>In <code>cmd/collect_local.go</code>, modify the command's <code>RunE</code> function so that when <code>--format=stim</code> is selected, it calls <code>CollectLocalStreaming</code> instead of the old in-memory path. The existing <code>CollectLocal</code> function should have the early return added in Task 9 Step 4.</p>
+<p>Also update the command's help text to mention the streaming mode:</p>
+<pre><code class="language-go">Long: `Collect local files into a portable container.
+
+For STIM format, uses streaming I/O — memory usage is constant
+(~2 MiB) regardless of input directory size. Other formats
+(datanode, tim, trix) load files into memory.`,
+</code></pre>
+<p><strong>Step 2: Add --quiet flag usage</strong></p>
+<p>In the <code>CollectLocal</code> function, replace direct <code>ui.NewProgressBar()</code> calls with <code>ProgressFromCmd(cmd)</code>:</p>
+<pre><code class="language-go">progress := ProgressFromCmd(cmd)
+progress.Start(&quot;collecting &quot; + dir)
+// ... during walk ...
+progress.Update(int64(fileCount), 0)
+// ... after completion ...
+progress.Finish(fmt.Sprintf(&quot;collected %d files&quot;, fileCount))
+</code></pre>
+<p><strong>Step 3: Run full test suite</strong></p>
+<p>Run: <code>go test -race ./...</code>
+Expected: ALL PASS</p>
+<p><strong>Step 4: Mark design doc section as complete</strong></p>
+<p>In <code>docs/plans/2026-02-21-borg-upgrade-design.md</code>, add at the top:</p>
+<pre><code class="language-markdown">**Status:** Implemented (2026-02-21)
+</code></pre>
+<p><strong>Step 5: Commit</strong></p>
+<pre><code class="language-bash">git add cmd/collect_local.go docs/plans/2026-02-21-borg-upgrade-design.md
+git commit -m &quot;feat(collect): wire streaming pipeline into CLI, add quiet mode support&quot;
+</code></pre>
+<hr />
+<h2 id="task-12-manual-smoke-test-final-verification">Task 12: Manual Smoke Test + Final Verification</h2>
+<p>Build the binary, test it against a real directory, verify the backup workflow works end-to-end.</p>
+<p><strong>Files:</strong> None (verification only)</p>
+<p><strong>Step 1: Build</strong></p>
+<p>Run: <code>go build -o borg ./</code>
+Expected: Clean build, no errors</p>
+<p><strong>Step 2: Smoke test — collect + decrypt</strong></p>
+<pre><code class="language-bash"># Create test directory with some data
+mkdir -p /tmp/borg-smoke/sub
+echo &quot;hello&quot; &gt; /tmp/borg-smoke/hello.txt
+echo &quot;nested&quot; &gt; /tmp/borg-smoke/sub/nested.txt
+ln -s /tmp/borg-smoke/hello.txt /tmp/borg-smoke/link
+
+# Collect with streaming encryption
+./borg collect local /tmp/borg-smoke --format stim --compression xz --password &quot;smoke-test&quot; --output /tmp/borg-smoke-out.stim
+
+# Verify output exists
+ls -la /tmp/borg-smoke-out.stim
+
+# Decode to verify
+./borg decode /tmp/borg-smoke-out.stim -p &quot;smoke-test&quot; -o /tmp/borg-smoke-decoded.tar
+
+# Cleanup
+rm -rf /tmp/borg-smoke /tmp/borg-smoke-out.stim /tmp/borg-smoke-decoded.tar
+</code></pre>
+<p><strong>Step 3: Quiet mode test</strong></p>
+<pre><code class="language-bash">./borg collect local /tmp/borg-smoke --format stim --compression gz --password &quot;test&quot; --output /tmp/test.stim -q 2&gt;&amp;1 | head
+# Should show minimal output (no spinner/progress bar)
+</code></pre>
+<p><strong>Step 4: Run full test suite one final time</strong></p>
+<pre><code class="language-bash">go test -race -cover ./...
+go vet ./...
+</code></pre>
+<p>Expected: ALL PASS, no vet warnings, coverage &gt;80%</p>
+<p><strong>Step 5: Final commit if any cleanup needed</strong></p>
+<pre><code class="language-bash">git add -A
+git commit -m &quot;chore: final cleanup after smoke test&quot;
+</code></pre>
+<hr />
+<h2 id="dependency-summary">Dependency Summary</h2>
+<p><strong>New dependencies to add:</strong></p>
+<pre><code class="language-bash">go get golang.org/x/crypto/argon2
+go get golang.org/x/term
+go get golang.org/x/crypto/chacha20poly1305
+</code></pre>
+<p><strong>Note:</strong> <code>golang.org/x/crypto/chacha20poly1305</code> may already be available transitively through Enchantrix. Check <code>go.sum</code> before adding.</p>
+<h2 id="task-order">Task Order</h2>
+<p>Tasks MUST be executed in order — each builds on the previous:</p>
+<pre><code>Task 1  (Progress interface)
+  ↓
+Task 2  (--quiet flag)
+  ↓
+Task 3  (DataNode symlinks)
+  ↓
+Task 4  (DataNode AddPath)
+  ↓
+Task 5  (DataNode ToTarWriter)
+  ↓
+Task 6  (Argon2id key derivation)
+  ↓
+Task 7  (Chunked AEAD streaming encryption)
+  ↓
+Task 8  (Streaming compression)
+  ↓
+Task 9  (Streaming collect local pipeline)
+  ↓
+Task 10 (Integration tests)
+  ↓
+Task 11 (CLI wiring + docs)
+  ↓
+Task 12 (Smoke test + final verification)
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "content.code.copy", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
