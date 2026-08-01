@@ -59,7 +59,32 @@ func ToTrixChaCha(dn *datanode.DataNode, password string) ([]byte, error)
 func FromTrixChaCha(data []byte, password string) (*datanode.DataNode, error)
 ```
 
-### 2.4 Error Variables
+### 2.4 Raw Container (streaming, no DataNode)
+
+```go
+// Write header + payload straight through, nothing tarred or encrypted
+func ToRawTrix(header map[string]interface{}, magic string, payload io.Reader, w io.Writer) (int64, error)
+
+// Read the header and locate the payload without reading it
+func FromRawTrixHeader(r io.ReaderAt, magic string) (trix.HeaderInfo, error)
+```
+
+The DataNode helpers above are the packaging path: they tar the node and
+optionally encrypt the tarball, so the whole archive is resident and the
+stored bytes are not the caller's bytes. The raw helpers are the hot path for
+a consumer holding one large file — a State log, a model blob — where neither
+is wanted.
+
+They delegate to the Enchantrix streaming API, so:
+
+- The payload is copied with `io.Copy`, never buffered. Allocation is flat in
+  payload size.
+- No sigil, compression, checksum or encryption is applied. The binary tail is
+  the caller's bytes verbatim, which is what makes a later `mmap` from
+  `HeaderInfo.PayloadOffset` possible.
+- The container is byte-for-byte what `trix.Encode` would have produced.
+
+### 2.5 Error Variables
 
 ```go
 var (
@@ -74,9 +99,13 @@ var (
 
 ```
 [4 bytes]   Magic: "TRIX" (ASCII)
-[Variable]  Gob-encoded Header (map[string]interface{})
-[Variable]  Payload (encrypted or unencrypted tarball)
+[1 byte]    Version
+[4 bytes]   Header length (big-endian uint32)
+[Variable]  JSON Header (map[string]interface{})
+[Variable]  Payload (tarball for the DataNode helpers; verbatim for ToRawTrix)
 ```
+
+The framing is Enchantrix RFC-0002; see that document for the authority.
 
 ### 3.2 Header Examples
 
@@ -322,9 +351,10 @@ borg inspect archive.trix
 
 ## 11. Implementation Reference
 
-- Source: `pkg/trix/trix.go`
-- Tests: `pkg/trix/trix_test.go`
-- Enchantrix: `github.com/Snider/Enchantrix v0.0.2`
+- Source: `pkg/trix/trix.go` (DataNode helpers), `pkg/trix/raw.go` (raw container)
+- Tests: `pkg/trix/trix_test.go`, `pkg/trix/raw_test.go`
+- Enchantrix: `github.com/Snider/Enchantrix` — the raw helpers need the release
+  carrying `pkg/trix/stream.go`
 
 ## 12. Security Considerations
 

@@ -68,6 +68,12 @@ tim.RunEncrypted(path, password)
 
 **Key derivation**: `trix.DeriveKey(password)` - SHA-256(password) → 32-byte key
 
+**Raw containers** (`pkg/trix/raw.go`): `ToRawTrix()` / `FromRawTrixHeader()` are the
+non-DataNode path — one large file straight into a Trix container, nothing tarred,
+encrypted or compressed, payload copied with `io.Copy` rather than held. Use these when
+the payload is a State log or model blob rather than a collected node; the stored bytes
+stay identical to the input so the tail can be mapped from `HeaderInfo.PayloadOffset`.
+
 **Cache API** (`pkg/tim/cache.go`): Encrypted TIM storage
 ```go
 cache, _ := tim.NewCache("/path/to/cache", password)
