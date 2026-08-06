@@ -1,10 +1,15 @@
 version: '3'
 
 tasks:
+  install-deps:
+    cmds:
+      - sudo apt-get update && sudo apt-get install -y poppler-utils
   clean:
     cmds:
       - rm -f borg
   build:
+    deps:
+      - install-deps
     cmds:
       - task: clean
       - go build -o borg main.go

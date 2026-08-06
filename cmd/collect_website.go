@@ -1,11 +1,17 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/pdf"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -38,6 +44,7 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			extractPdfMetadata, _ := cmd.Flags().GetBool("extract-pdf-metadata")
 
 			if format != "datanode" && format != "tim" && format != "trix" {
 				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
@@ -54,6 +61,53 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
+			}
+
+			if extractPdfMetadata {
+				var allMetadata []*pdf.Metadata
+				err := dn.Walk("/", func(path string, d fs.DirEntry, err error) error {
+					if err != nil {
+						return err
+					}
+					if !d.IsDir() && strings.HasSuffix(strings.ToLower(path), ".pdf") {
+						tempFile, err := os.CreateTemp("", "borg-pdf-*.pdf")
+						if err != nil {
+							return fmt.Errorf("failed to create temp file: %w", err)
+						}
+						defer os.Remove(tempFile.Name())
+
+						file, err := dn.Open(path)
+						if err != nil {
+							return fmt.Errorf("failed to open %s from DataNode: %w", path, err)
+						}
+						defer file.Close()
+
+						if _, err := io.Copy(tempFile, file); err != nil {
+							return fmt.Errorf("failed to copy content to temp file: %w", err)
+						}
+						tempFile.Close()
+
+						metadata, err := pdf.ExtractMetadata(tempFile.Name())
+						if err != nil {
+							fmt.Fprintf(cmd.ErrOrStderr(), "could not extract metadata from %s: %v\n", path, err)
+							return nil
+						}
+						metadata.File = filepath.Base(path)
+						allMetadata = append(allMetadata, metadata)
+					}
+					return nil
+				})
+				if err != nil {
+					return fmt.Errorf("error walking DataNode for PDF extraction: %w", err)
+				}
+
+				if len(allMetadata) > 0 {
+					jsonOutput, err := json.MarshalIndent(allMetadata, "", "  ")
+					if err != nil {
+						return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
+					}
+					dn.AddData("INDEX.json", jsonOutput)
+				}
 			}
 
 			var data []byte
@@ -104,5 +158,6 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
+	collectWebsiteCmd.PersistentFlags().Bool("extract-pdf-metadata", false, "Extract metadata from PDF files and add INDEX.json")
 	return collectWebsiteCmd
 }
