@@ -31,8 +31,8 @@ type PWAClient interface {
 }
 
 // NewPWAClient creates a new PWAClient.
-func NewPWAClient() PWAClient {
-	return &pwaClient{client: http.DefaultClient}
+func NewPWAClient(client *http.Client) PWAClient {
+	return &pwaClient{client: client}
 }
 
 type pwaClient struct {

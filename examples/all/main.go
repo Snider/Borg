@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/Snider/Borg/pkg/github"
@@ -13,7 +14,7 @@ import (
 func main() {
 	log.Println("Collecting all repositories for a user...")
 
-	repos, err := github.NewGithubClient().GetPublicRepos(context.Background(), "Snider")
+	repos, err := github.NewGithubClient(http.DefaultClient).GetPublicRepos(context.Background(), "Snider")
 	if err != nil {
 		log.Fatalf("Failed to get public repos: %v", err)
 	}

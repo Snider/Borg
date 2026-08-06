@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/Snider/Borg/pkg/pwa"
@@ -10,7 +11,7 @@ import (
 func main() {
 	log.Println("Collecting PWA...")
 
-	client := pwa.NewPWAClient()
+	client := pwa.NewPWAClient(http.DefaultClient)
 	pwaURL := "https://squoosh.app"
 
 	manifestURL, err := client.FindManifest(pwaURL)
