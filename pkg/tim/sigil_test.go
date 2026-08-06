@@ -20,7 +20,7 @@ func TestToFromSigil(t *testing.T) {
 	password := "testpassword123"
 
 	// Encrypt
-	stim, err := m.ToSigil(password)
+	stim, err := m.ToSigil(password, nil)
 	if err != nil {
 		t.Fatalf("ToSigil() error = %v", err)
 	}
@@ -55,7 +55,7 @@ func TestFromSigilWrongPassword(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	stim, err := m.ToSigil("correct")
+	stim, err := m.ToSigil("correct", nil)
 	if err != nil {
 		t.Fatalf("ToSigil() error = %v", err)
 	}
@@ -72,7 +72,7 @@ func TestToSigilEmptyPassword(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	_, err = m.ToSigil("")
+	_, err = m.ToSigil("", nil)
 	if err != ErrPasswordRequired {
 		t.Errorf("Expected ErrPasswordRequired, got %v", err)
 	}
@@ -84,7 +84,7 @@ func TestFromSigilEmptyPassword(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	stim, err := m.ToSigil("password")
+	stim, err := m.ToSigil("password", nil)
 	if err != nil {
 		t.Fatalf("ToSigil() error = %v", err)
 	}
@@ -216,7 +216,7 @@ func TestToSigilWithLargeData(t *testing.T) {
 	password := "largetest"
 
 	// Encrypt
-	stim, err := m.ToSigil(password)
+	stim, err := m.ToSigil(password, nil)
 	if err != nil {
 		t.Fatalf("ToSigil() error = %v", err)
 	}
@@ -251,7 +251,7 @@ func TestRunEncryptedWithTempFile(t *testing.T) {
 
 	// Encrypt
 	password := "runtest"
-	stim, err := m.ToSigil(password)
+	stim, err := m.ToSigil(password, nil)
 	if err != nil {
 		t.Fatalf("ToSigil() error = %v", err)
 	}
@@ -399,7 +399,7 @@ func TestToSigilNilConfig(t *testing.T) {
 		RootFS: nil,
 	}
 
-	_, err := m.ToSigil("password")
+	_, err := m.ToSigil("password", nil)
 	if err != ErrConfigIsNil {
 		t.Errorf("Expected ErrConfigIsNil, got %v", err)
 	}
@@ -419,7 +419,7 @@ func TestFromSigilTruncatedPayload(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 
-	stim, err := m.ToSigil("password")
+	stim, err := m.ToSigil("password", nil)
 	if err != nil {
 		t.Fatalf("ToSigil() error = %v", err)
 	}

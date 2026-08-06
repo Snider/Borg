@@ -4,6 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Snider/Enchantrix/pkg/trix"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCompileCmd(t *testing.T) {
@@ -119,4 +122,38 @@ func TestCompileCmd(t *testing.T) {
 			t.Fatalf("compile command failed: %v", err)
 		}
 	})
+}
+
+func TestCompileCmd_WithPublicManifest_Good(t *testing.T) {
+	tempDir := t.TempDir()
+	outputStimPath := filepath.Join(tempDir, "test.stim")
+	borgfilePath := filepath.Join(tempDir, "Borgfile")
+	dummyFilePath := filepath.Join(tempDir, "dummy.txt")
+
+	// Create a dummy file to add to the tim.
+	err := os.WriteFile(dummyFilePath, []byte("dummy content"), 0644)
+	assert.NoError(t, err)
+
+	// Create a Borgfile.
+	borgfileContent := "ADD " + dummyFilePath + " /dummy.txt"
+	err = os.WriteFile(borgfilePath, []byte(borgfileContent), 0644)
+	assert.NoError(t, err)
+
+	// Execute the compile command.
+	cmd := NewCompileCmd()
+	cmd.SetArgs([]string{"--file", borgfilePath, "--output", outputStimPath, "--encrypt", "password", "--public-manifest"})
+	err = cmd.Execute()
+	assert.NoError(t, err)
+
+	// Verify the output stim file.
+	data, err := os.ReadFile(outputStimPath)
+	assert.NoError(t, err)
+
+	decodedTrix, err := trix.Decode(data, "STIM", nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, decodedTrix)
+
+	manifest, ok := decodedTrix.Header["public_manifest"].(string)
+	assert.True(t, ok)
+	assert.Contains(t, manifest, `"total_files": 1`)
 }

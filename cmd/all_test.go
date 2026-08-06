@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -113,4 +114,63 @@ func TestAllCmd_Ugly(t *testing.T) {
 			t.Fatalf("all command failed for user with no repos: %v", err)
 		}
 	})
+}
+
+func TestAllCmd_WithManifest_Good(t *testing.T) {
+	// Setup mock HTTP client for GitHub API
+	mockGithubClient := mocks.NewMockClient(map[string]*http.Response{
+		"https://api.github.com/users/testuser/repos": {
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/testuser/repo1.git"}]`)),
+		},
+	})
+	oldNewAuthenticatedClient := github.NewAuthenticatedClient
+	github.NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+		return mockGithubClient
+	}
+	t.Cleanup(func() {
+		github.NewAuthenticatedClient = oldNewAuthenticatedClient
+	})
+
+	// Setup mock Git cloner
+	mockCloner := &mocks.MockGitCloner{
+		DN:  datanode.New(),
+		Err: nil,
+	}
+	mockCloner.DN.AddData("README.md", []byte("# repo1"))
+	oldAllCloner := allCloner
+	allCloner = mockCloner
+	t.Cleanup(func() {
+		allCloner = oldAllCloner
+	})
+
+	rootCmd := NewRootCmd()
+	rootCmd.AddCommand(GetAllCmd())
+
+	// Execute command
+	out := filepath.Join(t.TempDir(), "out.dat")
+	_, err := executeCommand(rootCmd, "all", "https://github.com/testuser", "--output", out, "--manifest")
+	if err != nil {
+		t.Fatalf("all command failed: %v", err)
+	}
+
+	// Verify MANIFEST.json exists
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+
+	dn, err := datanode.FromTar(data)
+	if err != nil {
+		t.Fatalf("failed to create datanode from tar: %v", err)
+	}
+
+	exists, err := dn.Exists("MANIFEST.json")
+	if err != nil {
+		t.Fatalf("failed to check for manifest: %v", err)
+	}
+	if !exists {
+		t.Fatal("MANIFEST.json not found in the output datanode")
+	}
 }

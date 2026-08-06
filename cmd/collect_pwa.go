@@ -105,7 +105,7 @@ func CollectPWA(client pwa.PWAClient, pwaURL string, outputFile string, format s
 		if err != nil {
 			return "", fmt.Errorf("error creating tim: %w", err)
 		}
-		data, err = t.ToSigil(password)
+		data, err = t.ToSigil(password, nil)
 		if err != nil {
 			return "", fmt.Errorf("error encrypting stim: %w", err)
 		}

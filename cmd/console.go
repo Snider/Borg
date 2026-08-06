@@ -79,7 +79,7 @@ Required files: index.html, support-reply.html, stmf.wasm, wasm_exec.js`,
 			}
 
 			// Encrypt to STIM
-			stim, err := m.ToSigil(password)
+			stim, err := m.ToSigil(password, nil)
 			if err != nil {
 				return fmt.Errorf("encrypting STIM: %w", err)
 			}

@@ -77,7 +77,7 @@ func NewCollectGithubRepoCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("error creating tim: %w", err)
 				}
-				data, err = t.ToSigil(password)
+				data, err = t.ToSigil(password, nil)
 				if err != nil {
 					return fmt.Errorf("error encrypting stim: %w", err)
 				}
