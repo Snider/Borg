@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/Snider/Borg/pkg/website"
@@ -11,7 +12,7 @@ func main() {
 	log.Println("Collecting website...")
 
 	// Download and package the website.
-	dn, err := website.DownloadAndPackageWebsite("https://example.com", 2, nil)
+	dn, err := website.DownloadAndPackageWebsite("https://example.com", 2, nil, http.DefaultClient)
 	if err != nil {
 		log.Fatalf("Failed to collect website: %v", err)
 	}
