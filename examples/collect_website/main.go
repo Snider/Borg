@@ -11,7 +11,7 @@ func main() {
 	log.Println("Collecting website...")
 
 	// Download and package the website.
-	dn, err := website.DownloadAndPackageWebsite("https://example.com", 2, nil)
+	dn, err := website.DownloadAndPackageWebsite("https://example.com", 2, nil, "Borg/1.0", false, 0)
 	if err != nil {
 		log.Fatalf("Failed to collect website: %v", err)
 	}

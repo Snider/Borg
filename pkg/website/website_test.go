@@ -20,12 +20,12 @@ func TestDownloadAndPackageWebsite_Good(t *testing.T) {
 	defer server.Close()
 
 	bar := progressbar.NewOptions(1, progressbar.OptionSetWriter(io.Discard))
-	dn, err := DownloadAndPackageWebsite(server.URL, 2, bar)
+	dn, err := DownloadAndPackageWebsite(server.URL, 2, bar, "Borg/1.0", false, 0)
 	if err != nil {
 		t.Fatalf("DownloadAndPackageWebsite failed: %v", err)
 	}
 
-	expectedFiles := []string{"index.html", "style.css", "image.png", "page2.html", "page3.html"}
+	expectedFiles := []string{"index.html", "style.css", "image.png", "page2.html"}
 	for _, file := range expectedFiles {
 		exists, err := dn.Exists(file)
 		if err != nil {
@@ -50,9 +50,31 @@ func TestDownloadAndPackageWebsite_Good(t *testing.T) {
 	}
 }
 
+func TestDownloadAndPackageWebsite_RespectsRobotsTxt(t *testing.T) {
+	server := newWebsiteTestServer()
+	defer server.Close()
+
+	bar := progressbar.NewOptions(1, progressbar.OptionSetWriter(io.Discard))
+	dn, err := DownloadAndPackageWebsite(server.URL, 2, bar, "Borg/1.0", false, 0)
+	if err != nil {
+		t.Fatalf("DownloadAndPackageWebsite failed: %v", err)
+	}
+
+	// page3.html is disallowed by robots.txt, so it should not be present.
+	exists, _ := dn.Exists("page3.html")
+	if exists {
+		t.Error("page3.html should not have been downloaded due to robots.txt")
+	}
+	// page2.html is not disallowed, so it should be present.
+	exists, _ = dn.Exists("page2.html")
+	if !exists {
+		t.Error("page2.html should have been downloaded")
+	}
+}
+
 func TestDownloadAndPackageWebsite_Bad(t *testing.T) {
 	t.Run("Invalid Start URL", func(t *testing.T) {
-		_, err := DownloadAndPackageWebsite("http://invalid-url", 1, nil)
+		_, err := DownloadAndPackageWebsite("http://invalid-url", 1, nil, "Borg/1.0", false, 0)
 		if err == nil {
 			t.Fatal("Expected an error for an invalid start URL, but got nil")
 		}
@@ -63,7 +85,7 @@ func TestDownloadAndPackageWebsite_Bad(t *testing.T) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}))
 		defer server.Close()
-		_, err := DownloadAndPackageWebsite(server.URL, 1, nil)
+		_, err := DownloadAndPackageWebsite(server.URL, 1, nil, "Borg/1.0", false, 0)
 		if err == nil {
 			t.Fatal("Expected an error for a server error on the start URL, but got nil")
 		}
@@ -80,7 +102,7 @@ func TestDownloadAndPackageWebsite_Bad(t *testing.T) {
 		}))
 		defer server.Close()
 		// We expect an error because the link is broken.
-		dn, err := DownloadAndPackageWebsite(server.URL, 1, nil)
+		dn, err := DownloadAndPackageWebsite(server.URL, 1, nil, "Borg/1.0", false, 0)
 		if err == nil {
 			t.Fatal("Expected an error for a broken link, but got nil")
 		}
@@ -99,7 +121,7 @@ func TestDownloadAndPackageWebsite_Ugly(t *testing.T) {
 		defer server.Close()
 
 		bar := progressbar.NewOptions(1, progressbar.OptionSetWriter(io.Discard))
-		dn, err := DownloadAndPackageWebsite(server.URL, 1, bar) // Max depth of 1
+		dn, err := DownloadAndPackageWebsite(server.URL, 1, bar, "Borg/1.0", false, 0) // Max depth of 1
 		if err != nil {
 			t.Fatalf("DownloadAndPackageWebsite failed: %v", err)
 		}
@@ -122,7 +144,7 @@ func TestDownloadAndPackageWebsite_Ugly(t *testing.T) {
 			fmt.Fprint(w, `<a href="http://externalsite.com/page.html">External</a>`)
 		}))
 		defer server.Close()
-		dn, err := DownloadAndPackageWebsite(server.URL, 1, nil)
+		dn, err := DownloadAndPackageWebsite(server.URL, 1, nil, "Borg/1.0", false, 0)
 		if err != nil {
 			t.Fatalf("DownloadAndPackageWebsite failed: %v", err)
 		}
@@ -156,7 +178,7 @@ func TestDownloadAndPackageWebsite_Ugly(t *testing.T) {
 		// For now, we'll just test that it doesn't hang forever.
 		done := make(chan bool)
 		go func() {
-			_, err := DownloadAndPackageWebsite(server.URL, 1, nil)
+			_, err := DownloadAndPackageWebsite(server.URL, 1, nil, "Borg/1.0", false, 0)
 			if err != nil && !strings.Contains(err.Error(), "context deadline exceeded") {
 				// We expect a timeout error, but other errors are failures.
 				t.Errorf("unexpected error: %v", err)
@@ -177,6 +199,9 @@ func TestDownloadAndPackageWebsite_Ugly(t *testing.T) {
 func newWebsiteTestServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/robots.txt":
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprint(w, "User-agent: *\nDisallow: /page3.html")
 		case "/":
 			w.Header().Set("Content-Type", "text/html")
 			fmt.Fprint(w, `

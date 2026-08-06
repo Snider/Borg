@@ -38,6 +38,9 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			userAgent, _ := cmd.Flags().GetString("user-agent")
+			ignoreRobots, _ := cmd.Flags().GetBool("ignore-robots")
+			minDelay, _ := cmd.Flags().GetDuration("min-delay")
 
 			if format != "datanode" && format != "tim" && format != "trix" {
 				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
@@ -51,7 +54,7 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar, userAgent, ignoreRobots, minDelay)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}
@@ -104,5 +107,8 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
+	collectWebsiteCmd.PersistentFlags().String("user-agent", "Borg/1.0", "Custom user agent string")
+	collectWebsiteCmd.PersistentFlags().Bool("ignore-robots", false, "Ignore robots.txt")
+	collectWebsiteCmd.PersistentFlags().Duration("min-delay", 0, "Minimum delay between requests")
 	return collectWebsiteCmd
 }

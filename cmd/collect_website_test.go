@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/Snider/Borg/pkg/datanode"
+	"time"
+
 	"github.com/Snider/Borg/pkg/website"
 	"github.com/schollz/progressbar/v3"
 )
@@ -14,7 +16,7 @@ import (
 func TestCollectWebsiteCmd_Good(t *testing.T) {
 	// Mock the website downloader
 	oldDownloadAndPackageWebsite := website.DownloadAndPackageWebsite
-	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar, userAgent string, ignoreRobots bool, minDelay time.Duration) (*datanode.DataNode, error) {
 		return datanode.New(), nil
 	}
 	defer func() {
@@ -35,7 +37,7 @@ func TestCollectWebsiteCmd_Good(t *testing.T) {
 func TestCollectWebsiteCmd_Bad(t *testing.T) {
 	// Mock the website downloader to return an error
 	oldDownloadAndPackageWebsite := website.DownloadAndPackageWebsite
-	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	website.DownloadAndPackageWebsite = func(startURL string, maxDepth int, bar *progressbar.ProgressBar, userAgent string, ignoreRobots bool, minDelay time.Duration) (*datanode.DataNode, error) {
 		return nil, fmt.Errorf("website error")
 	}
 	defer func() {
