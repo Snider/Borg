@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Snider/Borg/pkg/cache"
 	"github.com/Snider/Borg/pkg/datanode"
 	"github.com/schollz/progressbar/v3"
 
@@ -24,32 +25,34 @@ type Downloader struct {
 	progressBar *progressbar.ProgressBar
 	client      *http.Client
 	errors      []error
+	cache       *cache.Cache
 }
 
 // NewDownloader creates a new Downloader.
-func NewDownloader(maxDepth int) *Downloader {
-	return NewDownloaderWithClient(maxDepth, http.DefaultClient)
+func NewDownloader(maxDepth int, cache *cache.Cache) *Downloader {
+	return NewDownloaderWithClient(maxDepth, http.DefaultClient, cache)
 }
 
 // NewDownloaderWithClient creates a new Downloader with a custom http.Client.
-func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
+func NewDownloaderWithClient(maxDepth int, client *http.Client, cache *cache.Cache) *Downloader {
 	return &Downloader{
 		dn:          datanode.New(),
 		visited:     make(map[string]bool),
 		maxDepth:    maxDepth,
 		client:      client,
 		errors:      make([]error, 0),
+		cache:       cache,
 	}
 }
 
 // downloadAndPackageWebsite downloads a website and packages it into a DataNode.
-func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar, cache *cache.Cache) (*datanode.DataNode, error) {
 	baseURL, err := url.Parse(startURL)
 	if err != nil {
 		return nil, err
 	}
 
-	d := NewDownloader(maxDepth)
+	d := NewDownloader(maxDepth, cache)
 	d.baseURL = baseURL
 	d.progressBar = bar
 	d.crawl(startURL, 0)
@@ -69,34 +72,14 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 	if depth > d.maxDepth || d.visited[pageURL] {
 		return
 	}
-	d.visited[pageURL] = true
-	if d.progressBar != nil {
-		d.progressBar.Add(1)
-	}
 
-	resp, err := d.client.Get(pageURL)
-	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error getting %s: %w", pageURL, err))
+	body, contentType := d.download(pageURL)
+	if body == nil {
 		return
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		d.errors = append(d.errors, fmt.Errorf("bad status for %s: %s", pageURL, resp.Status))
-		return
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error reading body of %s: %w", pageURL, err))
-		return
-	}
-
-	relPath := d.getRelativePath(pageURL)
-	d.dn.AddData(relPath, body)
 
 	// Don't try to parse non-html content
-	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {
+	if !strings.HasPrefix(contentType, "text/html") {
 		return
 	}
 
@@ -136,31 +119,56 @@ func (d *Downloader) downloadAsset(assetURL string) {
 	if d.visited[assetURL] {
 		return
 	}
-	d.visited[assetURL] = true
+	d.download(assetURL)
+}
+
+func (d *Downloader) download(pageURL string) ([]byte, string) {
+	d.visited[pageURL] = true
 	if d.progressBar != nil {
 		d.progressBar.Add(1)
 	}
 
-	resp, err := d.client.Get(assetURL)
+	// Check the cache first
+	if d.cache != nil {
+		data, ok, err := d.cache.Get(pageURL)
+		if err != nil {
+			d.errors = append(d.errors, fmt.Errorf("Error getting from cache %s: %w", pageURL, err))
+			// Don't return, as we can still try to download it
+		}
+		if ok {
+			relPath := d.getRelativePath(pageURL)
+			d.dn.AddData(relPath, data)
+			return data, "" // We don't know the content type from the cache
+		}
+	}
+
+	resp, err := d.client.Get(pageURL)
 	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error getting asset %s: %w", assetURL, err))
-		return
+		d.errors = append(d.errors, fmt.Errorf("Error getting %s: %w", pageURL, err))
+		return nil, ""
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		d.errors = append(d.errors, fmt.Errorf("bad status for asset %s: %s", assetURL, resp.Status))
-		return
+		d.errors = append(d.errors, fmt.Errorf("bad status for %s: %s", pageURL, resp.Status))
+		return nil, ""
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		d.errors = append(d.errors, fmt.Errorf("Error reading body of asset %s: %w", assetURL, err))
-		return
+		d.errors = append(d.errors, fmt.Errorf("Error reading body of %s: %w", pageURL, err))
+		return nil, ""
 	}
 
-	relPath := d.getRelativePath(assetURL)
+	relPath := d.getRelativePath(pageURL)
 	d.dn.AddData(relPath, body)
+
+	// Add to cache
+	if d.cache != nil {
+		d.cache.Put(pageURL, body)
+	}
+
+	return body, resp.Header.Get("Content-Type")
 }
 
 func (d *Downloader) getRelativePath(pageURL string) string {

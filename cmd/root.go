@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -28,4 +31,17 @@ var RootCmd = NewRootCmd()
 func Execute(log *slog.Logger) error {
 	RootCmd.SetContext(context.WithValue(context.Background(), "logger", log))
 	return RootCmd.Execute()
+}
+
+func GetCacheDir(cmd *cobra.Command) (string, error) {
+	cacheDir, _ := cmd.Flags().GetString("cache-dir")
+	if cacheDir != "" {
+		return cacheDir, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user home directory: %w", err)
+	}
+	return filepath.Join(home, ".borg", "cache"), nil
 }
