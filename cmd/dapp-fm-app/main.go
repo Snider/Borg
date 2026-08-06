@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/fs"
+	"mime"
 	"net/http"
 	"strconv"
 	"strings"
@@ -57,16 +58,34 @@ func (s *MediaStore) Clear() {
 	s.media = make(map[string]*MediaItem)
 }
 
+func init() {
+	mime.AddExtensionType(".wasm", "application/wasm")
+	mime.AddExtensionType(".js", "application/javascript")
+	mime.AddExtensionType(".css", "text/css")
+	mime.AddExtensionType(".html", "text/html; charset=utf-8")
+}
+
 // AssetHandler serves both static assets and decrypted media
 type AssetHandler struct {
-	assets fs.FS
+	assets     fs.FS
+	fileServer http.Handler
+}
+
+// NewAssetHandler creates a new AssetHandler
+func NewAssetHandler(assets fs.FS) *AssetHandler {
+	sub, err := fs.Sub(assets, "frontend")
+	if err != nil {
+		// Fallback to assets if sub fails (e.g. test mock)
+		sub = assets
+	}
+	return &AssetHandler{
+		assets:     assets,
+		fileServer: http.FileServer(http.FS(sub)),
+	}
 }
 
 func (h *AssetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
-	if path == "/" {
-		path = "/index.html"
-	}
 	path = strings.TrimPrefix(path, "/")
 
 	// Check if this is a media request
@@ -112,25 +131,12 @@ func (h *AssetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Serve static assets
-	data, err := fs.ReadFile(h.assets, "frontend/"+path)
-	if err != nil {
+	if h.fileServer == nil {
+		// Fallback if not initialized via NewAssetHandler (should not happen in prod)
 		http.NotFound(w, r)
 		return
 	}
-
-	// Set content type
-	switch {
-	case strings.HasSuffix(path, ".html"):
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	case strings.HasSuffix(path, ".js"):
-		w.Header().Set("Content-Type", "application/javascript")
-	case strings.HasSuffix(path, ".css"):
-		w.Header().Set("Content-Type", "text/css")
-	case strings.HasSuffix(path, ".wasm"):
-		w.Header().Set("Content-Type", "application/wasm")
-	}
-
-	w.Write(data)
+	h.fileServer.ServeHTTP(w, r)
 }
 
 // App wraps player functionality
@@ -307,7 +313,7 @@ func main() {
 		MinWidth:  800,
 		MinHeight: 600,
 		AssetServer: &assetserver.Options{
-			Handler: &AssetHandler{assets: frontendAssets},
+			Handler: NewAssetHandler(frontendAssets),
 		},
 		BackgroundColour: &options.RGBA{R: 18, G: 18, B: 18, A: 1},
 		OnStartup:        app.Startup,

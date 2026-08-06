@@ -11,7 +11,6 @@ import (
 //go:embed frontend/index.html
 //go:embed frontend/wasm_exec.js
 //go:embed frontend/stmf.wasm
-//go:embed frontend/demo-track.smsg
 var assets embed.FS
 
 // Assets returns the embedded filesystem with frontend/ prefix stripped
