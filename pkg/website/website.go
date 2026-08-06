@@ -44,25 +44,7 @@ func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
 
 // downloadAndPackageWebsite downloads a website and packages it into a DataNode.
 func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
-	baseURL, err := url.Parse(startURL)
-	if err != nil {
-		return nil, err
-	}
-
-	d := NewDownloader(maxDepth)
-	d.baseURL = baseURL
-	d.progressBar = bar
-	d.crawl(startURL, 0)
-
-	if len(d.errors) > 0 {
-		var errs []string
-		for _, e := range d.errors {
-			errs = append(errs, e.Error())
-		}
-		return nil, fmt.Errorf("failed to download website:\n%s", strings.Join(errs, "\n"))
-	}
-
-	return d.dn, nil
+	return downloadAndPackageWebsiteWithClient(startURL, maxDepth, bar, http.DefaultClient)
 }
 
 func (d *Downloader) crawl(pageURL string, depth int) {
@@ -203,4 +185,29 @@ func isAsset(pageURL string) bool {
 		}
 	}
 	return false
+}
+
+// DownloadAndPackageWebsiteWithClient downloads a website and packages it into a DataNode using a custom http.Client.
+var DownloadAndPackageWebsiteWithClient = downloadAndPackageWebsiteWithClient
+
+func downloadAndPackageWebsiteWithClient(startURL string, maxDepth int, bar *progressbar.ProgressBar, client *http.Client) (*datanode.DataNode, error) {
+	baseURL, err := url.Parse(startURL)
+	if err != nil {
+		return nil, err
+	}
+
+	d := NewDownloaderWithClient(maxDepth, client)
+	d.baseURL = baseURL
+	d.progressBar = bar
+	d.crawl(startURL, 0)
+
+	if len(d.errors) > 0 {
+		var errs []string
+		for _, e := range d.errors {
+			errs = append(errs, e.Error())
+		}
+		return nil, fmt.Errorf("failed to download website:\n%s", strings.Join(errs, "\n"))
+	}
+
+	return d.dn, nil
 }

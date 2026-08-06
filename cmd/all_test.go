@@ -15,19 +15,16 @@ import (
 
 func TestAllCmd_Good(t *testing.T) {
 	// Setup mock HTTP client for GitHub API
-	mockGithubClient := mocks.NewMockClient(map[string]*http.Response{
-		"https://api.github.com/users/testuser/repos": {
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(bytes.NewBufferString(`[{"clone_url": "https://github.com/testuser/repo1.git"}]`)),
-		},
-	})
-	oldNewAuthenticatedClient := github.NewAuthenticatedClient
-	github.NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+	mockGithubClient := &mocks.MockGithubClient{
+		Repos: []string{"https://github.com/testuser/repo1.git"},
+		Err:   nil,
+	}
+	oldGithubClient := GithubClient
+	GithubClient = func(client *http.Client) github.GithubClient {
 		return mockGithubClient
 	}
 	defer func() {
-		github.NewAuthenticatedClient = oldNewAuthenticatedClient
+		GithubClient = oldGithubClient
 	}()
 
 	// Setup mock Git cloner
@@ -54,24 +51,16 @@ func TestAllCmd_Good(t *testing.T) {
 
 func TestAllCmd_Bad(t *testing.T) {
 	// Setup mock HTTP client to return an error
-	mockGithubClient := mocks.NewMockClient(map[string]*http.Response{
-		"https://api.github.com/users/baduser/repos": {
-			StatusCode: http.StatusNotFound,
-			Status:     "404 Not Found",
-			Body:       io.NopCloser(bytes.NewBufferString(`{"message": "Not Found"}`)),
-		},
-		"https://api.github.com/orgs/baduser/repos": {
-			StatusCode: http.StatusNotFound,
-			Status:     "404 Not Found",
-			Body:       io.NopCloser(bytes.NewBufferString(`{"message": "Not Found"}`)),
-		},
-	})
-	oldNewAuthenticatedClient := github.NewAuthenticatedClient
-	github.NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+	mockGithubClient := &mocks.MockGithubClient{
+		Repos: nil,
+		Err:   fmt.Errorf("github error"),
+	}
+	oldGithubClient := GithubClient
+	GithubClient = func(client *http.Client) github.GithubClient {
 		return mockGithubClient
 	}
 	defer func() {
-		github.NewAuthenticatedClient = oldNewAuthenticatedClient
+		GithubClient = oldGithubClient
 	}()
 
 	rootCmd := NewRootCmd()
@@ -88,19 +77,16 @@ func TestAllCmd_Bad(t *testing.T) {
 func TestAllCmd_Ugly(t *testing.T) {
 	t.Run("User with no repos", func(t *testing.T) {
 		// Setup mock HTTP client for a user with no repos
-		mockGithubClient := mocks.NewMockClient(map[string]*http.Response{
-			"https://api.github.com/users/emptyuser/repos": {
-				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				Body:       io.NopCloser(bytes.NewBufferString(`[]`)),
-			},
-		})
-		oldNewAuthenticatedClient := github.NewAuthenticatedClient
-		github.NewAuthenticatedClient = func(ctx context.Context) *http.Client {
+		mockGithubClient := &mocks.MockGithubClient{
+			Repos: []string{},
+			Err:   nil,
+		}
+		oldGithubClient := GithubClient
+		GithubClient = func(client *http.Client) github.GithubClient {
 			return mockGithubClient
 		}
 		defer func() {
-			github.NewAuthenticatedClient = oldNewAuthenticatedClient
+			GithubClient = oldGithubClient
 		}()
 
 		rootCmd := NewRootCmd()
