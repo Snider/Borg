@@ -42,7 +42,7 @@ func TestAllCmd_Good(t *testing.T) {
 	}()
 
 	rootCmd := NewRootCmd()
-	rootCmd.AddCommand(GetAllCmd())
+	rootCmd.AddCommand(GetGithubAllCmd())
 
 	// Execute command
 	out := filepath.Join(t.TempDir(), "out")
@@ -75,7 +75,7 @@ func TestAllCmd_Bad(t *testing.T) {
 	}()
 
 	rootCmd := NewRootCmd()
-	rootCmd.AddCommand(GetAllCmd())
+	rootCmd.AddCommand(GetGithubAllCmd())
 
 	// Execute command
 	out := filepath.Join(t.TempDir(), "out")
@@ -104,7 +104,7 @@ func TestAllCmd_Ugly(t *testing.T) {
 		}()
 
 		rootCmd := NewRootCmd()
-		rootCmd.AddCommand(GetAllCmd())
+	rootCmd.AddCommand(GetGithubAllCmd())
 
 		// Execute command
 		out := filepath.Join(t.TempDir(), "out")
