@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"log/slog"
+	"strings"
 
+	"github.com/Snider/Borg/pkg/templates"
 	"github.com/spf13/cobra"
 )
 
@@ -13,6 +15,17 @@ func NewRootCmd() *cobra.Command {
 		Short: "A tool for collecting and managing data.",
 		Long: `Borg Data Collector is a command-line tool for cloning Git repositories,
 packaging their contents into a single file, and managing the data within.`,
+		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			// Don't log template or help commands
+			if cmd.Parent().Name() == "template" || cmd.Name() == "help" {
+				return nil
+			}
+			if err := templates.AppendToHistory(cmd.CommandPath() + " " + strings.Join(args, " ")); err != nil {
+				log := cmd.Context().Value("logger").(*slog.Logger)
+				log.Warn("could not write to history", "error", err)
+			}
+			return nil
+		},
 	}
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose logging")
