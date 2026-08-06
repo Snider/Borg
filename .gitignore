@@ -10,3 +10,4 @@ demo-track.smsg
 
 # Dev artifacts
 .playwright-mcp/
+.borg-index/

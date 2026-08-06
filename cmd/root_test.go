@@ -18,12 +18,16 @@ func executeCommand(root *cobra.Command, args ...string) (string, error) {
 
 // executeCommandC is a helper function to execute a cobra command and return the output.
 func executeCommandC(root *cobra.Command, args ...string) (*cobra.Command, string, error) {
-	buf := new(bytes.Buffer)
-	root.SetOut(buf)
-	root.SetErr(buf)
-	root.SetArgs(args)
+	// We need to create a new instance of the root command for each test to avoid state pollution.
+	testRootCmd := NewRootCmd()
+	initAllCommands(testRootCmd) // Pass the new instance to the init function.
 
-	c, err := root.ExecuteC()
+	buf := new(bytes.Buffer)
+	testRootCmd.SetOut(buf)
+	testRootCmd.SetErr(buf)
+	testRootCmd.SetArgs(args)
+
+	c, err := testRootCmd.ExecuteC()
 
 	return c, buf.String(), err
 }
@@ -45,11 +49,6 @@ func TestRootCmd_Good(t *testing.T) {
 	})
 
 	t.Run("Help flag", func(t *testing.T) {
-		// We need to reset the command's state before each run.
-		RootCmd.ResetFlags()
-		RootCmd.ResetCommands()
-		initAllCommands()
-
 		output, err := executeCommand(RootCmd, "--help")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -62,11 +61,6 @@ func TestRootCmd_Good(t *testing.T) {
 
 func TestRootCmd_Bad(t *testing.T) {
 	t.Run("Unknown command", func(t *testing.T) {
-		// We need to reset the command's state before each run.
-		RootCmd.ResetFlags()
-		RootCmd.ResetCommands()
-		initAllCommands()
-
 		_, err := executeCommand(RootCmd, "unknown-command")
 		if err == nil {
 			t.Fatal("expected an error for an unknown command, but got none")
@@ -75,10 +69,12 @@ func TestRootCmd_Bad(t *testing.T) {
 }
 
 // initAllCommands re-initializes all commands for testing.
-func initAllCommands() {
-	RootCmd.AddCommand(GetAllCmd())
-	RootCmd.AddCommand(GetCollectCmd())
-	RootCmd.AddCommand(GetCompileCmd())
-	RootCmd.AddCommand(GetRunCmd())
-	RootCmd.AddCommand(GetServeCmd())
+func initAllCommands(cmd *cobra.Command) {
+	cmd.AddCommand(GetAllCmd())
+	cmd.AddCommand(GetCollectCmd())
+	cmd.AddCommand(GetCompileCmd())
+	cmd.AddCommand(GetRunCmd())
+	cmd.AddCommand(GetServeCmd())
+	cmd.AddCommand(GetIndexCmd())
+	cmd.AddCommand(GetSearchCmd())
 }
