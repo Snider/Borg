@@ -15,8 +15,14 @@ import (
 
 var DownloadAndPackageWebsite = downloadAndPackageWebsite
 
-// Downloader is a recursive website downloader.
-type Downloader struct {
+// Downloader is an interface for a recursive website downloader.
+type Downloader interface {
+	Download(startURL string) (*datanode.DataNode, error)
+	SetProgressBar(bar *progressbar.ProgressBar)
+}
+
+// downloader is a recursive website downloader.
+type downloader struct {
 	baseURL     *url.URL
 	dn          *datanode.DataNode
 	visited     map[string]bool
@@ -27,13 +33,13 @@ type Downloader struct {
 }
 
 // NewDownloader creates a new Downloader.
-func NewDownloader(maxDepth int) *Downloader {
+func NewDownloader(maxDepth int) Downloader {
 	return NewDownloaderWithClient(maxDepth, http.DefaultClient)
 }
 
 // NewDownloaderWithClient creates a new Downloader with a custom http.Client.
-func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
-	return &Downloader{
+var NewDownloaderWithClient = func(maxDepth int, client *http.Client) Downloader {
+	return &downloader{
 		dn:          datanode.New(),
 		visited:     make(map[string]bool),
 		maxDepth:    maxDepth,
@@ -44,14 +50,23 @@ func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
 
 // downloadAndPackageWebsite downloads a website and packages it into a DataNode.
 func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	d := NewDownloader(maxDepth)
+	d.SetProgressBar(bar)
+	return d.Download(startURL)
+}
+
+// SetProgressBar sets the progress bar for the downloader.
+func (d *downloader) SetProgressBar(bar *progressbar.ProgressBar) {
+	d.progressBar = bar
+}
+
+// Download downloads a website and packages it into a DataNode.
+func (d *downloader) Download(startURL string) (*datanode.DataNode, error) {
 	baseURL, err := url.Parse(startURL)
 	if err != nil {
 		return nil, err
 	}
-
-	d := NewDownloader(maxDepth)
 	d.baseURL = baseURL
-	d.progressBar = bar
 	d.crawl(startURL, 0)
 
 	if len(d.errors) > 0 {
@@ -65,7 +80,7 @@ func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.P
 	return d.dn, nil
 }
 
-func (d *Downloader) crawl(pageURL string, depth int) {
+func (d *downloader) crawl(pageURL string, depth int) {
 	if depth > d.maxDepth || d.visited[pageURL] {
 		return
 	}
@@ -132,7 +147,7 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 	f(doc)
 }
 
-func (d *Downloader) downloadAsset(assetURL string) {
+func (d *downloader) downloadAsset(assetURL string) {
 	if d.visited[assetURL] {
 		return
 	}
@@ -163,7 +178,7 @@ func (d *Downloader) downloadAsset(assetURL string) {
 	d.dn.AddData(relPath, body)
 }
 
-func (d *Downloader) getRelativePath(pageURL string) string {
+func (d *downloader) getRelativePath(pageURL string) string {
 	u, err := url.Parse(pageURL)
 	if err != nil {
 		return ""
@@ -175,7 +190,7 @@ func (d *Downloader) getRelativePath(pageURL string) string {
 	return path
 }
 
-func (d *Downloader) resolveURL(base, ref string) (string, error) {
+func (d *downloader) resolveURL(base, ref string) (string, error) {
 	baseURL, err := url.Parse(base)
 	if err != nil {
 		return "", err
@@ -187,7 +202,7 @@ func (d *Downloader) resolveURL(base, ref string) (string, error) {
 	return baseURL.ResolveReference(refURL).String(), nil
 }
 
-func (d *Downloader) isLocal(pageURL string) bool {
+func (d *downloader) isLocal(pageURL string) bool {
 	u, err := url.Parse(pageURL)
 	if err != nil {
 		return false

@@ -6,6 +6,7 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/Snider/Borg/pkg/compress"
+	"github.com/Snider/Borg/pkg/httpclient"
 	"github.com/Snider/Borg/pkg/tim"
 	"github.com/Snider/Borg/pkg/trix"
 	"github.com/Snider/Borg/pkg/ui"
@@ -51,7 +52,34 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			proxy, _ := cmd.Flags().GetString("proxy")
+			proxyList, _ := cmd.Flags().GetString("proxy-list")
+			tor, _ := cmd.Flags().GetBool("tor")
+
+			// Validate that only one proxy flag is used
+			proxyFlags := 0
+			if proxy != "" {
+				proxyFlags++
+			}
+			if proxyList != "" {
+				proxyFlags++
+			}
+			if tor {
+				proxyFlags++
+			}
+			if proxyFlags > 1 {
+				return fmt.Errorf("only one of --proxy, --proxy-list, or --tor can be used at a time")
+			}
+
+			httpClient, err := httpclient.NewClient(proxy, proxyList, tor)
+			if err != nil {
+				return fmt.Errorf("error creating http client: %w", err)
+			}
+
+			downloader := website.NewDownloaderWithClient(depth, httpClient)
+			downloader.SetProgressBar(bar)
+
+			dn, err := downloader.Download(websiteURL)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}
@@ -104,5 +132,8 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
+	collectWebsiteCmd.PersistentFlags().String("proxy", "", "Proxy URL (e.g. http://proxy:8080)")
+	collectWebsiteCmd.PersistentFlags().String("proxy-list", "", "Path to a file with a list of proxies (one randomly selected)")
+	collectWebsiteCmd.PersistentFlags().Bool("tor", false, "Use Tor for requests")
 	return collectWebsiteCmd
 }
