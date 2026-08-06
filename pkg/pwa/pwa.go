@@ -326,14 +326,11 @@ func (p *pwaClient) DownloadAndPackagePWA(pwaURL, manifestURL string, bar *progr
 		wg.Add(1)
 		go downloadAndAdd(page, true)
 	}
-	wg.Wait()
 
 	// Download remaining assets
 	for _, asset := range assetsToDownload {
-		if !downloaded[asset] {
-			wg.Add(1)
-			go downloadAndAdd(asset, false)
-		}
+		wg.Add(1)
+		go downloadAndAdd(asset, false)
 	}
 	wg.Wait()
 

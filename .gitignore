@@ -10,3 +10,4 @@ demo-track.smsg
 
 # Dev artifacts
 .playwright-mcp/
+!pkg/player/frontend/demo-track.smsg
