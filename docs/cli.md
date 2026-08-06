@@ -21,11 +21,17 @@ Subcommands:
 - `borg collect github repos <org-or-user> [--output <file>] [--format ...] [--compression ...]`
 - `borg collect website <url> [--depth N] [--output <file>] [--format ...] [--compression ...]`
 - `borg collect pwa --uri <url> [--output <file>] [--format ...] [--compression ...]`
+- `borg collect npm <package-name> [--output <file>]`
+- `borg collect cargo <crate-name> [--output <file>]`
+- `borg collect go <module-name> [--output <file>]`
 
 Examples:
 - `borg collect github repo https://github.com/Snider/Borg --output borg.dat`
 - `borg collect website https://example.com --depth 1 --output site.dat`
 - `borg collect pwa --uri https://squoosh.app --output squoosh.dat`
+- `borg collect npm @angular/cli --output angular-cli.dat`
+- `borg collect cargo serde --output serde.dat`
+- `borg collect go golang.org/x/text --output go-text.dat`
 
 ### all
 
