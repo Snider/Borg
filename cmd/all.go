@@ -61,7 +61,10 @@ func NewAllCmd() *cobra.Command {
 			allDataNodes := datanode.New()
 
 			for _, repoURL := range repos {
-				dn, err := cloner.CloneGitRepository(repoURL, progressWriter)
+				options := vcs.GitCloneOptions{
+					FullHistory: true, // or some other default
+				}
+				dn, err := cloner.CloneGitRepository(repoURL, options, progressWriter)
 				if err != nil {
 					// Log the error and continue
 					fmt.Fprintln(cmd.ErrOrStderr(), "Error cloning repository:", err)
