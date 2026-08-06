@@ -7,19 +7,18 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Snider/Borg/pkg/datanode"
 	borg_github "github.com/Snider/Borg/pkg/github"
+	"bytes"
 	"github.com/google/go-github/v39/github"
 	"github.com/spf13/cobra"
-	"golang.org/x/mod/semver"
 )
 
 func NewCollectGithubReleaseCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "release [repository-url]",
-		Short: "Download the latest release of a file from GitHub releases",
-		Long:  `Download the latest release of a file from GitHub releases. If the file or URL has a version number, it will check for a higher version and download it if found.`,
-		Args:  cobra.ExactArgs(1),
+		Use:   "release <owner/repo> [tag]",
+		Short: "Download a release from GitHub",
+		Long:  `Download a specific release from GitHub. If no tag is specified, the latest release will be downloaded.`,
+		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logVal := cmd.Context().Value("logger")
 			log, ok := logVal.(*slog.Logger)
@@ -28,124 +27,105 @@ func NewCollectGithubReleaseCmd() *cobra.Command {
 			}
 			repoURL := args[0]
 			outputDir, _ := cmd.Flags().GetString("output")
-			pack, _ := cmd.Flags().GetBool("pack")
-			file, _ := cmd.Flags().GetString("file")
-			version, _ := cmd.Flags().GetString("version")
+			assetsOnly, _ := cmd.Flags().GetBool("assets-only")
+			pattern, _ := cmd.Flags().GetString("pattern")
+			verifyChecksums, _ := cmd.Flags().GetBool("verify-checksums")
 
-			_, err := GetRelease(log, repoURL, outputDir, pack, file, version)
-			return err
+			owner, repo, err := borg_github.ParseRepoFromURL(repoURL)
+			if err != nil {
+				return fmt.Errorf("failed to parse repository url: %w", err)
+			}
+
+			var release *github.RepositoryRelease
+			if len(args) == 2 {
+				tag := args[1]
+				log.Info("getting release by tag", "tag", tag)
+				release, err = borg_github.GetReleaseByTag(owner, repo, tag)
+				if err != nil {
+					return fmt.Errorf("failed to get release '%s': %w", tag, err)
+				}
+			} else {
+				log.Info("getting latest release")
+				release, err = borg_github.GetLatestRelease(owner, repo)
+				if err != nil {
+					return fmt.Errorf("failed to get latest release: %w", err)
+				}
+			}
+			if release == nil {
+				return errors.New("release not found")
+			}
+
+			log.Info("found release", "tag", release.GetTagName())
+
+			tag := release.GetTagName()
+			releaseDir := filepath.Join(outputDir, tag)
+			if err := os.MkdirAll(releaseDir, 0755); err != nil {
+				return fmt.Errorf("failed to create release directory: %w", err)
+			}
+
+			if !assetsOnly {
+				releaseNotes := release.GetBody()
+				if err := os.WriteFile(filepath.Join(releaseDir, "RELEASE.md"), []byte(releaseNotes), 0644); err != nil {
+					return fmt.Errorf("failed to write release notes: %w", err)
+				}
+			}
+
+			for _, asset := range release.Assets {
+				if pattern != "" {
+					matched, err := filepath.Match(pattern, asset.GetName())
+					if err != nil {
+						return fmt.Errorf("invalid pattern: %w", err)
+					}
+					if !matched {
+						continue
+					}
+				}
+
+				log.Info("downloading asset", "name", asset.GetName())
+					assetPath := filepath.Join(releaseDir, asset.GetName())
+					file, err := os.Create(assetPath)
+					if err != nil {
+						return fmt.Errorf("failed to create asset file: %w", err)
+					}
+					defer file.Close()
+
+					var checksumData []byte
+				if verifyChecksums {
+						checksumAsset := findChecksumAsset(release.Assets)
+						if checksumAsset == nil {
+							log.Warn("checksum file not found in release", "tag", tag)
+						} else {
+							buf := new(bytes.Buffer)
+							err := borg_github.DownloadReleaseAsset(checksumAsset, buf)
+							if err != nil {
+								log.Error("failed to download checksum file", "name", checksumAsset.GetName(), "err", err)
+							} else {
+								checksumData = buf.Bytes()
+							}
+						}
+					}
+
+					if verifyChecksums && checksumData != nil {
+						err = borg_github.DownloadReleaseAssetWithChecksum(asset, checksumData, file)
+				} else {
+						err = borg_github.DownloadReleaseAsset(asset, file)
+				}
+
+				if err != nil {
+					log.Error("failed to download asset", "name", asset.GetName(), "err", err)
+					continue
+				}
+			}
+			return nil
 		},
 	}
-	cmd.PersistentFlags().String("output", ".", "Output directory for the downloaded file")
-	cmd.PersistentFlags().Bool("pack", false, "Pack all assets into a DataNode")
-	cmd.PersistentFlags().String("file", "", "The file to download from the release")
-	cmd.PersistentFlags().String("version", "", "The version to check against")
+	cmd.Flags().String("output", "releases", "Output directory for the releases")
+	cmd.Flags().Bool("assets-only", false, "Only download assets, skip release notes")
+	cmd.Flags().String("pattern", "", "Filter assets by filename pattern")
+	cmd.Flags().Bool("verify-checksums", false, "Verify checksums after download")
 	return cmd
 }
 
 func init() {
 	collectGithubCmd.AddCommand(NewCollectGithubReleaseCmd())
-}
-
-func GetRelease(log *slog.Logger, repoURL string, outputDir string, pack bool, file string, version string) (*github.RepositoryRelease, error) {
-	owner, repo, err := borg_github.ParseRepoFromURL(repoURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse repository url: %w", err)
-	}
-
-	release, err := borg_github.GetLatestRelease(owner, repo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get latest release: %w", err)
-	}
-
-	log.Info("found latest release", "tag", release.GetTagName())
-
-	if version != "" {
-		tag := release.GetTagName()
-		if !semver.IsValid(tag) {
-			log.Info("latest release tag is not a valid semantic version, skipping comparison", "tag", tag)
-		} else {
-			if !semver.IsValid(version) {
-				return nil, fmt.Errorf("invalid version string: %s", version)
-			}
-			if semver.Compare(tag, version) <= 0 {
-				log.Info("latest release is not newer than the provided version", "latest", tag, "provided", version)
-				return nil, nil
-			}
-		}
-	}
-
-	if pack {
-		dn := datanode.New()
-		var failedAssets []string
-		for _, asset := range release.Assets {
-			log.Info("downloading asset", "name", asset.GetName())
-			data, err := borg_github.DownloadReleaseAsset(asset)
-			if err != nil {
-				log.Error("failed to download asset", "name", asset.GetName(), "err", err)
-				failedAssets = append(failedAssets, asset.GetName())
-				continue
-			}
-			dn.AddData(asset.GetName(), data)
-		}
-		if len(failedAssets) > 0 {
-			return nil, fmt.Errorf("failed to download assets: %v", failedAssets)
-		}
-
-		tar, err := dn.ToTar()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create datanode: %w", err)
-		}
-
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create output directory: %w", err)
-		}
-		basename := release.GetTagName()
-		if basename == "" {
-			basename = "release"
-		}
-		outputFile := filepath.Join(outputDir, basename+".dat")
-
-		err = os.WriteFile(outputFile, tar, 0644)
-		if err != nil {
-			return nil, fmt.Errorf("failed to write datanode: %w", err)
-		}
-		log.Info("datanode saved", "path", outputFile)
-	} else {
-		if len(release.Assets) == 0 {
-			log.Info("no assets found in the latest release")
-			return nil, nil
-		}
-		var assetToDownload *github.ReleaseAsset
-		if file != "" {
-			for _, asset := range release.Assets {
-				if asset.GetName() == file {
-					assetToDownload = asset
-					break
-				}
-			}
-			if assetToDownload == nil {
-				return nil, fmt.Errorf("asset not found in the latest release: %s", file)
-			}
-		} else {
-			assetToDownload = release.Assets[0]
-		}
-		if outputDir != "" {
-			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				return nil, fmt.Errorf("failed to create output directory: %w", err)
-			}
-		}
-		outputPath := filepath.Join(outputDir, assetToDownload.GetName())
-		log.Info("downloading asset", "name", assetToDownload.GetName())
-		data, err := borg_github.DownloadReleaseAsset(assetToDownload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to download asset: %w", err)
-		}
-		err = os.WriteFile(outputPath, data, 0644)
-		if err != nil {
-			return nil, fmt.Errorf("failed to write asset to file: %w", err)
-		}
-		log.Info("asset downloaded", "path", outputPath)
-	}
-	return release, nil
 }

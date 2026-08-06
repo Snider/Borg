@@ -28,14 +28,15 @@ func main() {
 	asset := release.Assets[0]
 	log.Printf("Downloading asset: %s", asset.GetName())
 
-	data, err := github.DownloadReleaseAsset(asset)
+	file, err := os.Create(asset.GetName())
+	if err != nil {
+		log.Fatalf("Failed to create file: %v", err)
+	}
+	defer file.Close()
+
+	err = github.DownloadReleaseAsset(asset, file)
 	if err != nil {
 		log.Fatalf("Failed to download asset: %v", err)
-	}
-
-	err = os.WriteFile(asset.GetName(), data, 0644)
-	if err != nil {
-		log.Fatalf("Failed to write asset to file: %v", err)
 	}
 
 	log.Printf("Successfully downloaded asset to %s", asset.GetName())
