@@ -38,6 +38,9 @@ func NewCollectWebsiteCmd() *cobra.Command {
 			format, _ := cmd.Flags().GetString("format")
 			compression, _ := cmd.Flags().GetString("compression")
 			password, _ := cmd.Flags().GetString("password")
+			useSitemap, _ := cmd.Flags().GetBool("use-sitemap")
+			sitemapOnly, _ := cmd.Flags().GetBool("sitemap-only")
+			sitemapURL, _ := cmd.Flags().GetString("sitemap")
 
 			if format != "datanode" && format != "tim" && format != "trix" {
 				return fmt.Errorf("invalid format: %s (must be 'datanode', 'tim', or 'trix')", format)
@@ -51,7 +54,7 @@ func NewCollectWebsiteCmd() *cobra.Command {
 				bar = ui.NewProgressBar(-1, "Crawling website")
 			}
 
-			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, bar)
+			dn, err := website.DownloadAndPackageWebsite(websiteURL, depth, useSitemap, sitemapOnly, sitemapURL, bar)
 			if err != nil {
 				return fmt.Errorf("error downloading and packaging website: %w", err)
 			}
@@ -104,5 +107,8 @@ func NewCollectWebsiteCmd() *cobra.Command {
 	collectWebsiteCmd.PersistentFlags().String("format", "datanode", "Output format (datanode, tim, or trix)")
 	collectWebsiteCmd.PersistentFlags().String("compression", "none", "Compression format (none, gz, or xz)")
 	collectWebsiteCmd.PersistentFlags().String("password", "", "Password for encryption")
+	collectWebsiteCmd.Flags().Bool("use-sitemap", false, "Auto-detect and use sitemap")
+	collectWebsiteCmd.Flags().Bool("sitemap-only", false, "Collect only sitemap URLs (no crawling)")
+	collectWebsiteCmd.Flags().String("sitemap", "", "Explicit sitemap URL")
 	return collectWebsiteCmd
 }

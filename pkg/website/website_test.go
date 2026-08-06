@@ -20,7 +20,7 @@ func TestDownloadAndPackageWebsite_Good(t *testing.T) {
 	defer server.Close()
 
 	bar := progressbar.NewOptions(1, progressbar.OptionSetWriter(io.Discard))
-	dn, err := DownloadAndPackageWebsite(server.URL, 2, bar)
+	dn, err := DownloadAndPackageWebsite(server.URL, 2, false, false, "", bar)
 	if err != nil {
 		t.Fatalf("DownloadAndPackageWebsite failed: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestDownloadAndPackageWebsite_Good(t *testing.T) {
 
 func TestDownloadAndPackageWebsite_Bad(t *testing.T) {
 	t.Run("Invalid Start URL", func(t *testing.T) {
-		_, err := DownloadAndPackageWebsite("http://invalid-url", 1, nil)
+		_, err := DownloadAndPackageWebsite("http://invalid-url", 1, false, false, "", nil)
 		if err == nil {
 			t.Fatal("Expected an error for an invalid start URL, but got nil")
 		}
@@ -63,7 +63,7 @@ func TestDownloadAndPackageWebsite_Bad(t *testing.T) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}))
 		defer server.Close()
-		_, err := DownloadAndPackageWebsite(server.URL, 1, nil)
+		_, err := DownloadAndPackageWebsite(server.URL, 1, false, false, "", nil)
 		if err == nil {
 			t.Fatal("Expected an error for a server error on the start URL, but got nil")
 		}
@@ -80,7 +80,7 @@ func TestDownloadAndPackageWebsite_Bad(t *testing.T) {
 		}))
 		defer server.Close()
 		// We expect an error because the link is broken.
-		dn, err := DownloadAndPackageWebsite(server.URL, 1, nil)
+		dn, err := DownloadAndPackageWebsite(server.URL, 1, false, false, "", nil)
 		if err == nil {
 			t.Fatal("Expected an error for a broken link, but got nil")
 		}
@@ -99,7 +99,7 @@ func TestDownloadAndPackageWebsite_Ugly(t *testing.T) {
 		defer server.Close()
 
 		bar := progressbar.NewOptions(1, progressbar.OptionSetWriter(io.Discard))
-		dn, err := DownloadAndPackageWebsite(server.URL, 1, bar) // Max depth of 1
+		dn, err := DownloadAndPackageWebsite(server.URL, 1, false, false, "", bar) // Max depth of 1
 		if err != nil {
 			t.Fatalf("DownloadAndPackageWebsite failed: %v", err)
 		}
@@ -122,7 +122,7 @@ func TestDownloadAndPackageWebsite_Ugly(t *testing.T) {
 			fmt.Fprint(w, `<a href="http://externalsite.com/page.html">External</a>`)
 		}))
 		defer server.Close()
-		dn, err := DownloadAndPackageWebsite(server.URL, 1, nil)
+		dn, err := DownloadAndPackageWebsite(server.URL, 1, false, false, "", nil)
 		if err != nil {
 			t.Fatalf("DownloadAndPackageWebsite failed: %v", err)
 		}
@@ -156,7 +156,7 @@ func TestDownloadAndPackageWebsite_Ugly(t *testing.T) {
 		// For now, we'll just test that it doesn't hang forever.
 		done := make(chan bool)
 		go func() {
-			_, err := DownloadAndPackageWebsite(server.URL, 1, nil)
+			_, err := DownloadAndPackageWebsite(server.URL, 1, false, false, "", nil)
 			if err != nil && !strings.Contains(err.Error(), "context deadline exceeded") {
 				// We expect a timeout error, but other errors are failures.
 				t.Errorf("unexpected error: %v", err)
@@ -168,6 +168,63 @@ func TestDownloadAndPackageWebsite_Ugly(t *testing.T) {
 			// test finished
 		case <-time.After(5 * time.Second):
 			t.Fatal("Test timed out")
+		}
+	})
+}
+
+func TestDownloadAndPackageWebsite_Sitemap(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sitemap.xml":
+			fmt.Fprintln(w, `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+   <url>
+      <loc>http://`+r.Host+`/page1</loc>
+   </url>
+</urlset>`)
+		case "/":
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, `
+				<!DOCTYPE html>
+				<html><body>
+					<a href="/page2">Page 2</a>
+				</body></html>
+			`)
+		case "/page1":
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, `<html><body><h1>Page 1 from Sitemap</h1></body></html>`)
+		case "/page2":
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, `<html><body><h1>Page 2 from Crawl</h1></body></html>`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	t.Run("sitemap-only", func(t *testing.T) {
+		dn, err := DownloadAndPackageWebsite(server.URL, 2, false, true, server.URL+"/sitemap.xml", nil)
+		if err != nil {
+			t.Fatalf("DownloadAndPackageWebsite with sitemap-only failed: %v", err)
+		}
+		if exists, _ := dn.Exists("page1"); !exists {
+			t.Error("Expected to find /page1 from sitemap, but it was not found")
+		}
+		if exists, _ := dn.Exists("page2"); exists {
+			t.Error("Did not expect to find /page2 from crawl, but it was found")
+		}
+	})
+
+	t.Run("use-sitemap", func(t *testing.T) {
+		dn, err := DownloadAndPackageWebsite(server.URL, 2, true, false, server.URL+"/sitemap.xml", nil)
+		if err != nil {
+			t.Fatalf("DownloadAndPackageWebsite with use-sitemap failed: %v", err)
+		}
+		if exists, _ := dn.Exists("page1"); !exists {
+			t.Error("Expected to find /page1 from sitemap, but it was not found")
+		}
+		if exists, _ := dn.Exists("page2"); !exists {
+			t.Error("Expected to find /page2 from crawl, but it was not found")
 		}
 	})
 }

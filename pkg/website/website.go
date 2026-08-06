@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/Snider/Borg/pkg/datanode"
@@ -15,6 +16,66 @@ import (
 
 var DownloadAndPackageWebsite = downloadAndPackageWebsite
 
+func downloadAndPackageWebsite(startURL string, maxDepth int, useSitemap, sitemapOnly bool, sitemapURL string, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
+	baseURL, err := url.Parse(startURL)
+	if err != nil {
+		return nil, err
+	}
+
+	d := NewDownloader(maxDepth)
+	d.baseURL = baseURL
+	d.progressBar = bar
+	d.sitemapOnly = sitemapOnly
+
+	var sitemapURLs []string
+	var sitemapErr error
+
+	// Determine which sitemap URL to use
+	actualSitemapURL := sitemapURL
+	if actualSitemapURL == "" && (useSitemap || sitemapOnly) {
+		actualSitemapURL, sitemapErr = DiscoverSitemap(startURL, d.client)
+		if sitemapErr != nil {
+			if sitemapOnly {
+				return nil, fmt.Errorf("sitemap discovery failed for %s: %w", startURL, sitemapErr)
+			}
+			// For useSitemap, we can warn and proceed with crawling
+			fmt.Fprintf(os.Stderr, "Warning: sitemap discovery failed for %s: %v. Proceeding with crawl.\n", startURL, sitemapErr)
+		}
+	}
+
+	if actualSitemapURL != "" {
+		sitemapURLs, sitemapErr = FetchAndParseSitemap(actualSitemapURL, d.client)
+		if sitemapErr != nil {
+			if sitemapOnly {
+				return nil, fmt.Errorf("sitemap parsing failed for %s: %w", actualSitemapURL, sitemapErr)
+			}
+			fmt.Fprintf(os.Stderr, "Warning: sitemap parsing failed for %s: %v. Proceeding with crawl.\n", actualSitemapURL, sitemapErr)
+		}
+	}
+
+	// Process URLs from sitemap
+	if len(sitemapURLs) > 0 {
+		for _, u := range sitemapURLs {
+			d.crawl(u, 0)
+		}
+	}
+
+	// Crawl from start URL if not in sitemap-only mode
+	if !sitemapOnly {
+		d.crawl(startURL, 0)
+	}
+
+	if len(d.errors) > 0 {
+		var errs []string
+		for _, e := range d.errors {
+			errs = append(errs, e.Error())
+		}
+		return nil, fmt.Errorf("failed to download website:\n%s", strings.Join(errs, "\n"))
+	}
+
+	return d.dn, nil
+}
+
 // Downloader is a recursive website downloader.
 type Downloader struct {
 	baseURL     *url.URL
@@ -22,6 +83,7 @@ type Downloader struct {
 	visited     map[string]bool
 	maxDepth    int
 	progressBar *progressbar.ProgressBar
+	sitemapOnly bool
 	client      *http.Client
 	errors      []error
 }
@@ -37,33 +99,12 @@ func NewDownloaderWithClient(maxDepth int, client *http.Client) *Downloader {
 		dn:          datanode.New(),
 		visited:     make(map[string]bool),
 		maxDepth:    maxDepth,
+		sitemapOnly: false,
 		client:      client,
 		errors:      make([]error, 0),
 	}
 }
 
-// downloadAndPackageWebsite downloads a website and packages it into a DataNode.
-func downloadAndPackageWebsite(startURL string, maxDepth int, bar *progressbar.ProgressBar) (*datanode.DataNode, error) {
-	baseURL, err := url.Parse(startURL)
-	if err != nil {
-		return nil, err
-	}
-
-	d := NewDownloader(maxDepth)
-	d.baseURL = baseURL
-	d.progressBar = bar
-	d.crawl(startURL, 0)
-
-	if len(d.errors) > 0 {
-		var errs []string
-		for _, e := range d.errors {
-			errs = append(errs, e.Error())
-		}
-		return nil, fmt.Errorf("failed to download website:\n%s", strings.Join(errs, "\n"))
-	}
-
-	return d.dn, nil
-}
 
 func (d *Downloader) crawl(pageURL string, depth int) {
 	if depth > d.maxDepth || d.visited[pageURL] {
@@ -118,7 +159,7 @@ func (d *Downloader) crawl(pageURL string, depth int) {
 					if d.isLocal(link) {
 						if isAsset(link) {
 							d.downloadAsset(link)
-						} else {
+						} else if !d.sitemapOnly {
 							d.crawl(link, depth+1)
 						}
 					}
