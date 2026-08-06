@@ -22,7 +22,21 @@ tasks:
       - build
   test:
     cmds:
-      - go test -coverprofile=coverage.txt ./...
+      # Workaround for Go 1.25.0 bug: "no such tool covdata" messages cause non-zero exit
+      # Run tests and check output for actual failures (FAIL lines) vs just covdata warnings
+      - |
+        if output=$(go test -coverprofile=coverage.txt ./... 2>&1); then
+          echo "$output"
+        else
+          # Check if it's only covdata errors (no actual FAIL messages)
+          if echo "$output" | grep -q "^FAIL"; then
+            echo "$output"
+            exit 1
+          else
+            # Only covdata warnings, tests actually passed
+            echo "$output"
+          fi
+        fi
   test-e2e:
     cmds:
       - task: build

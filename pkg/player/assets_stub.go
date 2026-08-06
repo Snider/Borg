@@ -1,4 +1,4 @@
-// +build dappfm
+// +build !dappfm
 
 package player
 
@@ -7,13 +7,12 @@ import (
 	"io/fs"
 )
 
-// Assets embeds all frontend files for the media player
-// These are served both by Wails (memory) and HTTP (fallback)
+// Assets embeds all frontend files for the media player (except demo track)
+// To build with full assets including demo track, use: go build -tags dappfm
 //
 //go:embed frontend/index.html
 //go:embed frontend/wasm_exec.js
 //go:embed frontend/stmf.wasm
-//go:embed frontend/demo-track.smsg
 var assets embed.FS
 
 // Assets returns the embedded filesystem with frontend/ prefix stripped
@@ -27,9 +26,9 @@ func init() {
 	}
 }
 
-// GetDemoTrack returns the embedded demo track content
+// GetDemoTrack returns an error since demo track is not available in stub build
 func GetDemoTrack() ([]byte, error) {
-	return fs.ReadFile(Assets, "demo-track.smsg")
+	return nil, fs.ErrNotExist
 }
 
 // GetIndex returns the main HTML page

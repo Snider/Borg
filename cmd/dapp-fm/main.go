@@ -1,3 +1,5 @@
+// +build dappfm
+
 // dapp-fm CLI provides headless media player functionality
 // For native desktop app with WebView, use dapp-fm-app instead
 package main
